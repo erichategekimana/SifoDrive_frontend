@@ -25,6 +25,39 @@ export class AuthService {
   }
 
   /**
+   * Authenticate with phone number and password (no OTP required)
+   */
+  public async login(phoneNumber: string, password: string): Promise<User> {
+    logger.info(`Authenticating user with password: ${phoneNumber}`);
+    const data = await this.http.post<AuthSuccessData>(
+      ApiEndpoints.AUTH.LOGIN,
+      {
+        phone_number: phoneNumber,
+        password,
+      },
+      false
+    );
+
+    const tokens: TokenPair = { access: data.access, refresh: data.refresh };
+    this.storage.setItem('sifo_tokens', tokens);
+
+    const user = new User({
+      id: data.user.id,
+      role: data.user.role as any,
+      full_name: data.user.full_name,
+      status: data.user.status as any,
+      student_id: data.user.student_id,
+      terms_accepted: data.user.terms_accepted,
+      privacy_accepted: data.user.privacy_accepted,
+      phone_number: data.user.phone_number || phoneNumber,
+    });
+
+    this.storage.setItem('sifo_user', data.user);
+    logger.info(`User authenticated: ${user.fullName} [${user.role}]`);
+    return user;
+  }
+
+  /**
    * Request a 6-digit OTP via SMS
    */
   public async requestOtp(phoneNumber: string, purpose: 'LOGIN' | 'REGISTRATION' | 'PASSWORD_RESET' = 'LOGIN'): Promise<void> {

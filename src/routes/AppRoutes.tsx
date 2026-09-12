@@ -18,6 +18,17 @@ import { BookingWizardPage } from '../pages/booking/BookingWizardPage';
 import { MyBookingsPage } from '../pages/booking/MyBookingsPage';
 import { ProfilePage } from '../pages/profile/ProfilePage';
 
+// System Admin Pages & Guard
+import { SystemAdminRoute } from './SystemAdminRoute';
+import { AdminLayout } from '../components/admin/AdminLayout';
+import { AdminDashboardPage } from '../pages/admin/AdminDashboardPage';
+import { AdminUsersPage } from '../pages/admin/AdminUsersPage';
+import { AdminCoursesPage } from '../pages/admin/AdminCoursesPage';
+import { AdminBookingsPage } from '../pages/admin/AdminBookingsPage';
+import { AdminLiveClassesPage } from '../pages/admin/AdminLiveClassesPage';
+import { AdminNotificationsPage } from '../pages/admin/AdminNotificationsPage';
+import { AdminAuditPage } from '../pages/admin/AdminAuditPage';
+
 export const AppRoutes: React.FC = () => {
   return (
     <Routes>
@@ -37,6 +48,19 @@ export const AppRoutes: React.FC = () => {
           <Route path="/booking" element={<BookingWizardPage />} />
           <Route path="/booking/my-bookings" element={<MyBookingsPage />} />
           <Route path="/profile" element={<ProfilePage />} />
+        </Route>
+      </Route>
+
+      {/* Exclusively Protected System Admin Routes */}
+      <Route element={<SystemAdminRoute />}>
+        <Route element={<AdminLayout />}>
+          <Route path="/admin" element={<AdminDashboardPage />} />
+          <Route path="/admin/users" element={<AdminUsersPage />} />
+          <Route path="/admin/courses" element={<AdminCoursesPage />} />
+          <Route path="/admin/bookings" element={<AdminBookingsPage />} />
+          <Route path="/admin/live-classes" element={<AdminLiveClassesPage />} />
+          <Route path="/admin/notifications" element={<AdminNotificationsPage />} />
+          <Route path="/admin/audit" element={<AdminAuditPage />} />
         </Route>
       </Route>
 

@@ -9,6 +9,7 @@ interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  login: (phoneNumber: string, password: string) => Promise<User>;
   requestOtp: (phoneNumber: string, purpose?: 'LOGIN' | 'REGISTRATION' | 'PASSWORD_RESET') => Promise<void>;
   verifyOtp: (phoneNumber: string, otpCode: string, purpose?: 'LOGIN' | 'REGISTRATION') => Promise<User>;
   registerGuest: (payload: {
@@ -76,6 +77,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       window.removeEventListener('sifo:auth-expired', handleAuthExpired);
     };
   }, []);
+
+  const login = async (phoneNumber: string, password: string) => {
+    const authenticatedUser = await authService.login(phoneNumber, password);
+    setUser(authenticatedUser);
+    return authenticatedUser;
+  };
 
   const requestOtp = async (phoneNumber: string, purpose: 'LOGIN' | 'REGISTRATION' | 'PASSWORD_RESET' = 'LOGIN') => {
     await authService.requestOtp(phoneNumber, purpose);
@@ -152,6 +159,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         user,
         isAuthenticated: Boolean(user),
         isLoading,
+        login,
         requestOtp,
         verifyOtp,
         registerGuest,

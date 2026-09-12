@@ -8,6 +8,7 @@ export const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
 export const ApiEndpoints = {
   // Auth & Accounts
   AUTH: {
+    LOGIN: `${API_BASE_URL}/auth/login/`,
     REGISTER_GUEST: `${API_BASE_URL}/auth/register/guest/`,
     REGISTER_STUDENT: `${API_BASE_URL}/auth/register/student/`,
     UPGRADE_STUDENT: `${API_BASE_URL}/auth/upgrade/student/`,
@@ -19,6 +20,7 @@ export const ApiEndpoints = {
     CONSENT_PRIVACY: `${API_BASE_URL}/auth/consent/privacy-policy/`,
     ME: `${API_BASE_URL}/auth/me/`,
     STUDENT_PROFILE: `${API_BASE_URL}/auth/me/student-profile/`,
+    USERS: `${API_BASE_URL}/auth/users/`,
   },
 
   // Learning Management System (LMS)
@@ -55,5 +57,65 @@ export const ApiEndpoints = {
     MY_BOOKINGS: `${API_BASE_URL}/booking/my-bookings/`,
     DETAIL: (id: string) => `${API_BASE_URL}/booking/${id}/`,
     CANCEL: (id: string) => `${API_BASE_URL}/booking/${id}/cancel/`,
+  },
+
+  // System Administration (Exclusively SYSTEM_ADMIN)
+  ADMIN: {
+    STATS: `${API_BASE_URL}/auth/admin/stats/`,
+    USERS: `${API_BASE_URL}/auth/users/`,
+
+    // LMS Studio
+    COURSES: `${API_BASE_URL}/lms/courses/`,
+    COURSE_CREATE: `${API_BASE_URL}/lms/courses/create/`,
+    COURSE_UPDATE: (id: string) => `${API_BASE_URL}/lms/courses/${id}/edit/`,
+    COURSE_DELETE: (id: string) => `${API_BASE_URL}/lms/courses/${id}/delete/`,
+    COURSE_PUBLISH: (id: string) => `${API_BASE_URL}/lms/courses/${id}/publish/`,
+    COURSE_UNPUBLISH: (id: string) => `${API_BASE_URL}/lms/courses/${id}/unpublish/`,
+    COURSE_STATS: (id: string) => `${API_BASE_URL}/lms/courses/${id}/stats/`,
+    MODULE_CREATE: `${API_BASE_URL}/lms/modules/`,
+    LESSON_CREATE: `${API_BASE_URL}/lms/lessons/`,
+    ROAD_SIGNS: `${API_BASE_URL}/lms/road-signs/`,
+    ROAD_SIGN_CREATE: `${API_BASE_URL}/lms/road-signs/create/`,
+    ROAD_SIGN_UPDATE: (id: string) => `${API_BASE_URL}/lms/road-signs/${id}/edit/`,
+    QUESTIONS: `${API_BASE_URL}/lms/questions/`,
+    QUESTION_CREATE: `${API_BASE_URL}/lms/questions/create/`,
+
+    // Live Classes & Cohort Dispatch
+    COHORTS: `${API_BASE_URL}/live-classes/cohorts/`,
+    COHORT_DETAIL: (id: string) => `${API_BASE_URL}/live-classes/cohorts/${id}/`,
+    COHORT_ASSIGN_STUDENTS: (id: string) => `${API_BASE_URL}/live-classes/cohorts/${id}/assign-students/`,
+    COHORT_ASSIGN_TUTORS: (id: string) => `${API_BASE_URL}/live-classes/cohorts/${id}/assign-tutors/`,
+    CLASSES: `${API_BASE_URL}/live-classes/classes/`,
+    CLASS_DETAIL: (id: string) => `${API_BASE_URL}/live-classes/classes/${id}/`,
+    CLASS_START: (id: string) => `${API_BASE_URL}/live-classes/classes/${id}/start/`,
+    CLASS_END: (id: string) => `${API_BASE_URL}/live-classes/classes/${id}/end/`,
+    CLASS_CANCEL: (id: string) => `${API_BASE_URL}/live-classes/classes/${id}/cancel/`,
+    CLASS_ATTENDANCE: (id: string) => `${API_BASE_URL}/live-classes/classes/${id}/attendance/`,
+
+    // Irembo Booking Concierge Operations
+    BOOKING_ORDERS: `${API_BASE_URL}/booking/admin/orders/`,
+    BOOKING_ORDER_DETAIL: (id: string) => `${API_BASE_URL}/booking/admin/orders/${id}/`,
+    BOOKING_ASSIGN_AGENT: (id: string) => `${API_BASE_URL}/booking/admin/orders/${id}/assign/`,
+    BOOKING_STATUS_UPDATE: (id: string) => `${API_BASE_URL}/booking/admin/orders/${id}/status/`,
+    BOOKING_COMPLETE: (id: string) => `${API_BASE_URL}/booking/admin/orders/${id}/complete/`,
+    BOOKING_PRICING: `${API_BASE_URL}/booking/admin/pricing/`,
+    BOOKING_PRICING_DETAIL: (id: string) => `${API_BASE_URL}/booking/admin/pricing/${id}/`,
+    BOOKING_TEACHERS: `${API_BASE_URL}/booking/admin/teachers/`,
+    BOOKING_TEACHER_DETAIL: (id: string) => `${API_BASE_URL}/booking/admin/teachers/${id}/`,
+
+    // SMS Notifications & Communications
+    NOTIFICATIONS_SMS_LOGS: `${API_BASE_URL}/notifications/admin/sms-logs/`,
+    NOTIFICATIONS_SMS_LOG_DETAIL: (id: string) => `${API_BASE_URL}/notifications/admin/sms-logs/${id}/`,
+    NOTIFICATIONS_BROADCAST: `${API_BASE_URL}/notifications/admin/broadcast/`,
+    NOTIFICATIONS_TEMPLATES: `${API_BASE_URL}/notifications/admin/templates/`,
+    NOTIFICATIONS_TEMPLATE_DETAIL: (id: string) => `${API_BASE_URL}/notifications/admin/templates/${id}/`,
+    NOTIFICATIONS_TEST_SMS: `${API_BASE_URL}/notifications/admin/test-sms/`,
+
+    // Security & Cryptographic Audit
+    AUDIT_LOGS: `${API_BASE_URL}/audit/logs/`,
+    AUDIT_LOG_DETAIL: (id: string) => `${API_BASE_URL}/audit/logs/${id}/`,
+    AUDIT_INTEGRITY: `${API_BASE_URL}/audit/integrity/`,
+    AUDIT_CRITICAL: `${API_BASE_URL}/audit/critical/`,
+    AUDIT_USER_TRAIL: (userId: string) => `${API_BASE_URL}/audit/users/${userId}/`,
   },
 } as const;

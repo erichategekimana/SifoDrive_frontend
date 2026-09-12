@@ -10,6 +10,7 @@
     "logout": "Sohoka",
     "overview": "Incamake",
     "myProfile": "Umwirondoro wanjye & Karita",
+    "adminConsole": "Ibiro by'Ubuyobozi",
     "language": "Ururimi"
   },
   "common": {
@@ -74,11 +75,14 @@
   },
   "auth": {
     "loginTitle": "Kwinjira muri Konti",
-    "loginSubtitlePhone": "Shyiramo numero yawe ya telefoni igendanwa wakire kode yo kwinjira.",
-    "loginSubtitleOtp": "Shyiramo kode y'imibare 6 yoherejwe kuri telefoni yawe",
+    "loginSubtitle": "Shyiramo numero yawe ya telefoni n'ijambobanga kugira ngo winjire.",
+    "loginButton": "Injira",
     "phoneNumber": "Numero ya Telefoni (MTN / Airtel)",
     "phonePlaceholder": "0788 000 000 cyangwa +250 788...",
     "phoneHint": "Urugero: 078XXXXXXX cyangwa +25078XXXXXXX",
+    "passwordLabel": "Ijambobanga",
+    "passwordPlaceholder": "Shyiramo ijambobanga ryawe",
+    "passwordRequired": "Ijambobanga rirakenewe.",
     "sendOtp": "Ohereza Kode yo Kwinjira",
     "otpLabel": "Kode y'Imibare 6 Yakiriwe kuri SMS",
     "verifyAndLogin": "Emeza Maze Winjire",

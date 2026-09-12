@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, BookOpen, Compass, Video, Calendar, UserCheck, Award } from 'lucide-react';
+import { LayoutDashboard, BookOpen, Compass, Video, Calendar, UserCheck, Award, Shield } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTranslation } from '../../context/I18nContext';
 
@@ -15,6 +15,9 @@ export const Sidebar: React.FC = () => {
     { to: '/live-classes', label: t('nav.liveClasses'), icon: <Video size={18} /> },
     { to: '/booking', label: t('nav.booking'), icon: <Calendar size={18} /> },
     { to: '/profile', label: t('nav.myProfile'), icon: <UserCheck size={18} /> },
+    ...(user?.isSystemAdmin()
+      ? [{ to: '/admin', label: 'Admin Console', icon: <Shield size={18} color="#ef4444" /> }]
+      : []),
   ];
 
   return (

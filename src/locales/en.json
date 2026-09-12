@@ -10,6 +10,7 @@
     "logout": "Log Out",
     "overview": "Overview",
     "myProfile": "My Profile & ID",
+    "adminConsole": "Admin Console",
     "language": "Language"
   },
   "common": {
@@ -73,12 +74,15 @@
     "ctaButton": "Create Free Learner Account"
   },
   "auth": {
-    "loginTitle": "Learner Login",
-    "loginSubtitlePhone": "Enter your mobile phone number to receive a verification code.",
-    "loginSubtitleOtp": "Enter the 6-digit code sent to your phone",
+    "loginTitle": "Sign In",
+    "loginSubtitle": "Enter your phone number and password to access your account.",
+    "loginButton": "Sign In",
     "phoneNumber": "Phone Number (MTN / Airtel)",
     "phonePlaceholder": "0788 000 000 or +250 788...",
     "phoneHint": "e.g. 078XXXXXXX or +25078XXXXXXX",
+    "passwordLabel": "Password",
+    "passwordPlaceholder": "Enter your account password",
+    "passwordRequired": "Password is required.",
     "sendOtp": "Send Verification Code",
     "otpLabel": "6-Digit SMS Verification Code",
     "verifyAndLogin": "Verify & Log In",

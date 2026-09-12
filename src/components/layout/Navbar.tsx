@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Compass, BookOpen, Video, Calendar, Sun, Moon, LogIn, LogOut, Globe } from 'lucide-react';
+import { Compass, BookOpen, Video, Calendar, Sun, Moon, LogIn, LogOut, Globe, Shield } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useTranslation } from '../../context/I18nContext';
@@ -148,6 +148,25 @@ export const Navbar: React.FC = () => {
 
           {isAuthenticated && user ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              {user.isSystemAdmin() && (
+                <Link
+                  to="/admin"
+                  className="btn btn-secondary btn-sm"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    borderColor: 'rgba(239, 68, 68, 0.4)',
+                    color: '#ef4444',
+                    background: 'rgba(239, 68, 68, 0.08)',
+                    fontSize: '0.8rem',
+                    fontWeight: 700,
+                  }}
+                >
+                  <Shield size={14} />
+                  <span>Admin Console</span>
+                </Link>
+              )}
               <Link
                 to="/dashboard"
                 style={{

@@ -61,6 +61,10 @@ export class User {
     return this.role === 'SYSTEM_ADMIN';
   }
 
+  public isSystemAdmin(): boolean {
+    return this.role === 'SYSTEM_ADMIN';
+  }
+
   public isStaff(): boolean {
     return ['TUTOR', 'AGENT', 'FINANCE_OFFICER', 'BOARD_REVIEWER', 'SYSTEM_ADMIN'].includes(this.role);
   }

@@ -41,6 +41,7 @@ export interface AuthSuccessData {
   user: {
     id: string;
     role: string;
+    phone_number?: string;
     full_name: string;
     status: string;
     student_id?: string | null;
