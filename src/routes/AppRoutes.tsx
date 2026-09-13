@@ -26,8 +26,11 @@ import { AdminUsersPage } from '../pages/admin/AdminUsersPage';
 import { AdminCoursesPage } from '../pages/admin/AdminCoursesPage';
 import { AdminBookingsPage } from '../pages/admin/AdminBookingsPage';
 import { AdminLiveClassesPage } from '../pages/admin/AdminLiveClassesPage';
+import { AdminSchedulesPage } from '../pages/admin/AdminSchedulesPage';
 import { AdminNotificationsPage } from '../pages/admin/AdminNotificationsPage';
 import { AdminAuditPage } from '../pages/admin/AdminAuditPage';
+import { AdminExaminationsPage } from '../pages/admin/AdminExaminationsPage';
+import { CertificateVerificationPage } from '../pages/public/CertificateVerificationPage';
 
 export const AppRoutes: React.FC = () => {
   return (
@@ -39,6 +42,7 @@ export const AppRoutes: React.FC = () => {
       <Route path="/road-signs" element={<RoadSignsPage />} />
       <Route path="/courses" element={<CourseListPage />} />
       <Route path="/lesson/:id" element={<LessonViewPage />} />
+      <Route path="/verify/certificate/:hashOrCode" element={<CertificateVerificationPage />} />
 
       {/* Protected Learner & Student Routes */}
       <Route element={<ProtectedRoute />}>
@@ -57,8 +61,12 @@ export const AppRoutes: React.FC = () => {
           <Route path="/admin" element={<AdminDashboardPage />} />
           <Route path="/admin/users" element={<AdminUsersPage />} />
           <Route path="/admin/courses" element={<AdminCoursesPage />} />
+          <Route path="/admin/examinations" element={<AdminExaminationsPage />} />
           <Route path="/admin/bookings" element={<AdminBookingsPage />} />
+          <Route path="/admin/schedules" element={<AdminSchedulesPage />} />
           <Route path="/admin/live-classes" element={<AdminLiveClassesPage />} />
+          <Route path="/admin/classes" element={<AdminLiveClassesPage />} />
+          <Route path="/admin/sms" element={<AdminNotificationsPage />} />
           <Route path="/admin/notifications" element={<AdminNotificationsPage />} />
           <Route path="/admin/audit" element={<AdminAuditPage />} />
         </Route>

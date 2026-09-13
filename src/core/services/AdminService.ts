@@ -13,12 +13,20 @@ export interface AdminUserItem {
   full_name?: string;
   email?: string;
   status: string;
+  is_active?: boolean;
   student_id?: string | null;
+  school_name?: string | null;
+  station_quota?: number | null;
+  has_national_id?: boolean;
+  assigned_tutor_name?: string | null;
   national_id?: string | null;
   national_id_encrypted?: string | null;
   terms_of_service_accepted?: boolean;
+  terms_of_service_accepted_at?: string | null;
   privacy_policy_accepted?: boolean;
+  privacy_policy_accepted_at?: string | null;
   created_at: string;
+  updated_at?: string;
   last_login?: string | null;
 }
 
@@ -67,6 +75,7 @@ export interface CohortItem {
   id: string;
   name: string;
   code?: string;
+  description?: string;
   start_date?: string;
   end_date?: string;
   is_active: boolean;
@@ -77,10 +86,16 @@ export interface CohortItem {
 export interface LiveClassAdminItem {
   id: string;
   title: string;
+  topic?: string;
   cohort_name?: string;
+  cohort_code?: string;
   tutor_name?: string;
-  scheduled_at: string;
-  duration_minutes: number;
+  scheduled_date?: string;
+  start_time?: string;
+  end_time?: string;
+  scheduled_at?: string;
+  duration_minutes?: number;
+  google_meet_url?: string;
   meeting_link?: string;
   status: 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
   attendee_count?: number;
@@ -88,19 +103,46 @@ export interface LiveClassAdminItem {
 
 export interface SMSLogItem {
   id: string;
-  recipient: string;
+  recipient_phone: string;
+  recipient?: string;
+  phone_obfuscated?: string;
   message_body: string;
-  status: 'DELIVERED' | 'SENT' | 'FAILED' | 'PENDING';
+  status: 'DELIVERED' | 'SENT' | 'FAILED' | 'PENDING' | string;
   message_type?: string;
+  sender_id?: string;
   provider?: string;
+  provider_message_id?: string;
+  retry_count?: number;
+  error_message?: string;
+  provider_response?: any;
+  sent_at?: string;
+  delivered_at?: string;
   created_at: string;
+}
+
+export interface GatewayStatusItem {
+  connected: boolean;
+  provider: string;
+  endpoint: string;
+  sender_id?: string;
+  recent_outbound_count?: number;
+  status_code?: number;
+  error?: string;
+  message?: string;
 }
 
 export interface SMSTemplateItem {
   id: string;
-  name: string;
-  code: string;
-  body: string;
+  template_code?: string;
+  code?: string;
+  title_template?: string;
+  name?: string;
+  body_template?: string;
+  body?: string;
+  channel?: string;
+  language?: string;
+  notification_type?: string;
+  description?: string;
   variables?: string[];
 }
 
@@ -196,6 +238,39 @@ export class AdminService {
       return { count: res.length, results: res };
     }
     return { count: 0, results: [] };
+  }
+
+  public async createUser(payload: {
+    phone_number: string;
+    first_name: string;
+    last_name: string;
+    email?: string;
+    role: string;
+    password: string;
+    school_name?: string;
+    station_quota?: number;
+  }): Promise<AdminUserItem> {
+    logger.info('Creating new user account via admin', { role: payload.role });
+    return await this.http.post<AdminUserItem>(ApiEndpoints.ADMIN.USER_CREATE, payload);
+  }
+
+  public async getUserDetail(userId: string): Promise<AdminUserItem> {
+    logger.debug('Fetching user detail for inspection', { userId });
+    return await this.http.get<AdminUserItem>(ApiEndpoints.ADMIN.USER_DETAIL(userId));
+  }
+
+  public async updateUserRole(userId: string, role: string): Promise<AdminUserItem> {
+    logger.info('Updating user role', { userId, role });
+    return await this.http.post<AdminUserItem>(ApiEndpoints.ADMIN.USER_ROLE(userId), { role });
+  }
+
+  public async updateUserStatus(
+    userId: string,
+    status: 'ACTIVE' | 'DEACTIVATED' | 'SUSPENDED' | 'BLACKLISTED',
+    reason?: string
+  ): Promise<AdminUserItem> {
+    logger.info('Updating user account status', { userId, status });
+    return await this.http.post<AdminUserItem>(ApiEndpoints.ADMIN.USER_STATUS(userId), { status, reason });
   }
 
   // -------------------------------------------------------------------------
@@ -309,7 +384,13 @@ export class AdminService {
     return Array.isArray(res) ? res : res?.results || [];
   }
 
-  public async createCohort(payload: { name: string; start_date: string; end_date?: string }): Promise<any> {
+  public async createCohort(payload: {
+    name: string;
+    start_date: string;
+    end_date: string;
+    description?: string;
+    code?: string;
+  }): Promise<any> {
     return this.http.post(ApiEndpoints.ADMIN.COHORTS, payload);
   }
 
@@ -329,6 +410,22 @@ export class AdminService {
     return this.http.post(ApiEndpoints.ADMIN.CLASSES, payload);
   }
 
+  public async scheduleRecurringClasses(payload: {
+    title: string;
+    cohort?: string;
+    tutor?: string;
+    day_of_week: number;
+    start_time: string;
+    end_time: string;
+    start_date: string;
+    period_months: number;
+    google_meet_url?: string;
+    topic?: string;
+    notes?: string;
+  }): Promise<any> {
+    return this.http.post(ApiEndpoints.ADMIN.CLASS_RECURRING, payload);
+  }
+
   public async startLiveClass(id: string): Promise<any> {
     return this.http.post(ApiEndpoints.ADMIN.CLASS_START(id), {});
   }
@@ -344,9 +441,15 @@ export class AdminService {
   // -------------------------------------------------------------------------
   // 5. SMS Communications Hub
   // -------------------------------------------------------------------------
-  public async getSmsLogs(params?: { page?: number }): Promise<PaginatedResult<SMSLogItem>> {
+  public async getSmsLogs(params?: {
+    page?: number;
+    phone?: string;
+    status?: string;
+  }): Promise<PaginatedResult<SMSLogItem>> {
     const query = new URLSearchParams();
     if (params?.page) query.set('page', String(params.page));
+    if (params?.phone) query.set('phone', params.phone);
+    if (params?.status && params.status !== 'ALL') query.set('status', params.status);
     const url = `${ApiEndpoints.ADMIN.NOTIFICATIONS_SMS_LOGS}${query.toString() ? `?${query.toString()}` : ''}`;
     const res = await this.http.get<any>(url);
     if (res && Array.isArray(res.results)) return res;
@@ -354,9 +457,18 @@ export class AdminService {
     return { count: 0, results: [] };
   }
 
+  public async getGatewayStatus(): Promise<GatewayStatusItem> {
+    return this.http.get<GatewayStatusItem>(ApiEndpoints.ADMIN.NOTIFICATIONS_GATEWAY_STATUS);
+  }
+
+  public async retrySms(id: string): Promise<SMSLogItem> {
+    return this.http.post<SMSLogItem>(ApiEndpoints.ADMIN.NOTIFICATIONS_SMS_RETRY(id), {});
+  }
+
   public async broadcastSms(payload: {
-    audience: 'ALL' | 'STUDENTS' | 'GUESTS' | 'COHORT';
+    audience: 'ALL' | 'STUDENTS' | 'GUESTS' | 'COHORT' | 'TUTORS';
     message: string;
+    title?: string;
     cohort_id?: string;
   }): Promise<any> {
     logger.info(`Sending SMS broadcast to audience: ${payload.audience}`);
@@ -368,10 +480,11 @@ export class AdminService {
     return Array.isArray(res) ? res : res?.results || [];
   }
 
-  public async sendTestSms(phoneNumber: string, message: string): Promise<any> {
+  public async sendTestSms(phoneNumber: string, message: string, messageType: string = 'GENERAL'): Promise<any> {
     return this.http.post(ApiEndpoints.ADMIN.NOTIFICATIONS_TEST_SMS, {
       phone_number: phoneNumber,
       message,
+      message_type: messageType,
     });
   }
 
@@ -403,4 +516,279 @@ export class AdminService {
     const res = await this.http.get<any>(ApiEndpoints.ADMIN.AUDIT_CRITICAL);
     return Array.isArray(res) ? res : res?.results || [];
   }
+
+  // -------------------------------------------------------------------------
+  // 7. Examination Lifecycle, Review Pipeline & Question Bank Studio
+  // -------------------------------------------------------------------------
+  public async getExamSessions(params?: {
+    cohort?: string;
+    status?: string;
+    track?: string;
+    search?: string;
+    page?: number;
+  }): Promise<PaginatedResult<ExamSessionItem>> {
+    const query = new URLSearchParams();
+    if (params?.cohort) query.set('cohort', params.cohort);
+    if (params?.status) query.set('status', params.status);
+    if (params?.track) query.set('track', params.track);
+    if (params?.search) query.set('search', params.search);
+    if (params?.page) query.set('page', String(params.page));
+
+    const url = `${ApiEndpoints.ADMIN.EXAM_SESSIONS}${query.toString() ? `?${query.toString()}` : ''}`;
+    const res = await this.http.get<any>(url);
+    if (res && Array.isArray(res.results)) return res;
+    if (Array.isArray(res)) return { count: res.length, results: res };
+    return { count: 0, results: [] };
+  }
+
+  public async getExamSessionDetail(id: string): Promise<ExamSessionDetailItem> {
+    return this.http.get<ExamSessionDetailItem>(ApiEndpoints.ADMIN.EXAM_SESSION_DETAIL(id));
+  }
+
+  public async executeExamStageAction(
+    id: string,
+    action: 'APPROVE' | 'REJECT' | 'REQUEST_CHANGES',
+    notes?: string
+  ): Promise<any> {
+    return this.http.post(ApiEndpoints.ADMIN.EXAM_SESSION_ACTION(id), { action, notes });
+  }
+
+  public async publishExams(payload: {
+    publish_type: 'SINGLE' | 'BATCH' | 'COHORT';
+    session_id?: string;
+    session_ids?: string[];
+    cohort_id?: string;
+  }): Promise<any> {
+    return this.http.post(ApiEndpoints.ADMIN.EXAM_PUBLISH, payload);
+  }
+
+  public async getCertificates(params?: {
+    track_type?: string;
+    search?: string;
+    page?: number;
+  }): Promise<PaginatedResult<CertificateItem>> {
+    const query = new URLSearchParams();
+    if (params?.track_type) query.set('track_type', params.track_type);
+    if (params?.search) query.set('search', params.search);
+    if (params?.page) query.set('page', String(params.page));
+
+    const url = `${ApiEndpoints.ADMIN.EXAM_CERTIFICATES}${query.toString() ? `?${query.toString()}` : ''}`;
+    const res = await this.http.get<any>(url);
+    if (res && Array.isArray(res.results)) return res;
+    if (Array.isArray(res)) return { count: res.length, results: res };
+    return { count: 0, results: [] };
+  }
+
+  public async getCertificateTemplates(): Promise<CertificateTemplateItem[]> {
+    const res = await this.http.get<any>(ApiEndpoints.ADMIN.EXAM_CERTIFICATE_TEMPLATES);
+    return Array.isArray(res) ? res : res?.results || [];
+  }
+
+  public async updateCertificateTemplate(
+    id: string,
+    data: Partial<CertificateTemplateItem>
+  ): Promise<CertificateTemplateItem> {
+    return this.http.patch<CertificateTemplateItem>(
+      ApiEndpoints.ADMIN.EXAM_CERTIFICATE_TEMPLATE_DETAIL(id),
+      data
+    );
+  }
+
+  public async getQuestionBank(params?: {
+    domain?: string;
+    search?: string;
+    is_active?: boolean;
+    page?: number;
+  }): Promise<PaginatedResult<AdminQuizQuestionItem>> {
+    const query = new URLSearchParams();
+    if (params?.domain) query.set('domain', params.domain);
+    if (params?.search) query.set('search', params.search);
+    if (params?.is_active !== undefined) query.set('is_active', String(params.is_active));
+    if (params?.page) query.set('page', String(params.page));
+
+    const url = `${ApiEndpoints.ADMIN.EXAM_QUESTIONS}${query.toString() ? `?${query.toString()}` : ''}`;
+    const res = await this.http.get<any>(url);
+    if (res && Array.isArray(res.results)) return res;
+    if (Array.isArray(res)) return { count: res.length, results: res };
+    return { count: 0, results: [] };
+  }
+
+  public async updateQuizQuestion(
+    id: string,
+    data: Partial<AdminQuizQuestionItem>
+  ): Promise<AdminQuizQuestionItem> {
+    return this.http.patch<AdminQuizQuestionItem>(
+      ApiEndpoints.ADMIN.EXAM_QUESTION_DETAIL(id),
+      data
+    );
+  }
+
+  public async verifyPublicCertificate(hashOrCode: string): Promise<any> {
+    return this.http.get<any>(ApiEndpoints.ADMIN.EXAM_CERTIFICATE_VERIFY(hashOrCode));
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Examination Types
+// ---------------------------------------------------------------------------
+export interface ExamSessionItem {
+  id: string;
+  student: string;
+  student_name: string;
+  student_phone: string;
+  student_id_number?: string;
+  cohort?: string | null;
+  cohort_name?: string | null;
+  track: 'B2C' | 'B2B';
+  track_type: 'STUDENT' | 'GUEST' | 'ENTERPRISE';
+  enterprise_name?: string;
+  status:
+    | 'PENDING'
+    | 'ACTIVE'
+    | 'SUBMITTED'
+    | 'BOARD_REVIEW'
+    | 'TRAINING_REVIEW'
+    | 'SYSTEM_REVIEW'
+    | 'APPROVED'
+    | 'PUBLISHED'
+    | 'FLAGGED'
+    | 'REJECTED'
+    | 'EXPIRED';
+  score?: number | null;
+  total_questions: number;
+  passing_score: number;
+  percentage?: number | null;
+  passed?: boolean | null;
+  started_at?: string | null;
+  submitted_at?: string | null;
+  board_decision?: string;
+  board_reviewed_at?: string | null;
+  training_decision?: string;
+  training_reviewed_at?: string | null;
+  approved_at?: string | null;
+  published_at?: string | null;
+  is_published: boolean;
+  can_system_approve: boolean;
+  can_publish: boolean;
+  current_stage_label: string;
+  certificate_id?: string | null;
+  certificate_number?: string | null;
+  created_at: string;
+}
+
+export interface SessionQuestionDetailItem {
+  id: string;
+  sequence_number: number;
+  question_id: string;
+  question_number?: number;
+  domain?: string;
+  question_text: string;
+  question_text_kinyarwanda?: string;
+  option_a: string;
+  option_b: string;
+  option_c: string;
+  option_d: string;
+  selected_option: string;
+  correct_option: string;
+  is_correct?: boolean | null;
+  answered_at?: string | null;
+  image?: string | null;
+  explanation?: string;
+  explanation_kinyarwanda?: string;
+}
+
+export interface ProctoringEventItem {
+  id: string;
+  event_type: string;
+  timestamp: string;
+  snapshot_image?: string | null;
+  flagged_reason?: string;
+}
+
+export interface ExamSessionDetailItem extends ExamSessionItem {
+  board_reviewer?: { id: string; full_name?: string; phone_number?: string } | null;
+  board_notes?: string;
+  training_admin?: { id: string; full_name?: string; phone_number?: string } | null;
+  training_notes?: string;
+  approved_by?: { id: string; full_name?: string; phone_number?: string } | null;
+  approval_notes?: string;
+  published_by?: { id: string; full_name?: string; phone_number?: string } | null;
+  questions: SessionQuestionDetailItem[];
+  proctoring_events: ProctoringEventItem[];
+  certificate?: {
+    id: string;
+    certificate_number: string;
+    verification_hash: string;
+    verification_url: string;
+  } | null;
+}
+
+export interface CertificateItem {
+  id: string;
+  certificate_number: string;
+  exam_session: string;
+  student: string;
+  student_name: string;
+  student_code: string;
+  track_type: 'STUDENT' | 'GUEST' | 'ENTERPRISE';
+  enterprise_name?: string;
+  cohort_name?: string;
+  started_at?: string | null;
+  completed_at: string;
+  score: number;
+  total_questions: number;
+  passing_score: number;
+  passed: boolean;
+  issue_date: string;
+  verification_hash: string;
+  verification_url: string;
+  template_snapshot: any;
+  is_valid: boolean;
+  created_at: string;
+}
+
+export interface CertificateTemplateItem {
+  id: string;
+  template_type: 'STUDENT' | 'GUEST' | 'ENTERPRISE';
+  header_subtitle?: string;
+  title: string;
+  conferral_text?: string;
+  course_name: string;
+  declaration_text: string;
+  confirmation_notes: string;
+  logo_url: string;
+  training_admin_name: string;
+  training_admin_title: string;
+  training_admin_signature: string;
+  director_name: string;
+  director_title: string;
+  director_signature: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AdminQuizQuestionItem {
+  id: string;
+  question_number: number;
+  domain: string;
+  difficulty: 'EASY' | 'MEDIUM' | 'HARD';
+  question_text: string;
+  question_text_kinyarwanda: string;
+  option_a: string;
+  option_b: string;
+  option_c: string;
+  option_d: string;
+  option_a_kinyarwanda: string;
+  option_b_kinyarwanda: string;
+  option_c_kinyarwanda: string;
+  option_d_kinyarwanda: string;
+  correct_option: 'A' | 'B' | 'C' | 'D';
+  explanation: string;
+  explanation_kinyarwanda: string;
+  image?: string | null;
+  is_active: boolean;
+  road_sign_id?: string | null;
+  created_at: string;
+  updated_at: string;
 }

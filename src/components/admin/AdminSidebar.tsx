@@ -4,8 +4,9 @@ import {
   LayoutDashboard,
   Users,
   BookOpen,
-  Video,
+  CalendarDays,
   MessageSquare,
+  Award,
   ShieldCheck,
   ExternalLink,
   Shield,
@@ -19,8 +20,9 @@ export const AdminSidebar: React.FC = () => {
     { to: '/admin', label: 'Command Center', icon: <LayoutDashboard size={18} />, end: true },
     { to: '/admin/users', label: 'User Directory', icon: <Users size={18} /> },
     { to: '/admin/courses', label: 'LMS Curriculum Studio', icon: <BookOpen size={18} /> },
-    { to: '/admin/live-classes', label: 'Live Classes & Cohorts', icon: <Video size={18} /> },
-    { to: '/admin/notifications', label: 'SMS Communications', icon: <MessageSquare size={18} /> },
+    { to: '/admin/examinations', label: 'Examinations & Certs', icon: <Award size={18} /> },
+    { to: '/admin/schedules', label: 'Schedules & Events', icon: <CalendarDays size={18} /> },
+    { to: '/admin/sms', label: 'SMS Communication', icon: <MessageSquare size={18} /> },
     { to: '/admin/audit', label: 'Security & Audit Logs', icon: <ShieldCheck size={18} /> },
   ];
 

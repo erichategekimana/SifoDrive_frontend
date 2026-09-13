@@ -113,7 +113,7 @@ export const BroadcastModal: React.FC<BroadcastModalProps> = ({ isOpen, onClose,
                 Broadcast SMS
               </h3>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                Direct Rwanda SMS Gateway (Twilio / Africa's Talking)
+                Direct Rwanda SMS Gateway (Pindo: api.pindo.io)
               </div>
             </div>
           </div>

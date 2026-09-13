@@ -6,14 +6,10 @@ import {
   BookOpen,
   GraduationCap,
   Award,
-  Send,
   ArrowRight,
   RefreshCw,
   ExternalLink,
   Clock,
-  UserCheck,
-  ShieldCheck,
-  Video,
 } from 'lucide-react';
 import {
   AdminService,
@@ -23,7 +19,6 @@ import {
 } from '../../core/services/AdminService';
 import { Badge } from '../../components/common/Badge';
 import { Spinner } from '../../components/common/Spinner';
-import { BroadcastModal } from '../../components/admin/BroadcastModal';
 
 export const AdminDashboardPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -36,7 +31,6 @@ export const AdminDashboardPage: React.FC = () => {
   });
   const [bookings, setBookings] = useState<BookingOrderItem[]>([]);
   const [liveClasses, setLiveClasses] = useState<LiveClassAdminItem[]>([]);
-  const [isBroadcastOpen, setIsBroadcastOpen] = useState<boolean>(false);
 
   const adminService = AdminService.getInstance();
 
@@ -63,7 +57,9 @@ export const AdminDashboardPage: React.FC = () => {
           .sort((a, b) => {
             if (a.status === 'IN_PROGRESS' && b.status !== 'IN_PROGRESS') return -1;
             if (b.status === 'IN_PROGRESS' && a.status !== 'IN_PROGRESS') return 1;
-            return new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime();
+            const timeA = new Date(a.scheduled_at || a.scheduled_date || '').getTime() || 0;
+            const timeB = new Date(b.scheduled_at || b.scheduled_date || '').getTime() || 0;
+            return timeA - timeB;
           });
         setLiveClasses(relevant.slice(0, 5));
       }
@@ -100,14 +96,6 @@ export const AdminDashboardPage: React.FC = () => {
           >
             <RefreshCw size={13} className={isLoading ? 'spin' : ''} />
             <span>Refresh</span>
-          </button>
-          <button
-            onClick={() => setIsBroadcastOpen(true)}
-            className="btn btn-secondary btn-sm"
-            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-          >
-            <Send size={13} />
-            <span>Broadcast SMS</span>
           </button>
         </div>
       </div>
@@ -254,10 +242,10 @@ export const AdminDashboardPage: React.FC = () => {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
               <div>
                 <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
-                  Ongoing & Scheduled Classes
+                  Classes
                 </h3>
                 <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: '3px 0 0 0' }}>
-                  Live Google Meet tutoring sessions and upcoming cohort classes.
+                  Ongoing and scheduled live classes.
                 </p>
               </div>
 
@@ -309,10 +297,12 @@ export const AdminDashboardPage: React.FC = () => {
                           {cls.tutor_name || 'Assigned Instructor'}
                         </td>
                         <td style={{ padding: '10px 12px', color: 'var(--text-muted)', fontSize: '0.82rem' }}>
-                          {new Date(cls.scheduled_at).toLocaleString('en-RW', {
-                            dateStyle: 'medium',
-                            timeStyle: 'short',
-                          })}
+                          {cls.scheduled_at || cls.scheduled_date
+                            ? new Date(cls.scheduled_at || cls.scheduled_date || '').toLocaleString('en-RW', {
+                                dateStyle: 'medium',
+                                timeStyle: 'short',
+                              })
+                            : 'Scheduled'}
                         </td>
                         <td style={{ padding: '10px 12px' }}>
                           <Badge variant={cls.status === 'IN_PROGRESS' ? 'success' : 'info'}>
@@ -443,118 +433,8 @@ export const AdminDashboardPage: React.FC = () => {
               </div>
             )}
           </div>
-
-          {/* Quick Shortcuts Grid (Clean & Subdued) */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
-            <Link
-              to="/admin/users"
-              className="glass-panel"
-              style={{
-                padding: '16px',
-                borderRadius: 'var(--radius-lg)',
-                border: '1px solid var(--border-subtle)',
-                textDecoration: 'none',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '12px',
-                transition: 'all var(--transition-fast)',
-              }}
-            >
-              <UserCheck size={18} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
-              <div>
-                <h4 style={{ margin: 0, fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-                  User Management
-                </h4>
-                <p style={{ margin: '2px 0 0 0', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                  Accounts & roles
-                </p>
-              </div>
-            </Link>
-
-            <Link
-              to="/admin/courses"
-              className="glass-panel"
-              style={{
-                padding: '16px',
-                borderRadius: 'var(--radius-lg)',
-                border: '1px solid var(--border-subtle)',
-                textDecoration: 'none',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '12px',
-                transition: 'all var(--transition-fast)',
-              }}
-            >
-              <BookOpen size={18} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
-              <div>
-                <h4 style={{ margin: 0, fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-                  LMS Studio
-                </h4>
-                <p style={{ margin: '2px 0 0 0', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                  Curriculum & signs
-                </p>
-              </div>
-            </Link>
-
-            <Link
-              to="/admin/live-classes"
-              className="glass-panel"
-              style={{
-                padding: '16px',
-                borderRadius: 'var(--radius-lg)',
-                border: '1px solid var(--border-subtle)',
-                textDecoration: 'none',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '12px',
-                transition: 'all var(--transition-fast)',
-              }}
-            >
-              <Video size={18} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
-              <div>
-                <h4 style={{ margin: 0, fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-                  Live Classes
-                </h4>
-                <p style={{ margin: '2px 0 0 0', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                  Google Meet sessions
-                </p>
-              </div>
-            </Link>
-
-            <Link
-              to="/admin/audit"
-              className="glass-panel"
-              style={{
-                padding: '16px',
-                borderRadius: 'var(--radius-lg)',
-                border: '1px solid var(--border-subtle)',
-                textDecoration: 'none',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '12px',
-                transition: 'all var(--transition-fast)',
-              }}
-            >
-              <ShieldCheck size={18} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
-              <div>
-                <h4 style={{ margin: 0, fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-                  Security & Audit
-                </h4>
-                <p style={{ margin: '2px 0 0 0', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                  Cryptographic verification
-                </p>
-              </div>
-            </Link>
-          </div>
         </>
       )}
-
-      {/* Broadcast Modal */}
-      <BroadcastModal
-        isOpen={isBroadcastOpen}
-        onClose={() => setIsBroadcastOpen(false)}
-        onSuccess={() => loadDashboardData()}
-      />
     </div>
   );
 };

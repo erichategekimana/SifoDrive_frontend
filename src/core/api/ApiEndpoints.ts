@@ -21,6 +21,10 @@ export const ApiEndpoints = {
     ME: `${API_BASE_URL}/auth/me/`,
     STUDENT_PROFILE: `${API_BASE_URL}/auth/me/student-profile/`,
     USERS: `${API_BASE_URL}/auth/users/`,
+    USERS_CREATE: `${API_BASE_URL}/auth/users/create/`,
+    USER_DETAIL: (id: string) => `${API_BASE_URL}/auth/users/${id}/`,
+    USER_ROLE: (id: string) => `${API_BASE_URL}/auth/users/${id}/role/`,
+    USER_STATUS: (id: string) => `${API_BASE_URL}/auth/users/${id}/status/`,
   },
 
   // Learning Management System (LMS)
@@ -63,6 +67,10 @@ export const ApiEndpoints = {
   ADMIN: {
     STATS: `${API_BASE_URL}/auth/admin/stats/`,
     USERS: `${API_BASE_URL}/auth/users/`,
+    USER_CREATE: `${API_BASE_URL}/auth/users/create/`,
+    USER_DETAIL: (id: string) => `${API_BASE_URL}/auth/users/${id}/`,
+    USER_ROLE: (id: string) => `${API_BASE_URL}/auth/users/${id}/role/`,
+    USER_STATUS: (id: string) => `${API_BASE_URL}/auth/users/${id}/status/`,
 
     // LMS Studio
     COURSES: `${API_BASE_URL}/lms/courses/`,
@@ -86,6 +94,7 @@ export const ApiEndpoints = {
     COHORT_ASSIGN_STUDENTS: (id: string) => `${API_BASE_URL}/live-classes/cohorts/${id}/assign-students/`,
     COHORT_ASSIGN_TUTORS: (id: string) => `${API_BASE_URL}/live-classes/cohorts/${id}/assign-tutors/`,
     CLASSES: `${API_BASE_URL}/live-classes/classes/`,
+    CLASS_RECURRING: `${API_BASE_URL}/live-classes/classes/recurring/`,
     CLASS_DETAIL: (id: string) => `${API_BASE_URL}/live-classes/classes/${id}/`,
     CLASS_START: (id: string) => `${API_BASE_URL}/live-classes/classes/${id}/start/`,
     CLASS_END: (id: string) => `${API_BASE_URL}/live-classes/classes/${id}/end/`,
@@ -106,10 +115,25 @@ export const ApiEndpoints = {
     // SMS Notifications & Communications
     NOTIFICATIONS_SMS_LOGS: `${API_BASE_URL}/notifications/admin/sms-logs/`,
     NOTIFICATIONS_SMS_LOG_DETAIL: (id: string) => `${API_BASE_URL}/notifications/admin/sms-logs/${id}/`,
+    NOTIFICATIONS_SMS_RETRY: (id: string) => `${API_BASE_URL}/notifications/admin/sms-logs/${id}/retry/`,
     NOTIFICATIONS_BROADCAST: `${API_BASE_URL}/notifications/admin/broadcast/`,
     NOTIFICATIONS_TEMPLATES: `${API_BASE_URL}/notifications/admin/templates/`,
     NOTIFICATIONS_TEMPLATE_DETAIL: (id: string) => `${API_BASE_URL}/notifications/admin/templates/${id}/`,
     NOTIFICATIONS_TEST_SMS: `${API_BASE_URL}/notifications/admin/test-sms/`,
+    NOTIFICATIONS_GATEWAY_STATUS: `${API_BASE_URL}/notifications/admin/gateway-status/`,
+
+    // Examinations Hub & Certification Pipeline
+    EXAM_SESSIONS: `${API_BASE_URL}/examinations/admin/sessions/`,
+    EXAM_SESSION_DETAIL: (id: string) => `${API_BASE_URL}/examinations/admin/sessions/${id}/`,
+    EXAM_SESSION_ACTION: (id: string) => `${API_BASE_URL}/examinations/admin/sessions/${id}/action/`,
+    EXAM_PUBLISH: `${API_BASE_URL}/examinations/admin/publish/`,
+    EXAM_CERTIFICATES: `${API_BASE_URL}/examinations/admin/certificates/`,
+    EXAM_CERTIFICATE_DETAIL: (id: string) => `${API_BASE_URL}/examinations/admin/certificates/${id}/`,
+    EXAM_CERTIFICATE_TEMPLATES: `${API_BASE_URL}/examinations/admin/templates/`,
+    EXAM_CERTIFICATE_TEMPLATE_DETAIL: (id: string) => `${API_BASE_URL}/examinations/admin/templates/${id}/`,
+    EXAM_QUESTIONS: `${API_BASE_URL}/examinations/admin/questions/`,
+    EXAM_QUESTION_DETAIL: (id: string) => `${API_BASE_URL}/examinations/admin/questions/${id}/`,
+    EXAM_CERTIFICATE_VERIFY: (hashOrCode: string) => `${API_BASE_URL}/examinations/verify/${hashOrCode}/`,
 
     // Security & Cryptographic Audit
     AUDIT_LOGS: `${API_BASE_URL}/audit/logs/`,
