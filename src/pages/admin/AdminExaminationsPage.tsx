@@ -30,6 +30,26 @@ import { Spinner } from '../../components/common/Spinner';
 import { useToast } from '../../context/ToastContext';
 import { CertificateLandscapeDocument } from '../../components/common/CertificateLandscapeDocument';
 
+const DOMAIN_LABELS_KINYARWANDA: Record<string, string> = {
+  ALL: "Ibyiciro Byose",
+  ROAD_SIGNS: "Ibyapa n'Ibimenyetso byo ku Muhanda",
+  PRIORITY: "Ubutware n'Uburenganzira bwo Gutambuka",
+  SPEED: "Umuvuduko n'Intera Hagati y'Ibinyabiziga",
+  LIGHTS: "Amatara n'Ibimenyetso by'Ibinyabiziga",
+  OVERTAKING: "Kunyuranaho n'Imyitwarire mu Mayira",
+  ACCIDENTS: "Impanuka n'Ubutabazi bw'Ibanze",
+  SIGNAGE: "Ibyapa by'Umuhanda",
+  SAFETY: "Umutekano wo ku Muhanda",
+  PARKING: "Guhagarara no Guhagarika Ibinyabiziga",
+  GENERAL: "Amategeko Rusange",
+};
+
+const DIFFICULTY_LABELS_KINYARWANDA: Record<string, string> = {
+  EASY: "Kyoroshye",
+  MEDIUM: "Kiringaniye",
+  HARD: "Gikomeye",
+};
+
 export const AdminExaminationsPage: React.FC = () => {
   const { showToast } = useToast();
   const adminService = AdminService.getInstance();
@@ -328,7 +348,15 @@ export const AdminExaminationsPage: React.FC = () => {
   // ACTIONS: QUESTION BANK STUDIO
   // =========================================================================
   const handleOpenEditQuestion = (question: AdminQuizQuestionItem) => {
-    setEditingQuestion({ ...question });
+    setEditingQuestion({
+      ...question,
+      question_text_kinyarwanda: question.question_text_kinyarwanda || question.question_text || '',
+      option_a_kinyarwanda: question.option_a_kinyarwanda || question.option_a || '',
+      option_b_kinyarwanda: question.option_b_kinyarwanda || question.option_b || '',
+      option_c_kinyarwanda: question.option_c_kinyarwanda || question.option_c || '',
+      option_d_kinyarwanda: question.option_d_kinyarwanda || question.option_d || '',
+      explanation_kinyarwanda: question.explanation_kinyarwanda || question.explanation || '',
+    });
     setEditQuestionModalOpen(true);
   };
 
@@ -336,12 +364,27 @@ export const AdminExaminationsPage: React.FC = () => {
     if (!editingQuestion) return;
     try {
       setIsSavingQuestion(true);
-      await adminService.updateQuizQuestion(editingQuestion.id, editingQuestion);
-      showToast('Question updated successfully in question bank!', 'success');
+      const payload: Partial<AdminQuizQuestionItem> = {
+        ...editingQuestion,
+        question_text_kinyarwanda: editingQuestion.question_text_kinyarwanda,
+        question_text: editingQuestion.question_text_kinyarwanda || editingQuestion.question_text,
+        option_a_kinyarwanda: editingQuestion.option_a_kinyarwanda,
+        option_b_kinyarwanda: editingQuestion.option_b_kinyarwanda,
+        option_c_kinyarwanda: editingQuestion.option_c_kinyarwanda,
+        option_d_kinyarwanda: editingQuestion.option_d_kinyarwanda,
+        option_a: editingQuestion.option_a_kinyarwanda || editingQuestion.option_a,
+        option_b: editingQuestion.option_b_kinyarwanda || editingQuestion.option_b,
+        option_c: editingQuestion.option_c_kinyarwanda || editingQuestion.option_c,
+        option_d: editingQuestion.option_d_kinyarwanda || editingQuestion.option_d,
+        explanation_kinyarwanda: editingQuestion.explanation_kinyarwanda,
+        explanation: editingQuestion.explanation_kinyarwanda || editingQuestion.explanation,
+      };
+      await adminService.updateQuizQuestion(editingQuestion.id, payload);
+      showToast("Impinduka z'ikibazo zabitswe neza mu bubiko!", 'success');
       setEditQuestionModalOpen(false);
       fetchQuestions();
     } catch (err: any) {
-      showToast('Failed to save question: ' + (err.response?.data?.error || err.message), 'error');
+      showToast("Guhindura ikibazo byanze: " + (err.response?.data?.error || err.message), 'error');
     } finally {
       setIsSavingQuestion(false);
     }
@@ -968,7 +1011,7 @@ export const AdminExaminationsPage: React.FC = () => {
       )}
 
       {/* =================================================================== */}
-      {/* TAB 2: QUESTION BANK STUDIO                                         */}
+      {/* TAB 2: QUESTION BANK STUDIO (UBUBIKO BW'IBIBAZO)                    */}
       {/* =================================================================== */}
       {activeTab === 'questions' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -976,46 +1019,47 @@ export const AdminExaminationsPage: React.FC = () => {
           <div
             className="glass-panel"
             style={{
-              padding: '16px 20px',
+              padding: '18px 22px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
               flexWrap: 'wrap',
               gap: '14px',
+              border: '1px solid rgba(56, 189, 248, 0.2)',
             }}
           >
             <div>
-              <h2 style={{ fontSize: '1.2rem', fontWeight: 800, margin: 0 }}>
-                Rwanda Highway Code Question Bank (400+ Active Questions)
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0, color: '#ffffff' }}>
+                Ububiko bw'Ibibazo by'Amategeko y'Umuhanda (Ibibazo 400+)
               </h2>
-              <p style={{ margin: '4px 0 0', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                Correct writing mistakes, update answer options, change road sign diagrams, and modify explanations in English & Kinyarwanda
+              <p style={{ margin: '5px 0 0', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                Gukosora amakosa y'imyandikire, amahitamo y'ibisubizo, ibishushanyo by'ibyapa, n'ibisobanuro mu Kinyarwanda.
               </p>
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-              {/* Search Questions */}
+              {/* Search Questions in Kinyarwanda */}
               <div
                 style={{
                   display: 'flex',
                   alignItems: 'center',
-                  background: 'rgba(0,0,0,0.2)',
-                  border: '1px solid var(--border-subtle)',
+                  background: 'rgba(0,0,0,0.25)',
+                  border: '1px solid rgba(56, 189, 248, 0.25)',
                   borderRadius: '8px',
                   padding: '6px 12px',
-                  minWidth: '260px',
+                  minWidth: '280px',
                 }}
               >
-                <Search size={16} color="var(--text-muted)" style={{ marginRight: '8px' }} />
+                <Search size={16} color="#38bdf8" style={{ marginRight: '8px' }} />
                 <input
                   type="text"
-                  placeholder="Search questions in EN or RW..."
+                  placeholder="Shakisha ikibazo mu Kinyarwanda..."
                   value={questionSearch}
                   onChange={(e) => setQuestionSearch(e.target.value)}
                   style={{
                     background: 'transparent',
                     border: 'none',
-                    color: 'var(--text-primary)',
+                    color: '#ffffff',
                     fontSize: '0.85rem',
                     outline: 'none',
                     width: '100%',
@@ -1023,7 +1067,7 @@ export const AdminExaminationsPage: React.FC = () => {
                 />
               </div>
 
-              {/* Domain Filter */}
+              {/* Domain Filter in Kinyarwanda */}
               <select
                 value={domainFilter}
                 onChange={(e) => {
@@ -1031,22 +1075,25 @@ export const AdminExaminationsPage: React.FC = () => {
                   setQuestionPage(1);
                 }}
                 style={{
-                  background: 'rgba(0,0,0,0.3)',
-                  border: '1px solid var(--border-subtle)',
+                  background: 'rgba(0,0,0,0.35)',
+                  border: '1px solid rgba(56, 189, 248, 0.25)',
                   color: 'var(--text-primary)',
-                  padding: '6px 12px',
+                  padding: '7px 12px',
                   borderRadius: '8px',
                   fontSize: '0.85rem',
                   outline: 'none',
                 }}
               >
-                <option value="ALL">All Domains</option>
-                <option value="ROAD_SIGNS">Road Signs & Markings</option>
-                <option value="PRIORITY">Priority & Right of Way</option>
-                <option value="SPEED">Speed Limits & Distance</option>
-                <option value="LIGHTS">Vehicle Lights & Signals</option>
-                <option value="OVERTAKING">Overtaking & Lane Rules</option>
-                <option value="ACCIDENTS">Accidents & First Aid</option>
+                <option value="ALL">Ibyiciro Byose</option>
+                <option value="ROAD_SIGNS">Ibyapa n'Ibimenyetso byo ku Muhanda</option>
+                <option value="PRIORITY">Ubutware n'Uburenganzira bwo Gutambuka</option>
+                <option value="SPEED">Umuvuduko n'Intera Hagati y'Ibinyabiziga</option>
+                <option value="LIGHTS">Amatara n'Ibimenyetso by'Ibinyabiziga</option>
+                <option value="OVERTAKING">Kunyuranaho n'Imyitwarire mu Mayira</option>
+                <option value="ACCIDENTS">Impanuka n'Ubutabazi bw'Ibanze</option>
+                <option value="SIGNAGE">Ibyapa by'Umuhanda</option>
+                <option value="SAFETY">Umutekano wo ku Muhanda</option>
+                <option value="PARKING">Guhagarara no Guhagarika Ibinyabiziga</option>
               </select>
             </div>
           </div>
@@ -1055,12 +1102,12 @@ export const AdminExaminationsPage: React.FC = () => {
           {isQuestionsLoading ? (
             <div style={{ padding: '60px 20px', textAlign: 'center' }}>
               <Spinner size={36} />
-              <p style={{ marginTop: '12px', color: 'var(--text-muted)' }}>Loading question bank...</p>
+              <p style={{ marginTop: '12px', color: 'var(--text-muted)' }}>Ibibazo birimo gushakishwa mu bubiko...</p>
             </div>
           ) : questionsData.results.length === 0 ? (
             <div className="glass-panel" style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
-              <HelpCircle size={48} style={{ opacity: 0.3, marginBottom: '12px' }} />
-              <p>No questions matched your search criteria.</p>
+              <HelpCircle size={48} style={{ opacity: 0.3, marginBottom: '12px', color: '#38bdf8' }} />
+              <p>Nta bibazo bihuye n'ibyo mushakishije mu bubiko.</p>
             </div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(420px, 1fr))', gap: '16px' }}>
@@ -1073,36 +1120,51 @@ export const AdminExaminationsPage: React.FC = () => {
                     display: 'flex',
                     flexDirection: 'column',
                     justifyContent: 'space-between',
-                    borderLeft: '4px solid var(--primary)',
+                    borderLeft: '4px solid #38bdf8',
+                    border: '1px solid rgba(255, 255, 255, 0.06)',
                   }}
                 >
                   <div>
                     {/* Header line */}
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                         <span
                           style={{
-                            background: 'rgba(0, 77, 64, 0.4)',
-                            color: 'var(--primary-light)',
+                            background: 'rgba(56, 189, 248, 0.12)',
+                            color: '#38bdf8',
+                            border: '1px solid rgba(56, 189, 248, 0.3)',
                             fontWeight: 800,
                             padding: '2px 8px',
                             borderRadius: '6px',
                             fontSize: '0.78rem',
                           }}
                         >
-                          Q#{q.question_number}
+                          Ikibazo #{q.question_number}
                         </span>
-                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>
-                          {q.domain} &bull; {q.difficulty}
+                        <span
+                          style={{
+                            background: 'rgba(248, 113, 113, 0.1)',
+                            color: '#f87171',
+                            border: '1px solid rgba(248, 113, 113, 0.25)',
+                            fontWeight: 600,
+                            padding: '2px 8px',
+                            borderRadius: '6px',
+                            fontSize: '0.72rem',
+                          }}
+                        >
+                          {DOMAIN_LABELS_KINYARWANDA[q.domain] || q.domain}
+                        </span>
+                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                          &bull; {DIFFICULTY_LABELS_KINYARWANDA[q.difficulty] || q.difficulty}
                         </span>
                       </div>
                       <button
                         onClick={() => handleOpenEditQuestion(q)}
                         style={{
-                          background: 'rgba(255,255,255,0.06)',
-                          border: '1px solid var(--border-subtle)',
+                          background: 'rgba(56, 189, 248, 0.08)',
+                          border: '1px solid rgba(56, 189, 248, 0.25)',
                           borderRadius: '6px',
-                          color: 'var(--text-primary)',
+                          color: '#38bdf8',
                           padding: '4px 10px',
                           fontSize: '0.78rem',
                           fontWeight: 600,
@@ -1110,42 +1172,36 @@ export const AdminExaminationsPage: React.FC = () => {
                           display: 'flex',
                           alignItems: 'center',
                           gap: '6px',
+                          transition: 'all 0.15s ease',
                         }}
                       >
-                        <Edit3 size={13} /> Edit Question
+                        <Edit3 size={13} /> Kosora Ikibazo
                       </button>
                     </div>
 
-                    {/* Question text in English */}
-                    <div style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--text-primary)', lineHeight: '1.4' }}>
-                      {q.question_text}
+                    {/* Question text in Kinyarwanda ONLY */}
+                    <div style={{ fontWeight: 700, fontSize: '0.94rem', color: '#ffffff', lineHeight: '1.5' }}>
+                      {q.question_text_kinyarwanda || q.question_text}
                     </div>
-
-                    {/* Question text in Kinyarwanda */}
-                    {q.question_text_kinyarwanda && (
-                      <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '4px', fontStyle: 'italic' }}>
-                        RW: {q.question_text_kinyarwanda}
-                      </div>
-                    )}
 
                     {/* Diagram preview if present */}
                     {q.image && (
-                      <div style={{ margin: '10px 0', textAlign: 'center' }}>
+                      <div style={{ margin: '12px 0', textAlign: 'center' }}>
                         <img
                           src={q.image}
-                          alt="Question Diagram"
-                          style={{ maxHeight: '100px', borderRadius: '6px', border: '1px solid var(--border-subtle)' }}
+                          alt="Igishushanyo cy'Ikibazo"
+                          style={{ maxHeight: '110px', borderRadius: '6px', border: '1px solid rgba(56, 189, 248, 0.25)', background: '#ffffff', padding: '2px' }}
                         />
                       </div>
                     )}
 
-                    {/* Options A, B, C, D */}
+                    {/* Options A, B, C, D in Kinyarwanda */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '12px' }}>
                       {[
-                        { key: 'A', text: q.option_a },
-                        { key: 'B', text: q.option_b },
-                        { key: 'C', text: q.option_c },
-                        { key: 'D', text: q.option_d },
+                        { key: 'A', text: q.option_a_kinyarwanda || q.option_a, image: q.option_a_image },
+                        { key: 'B', text: q.option_b_kinyarwanda || q.option_b, image: q.option_b_image },
+                        { key: 'C', text: q.option_c_kinyarwanda || q.option_c, image: q.option_c_image },
+                        { key: 'D', text: q.option_d_kinyarwanda || q.option_d, image: q.option_d_image },
                       ].map((opt) => {
                         const isCorrect = q.correct_option === opt.key;
                         return (
@@ -1155,28 +1211,41 @@ export const AdminExaminationsPage: React.FC = () => {
                               display: 'flex',
                               alignItems: 'center',
                               gap: '8px',
-                              padding: '6px 10px',
+                              padding: '7px 10px',
                               borderRadius: '6px',
-                              background: isCorrect ? 'rgba(16, 185, 129, 0.12)' : 'rgba(0,0,0,0.15)',
-                              border: isCorrect ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid transparent',
-                              fontSize: '0.82rem',
+                              background: isCorrect ? 'rgba(56, 189, 248, 0.12)' : 'rgba(0,0,0,0.18)',
+                              border: isCorrect ? '1px solid rgba(56, 189, 248, 0.45)' : '1px solid rgba(255,255,255,0.04)',
+                              fontSize: '0.84rem',
                             }}
                           >
                             <span
                               style={{
                                 fontWeight: 800,
-                                color: isCorrect ? '#10b981' : 'var(--text-muted)',
+                                color: isCorrect ? '#38bdf8' : 'var(--text-muted)',
                                 width: '18px',
                               }}
                             >
                               {opt.key}.
                             </span>
-                            <span style={{ color: isCorrect ? '#ffffff' : 'var(--text-secondary)', flex: 1 }}>
-                              {opt.text}
+                            {opt.image && (
+                              <img
+                                src={opt.image}
+                                alt={`Ihitamo ${opt.key}`}
+                                style={{
+                                  height: '32px',
+                                  borderRadius: '4px',
+                                  background: '#ffffff',
+                                  padding: '2px',
+                                  border: '1px solid var(--border-subtle)',
+                                }}
+                              />
+                            )}
+                            <span style={{ color: isCorrect ? '#ffffff' : 'var(--text-secondary)', flex: 1, fontWeight: isCorrect ? 600 : 400 }}>
+                              {opt.text || (opt.image ? "Icyapa cy'amahitamo" : '')}
                             </span>
                             {isCorrect && (
-                              <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#10b981' }}>
-                                CORRECT
+                              <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#38bdf8', letterSpacing: '0.03em' }}>
+                                CY'UKURI
                               </span>
                             )}
                           </div>
@@ -1185,18 +1254,18 @@ export const AdminExaminationsPage: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Explanation footer */}
-                  {q.explanation && (
+                  {/* Explanation footer in Kinyarwanda */}
+                  {(q.explanation_kinyarwanda || q.explanation) && (
                     <div
                       style={{
                         marginTop: '12px',
                         paddingTop: '8px',
                         borderTop: '1px solid var(--border-subtle)',
-                        fontSize: '0.75rem',
+                        fontSize: '0.78rem',
                         color: 'var(--text-muted)',
                       }}
                     >
-                      <strong>Explanation:</strong> {q.explanation}
+                      <strong style={{ color: '#38bdf8' }}>Ibisobanuro:</strong> {q.explanation_kinyarwanda || q.explanation}
                     </div>
                   )}
                 </div>
@@ -1212,8 +1281,8 @@ export const AdminExaminationsPage: React.FC = () => {
               style={{
                 padding: '6px 14px',
                 borderRadius: '6px',
-                border: '1px solid var(--border-subtle)',
-                background: 'rgba(255,255,255,0.05)',
+                border: '1px solid rgba(56, 189, 248, 0.25)',
+                background: 'rgba(56, 189, 248, 0.06)',
                 color: 'var(--text-primary)',
                 cursor: questionPage === 1 ? 'not-allowed' : 'pointer',
                 opacity: questionPage === 1 ? 0.4 : 1,
@@ -1221,15 +1290,15 @@ export const AdminExaminationsPage: React.FC = () => {
             >
               <ChevronLeft size={16} />
             </button>
-            <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Page {questionPage}</span>
+            <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Ipaji {questionPage}</span>
             <button
               onClick={() => setQuestionPage((p) => p + 1)}
               disabled={questionsData.results.length < 20}
               style={{
                 padding: '6px 14px',
                 borderRadius: '6px',
-                border: '1px solid var(--border-subtle)',
-                background: 'rgba(255,255,255,0.05)',
+                border: '1px solid rgba(56, 189, 248, 0.25)',
+                background: 'rgba(56, 189, 248, 0.06)',
                 color: 'var(--text-primary)',
                 cursor: questionsData.results.length < 20 ? 'not-allowed' : 'pointer',
                 opacity: questionsData.results.length < 20 ? 0.4 : 1,
@@ -2316,11 +2385,39 @@ export const AdminExaminationsPage: React.FC = () => {
           >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
               <div>
-                <h2 style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0 }}>
-                  Edit Question #{editingQuestion.question_number}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                  <span
+                    style={{
+                      background: 'rgba(56, 189, 248, 0.12)',
+                      color: '#38bdf8',
+                      border: '1px solid rgba(56, 189, 248, 0.3)',
+                      fontWeight: 800,
+                      padding: '2px 8px',
+                      borderRadius: '6px',
+                      fontSize: '0.8rem',
+                    }}
+                  >
+                    Ikibazo #{editingQuestion.question_number}
+                  </span>
+                  <span
+                    style={{
+                      background: 'rgba(248, 113, 113, 0.1)',
+                      color: '#f87171',
+                      border: '1px solid rgba(248, 113, 113, 0.25)',
+                      fontWeight: 600,
+                      padding: '2px 8px',
+                      borderRadius: '6px',
+                      fontSize: '0.72rem',
+                    }}
+                  >
+                    {DOMAIN_LABELS_KINYARWANDA[editingQuestion.domain] || editingQuestion.domain}
+                  </span>
+                </div>
+                <h2 style={{ fontSize: '1.2rem', fontWeight: 800, margin: 0, color: '#ffffff' }}>
+                  Kosora Ikibazo #{editingQuestion.question_number}
                 </h2>
                 <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                  Correct writing mistakes, edit options, or update answer key
+                  Kosora amakosa y'imyandikire, amahitamo y'ibisubizo, n'ibisobanuro mu Kinyarwanda.
                 </div>
               </div>
               <button
@@ -2331,58 +2428,45 @@ export const AdminExaminationsPage: React.FC = () => {
               </button>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {/* Question Text in Kinyarwanda */}
               <div>
-                <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                  Question Text (English)
+                <label style={{ fontSize: '0.82rem', fontWeight: 700, color: '#38bdf8' }}>
+                  Umwandiko w'Ikibazo (Kinyarwanda)
                 </label>
                 <textarea
                   rows={3}
-                  value={editingQuestion.question_text}
-                  onChange={(e) => setEditingQuestion({ ...editingQuestion, question_text: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    borderRadius: '6px',
-                    background: 'rgba(0,0,0,0.2)',
-                    border: '1px solid var(--border-subtle)',
-                    color: '#ffffff',
-                    fontSize: '0.85rem',
-                    marginTop: '4px',
-                  }}
-                />
-              </div>
-
-              <div>
-                <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                  Question Text (Kinyarwanda)
-                </label>
-                <textarea
-                  rows={2}
                   value={editingQuestion.question_text_kinyarwanda || ''}
                   onChange={(e) =>
-                    setEditingQuestion({ ...editingQuestion, question_text_kinyarwanda: e.target.value })
+                    setEditingQuestion({
+                      ...editingQuestion,
+                      question_text_kinyarwanda: e.target.value,
+                    })
                   }
+                  placeholder="Andika umwandiko w'ikibazo mu Kinyarwanda..."
                   style={{
                     width: '100%',
-                    padding: '8px 12px',
-                    borderRadius: '6px',
-                    background: 'rgba(0,0,0,0.2)',
-                    border: '1px solid var(--border-subtle)',
+                    padding: '10px 12px',
+                    borderRadius: '8px',
+                    background: 'rgba(0,0,0,0.3)',
+                    border: '1px solid rgba(56, 189, 248, 0.25)',
                     color: '#ffffff',
-                    fontSize: '0.85rem',
-                    marginTop: '4px',
+                    fontSize: '0.88rem',
+                    lineHeight: '1.5',
+                    marginTop: '6px',
+                    outline: 'none',
                   }}
                 />
               </div>
 
               {/* Options A, B, C, D Edit & Correct Answer Selection */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                  Answer Choices & Correct Option Key
+                <label style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                  Amahitamo y'Ibisubizo & Kanda ku Nyuguti Guhitamo Igisubizo cy'Ukuri
                 </label>
                 {(['A', 'B', 'C', 'D'] as const).map((key) => {
-                  const prop = `option_${key.toLowerCase()}` as keyof AdminQuizQuestionItem;
+                  const prop = `option_${key.toLowerCase()}_kinyarwanda` as keyof AdminQuizQuestionItem;
+                  const imgProp = `option_${key.toLowerCase()}_image` as keyof AdminQuizQuestionItem;
                   const isCorrect = editingQuestion.correct_option === key;
                   return (
                     <div
@@ -2391,8 +2475,8 @@ export const AdminExaminationsPage: React.FC = () => {
                         display: 'flex',
                         alignItems: 'center',
                         gap: '10px',
-                        background: isCorrect ? 'rgba(16, 185, 129, 0.08)' : 'rgba(0,0,0,0.2)',
-                        border: isCorrect ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid var(--border-subtle)',
+                        background: isCorrect ? 'rgba(56, 189, 248, 0.12)' : 'rgba(0,0,0,0.25)',
+                        border: isCorrect ? '1px solid rgba(56, 189, 248, 0.5)' : '1px solid rgba(255, 255, 255, 0.08)',
                         borderRadius: '8px',
                         padding: '8px 12px',
                       }}
@@ -2400,38 +2484,58 @@ export const AdminExaminationsPage: React.FC = () => {
                       <button
                         onClick={() => setEditingQuestion({ ...editingQuestion, correct_option: key })}
                         style={{
-                          width: '28px',
-                          height: '28px',
+                          width: '32px',
+                          height: '32px',
                           borderRadius: '50%',
-                          border: isCorrect ? 'none' : '1px solid var(--border-subtle)',
-                          background: isCorrect ? '#10b981' : 'transparent',
-                          color: '#ffffff',
+                          border: isCorrect ? 'none' : '1px solid rgba(255, 255, 255, 0.15)',
+                          background: isCorrect ? '#38bdf8' : 'rgba(255, 255, 255, 0.05)',
+                          color: isCorrect ? '#0f172a' : 'var(--text-secondary)',
                           fontWeight: 800,
-                          fontSize: '0.8rem',
+                          fontSize: '0.85rem',
                           cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0,
+                          transition: 'all 0.15s ease',
                         }}
-                        title={`Click to set ${key} as correct answer`}
+                        title={`Kanda hano kugira ngo ${key} bibe igisubizo cy'ukuri`}
                       >
                         {key}
                       </button>
+                      {editingQuestion[imgProp] && (
+                        <img
+                          src={editingQuestion[imgProp] as string}
+                          alt={`Ihitamo ${key}`}
+                          style={{
+                            height: '32px',
+                            background: '#ffffff',
+                            borderRadius: '4px',
+                            padding: '2px',
+                            border: '1px solid var(--border-subtle)',
+                            flexShrink: 0,
+                          }}
+                        />
+                      )}
                       <input
                         type="text"
                         value={String(editingQuestion[prop] || '')}
                         onChange={(e) =>
                           setEditingQuestion({ ...editingQuestion, [prop]: e.target.value })
                         }
+                        placeholder={`Ihitamo ${key} mu Kinyarwanda...`}
                         style={{
                           flex: 1,
                           background: 'transparent',
                           border: 'none',
                           color: '#ffffff',
-                          fontSize: '0.85rem',
+                          fontSize: '0.86rem',
                           outline: 'none',
                         }}
                       />
                       {isCorrect && (
-                        <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#10b981' }}>
-                          CORRECT CHOICE
+                        <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#38bdf8', letterSpacing: '0.03em', flexShrink: 0 }}>
+                          CY'UKURI
                         </span>
                       )}
                     </div>
@@ -2439,42 +2543,56 @@ export const AdminExaminationsPage: React.FC = () => {
                 })}
               </div>
 
+              {/* Diagram / Image */}
               <div>
                 <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                  Diagram / Image URL (Optional)
+                  Ifoto / Igishushanyo cy'Ikibazo (Niba gihari)
                 </label>
                 <input
                   type="text"
                   value={editingQuestion.image || ''}
                   onChange={(e) => setEditingQuestion({ ...editingQuestion, image: e.target.value })}
-                  placeholder="https://... or /media/..."
+                  placeholder="/media/lms/questions/... cyangwa https://..."
                   style={{
                     width: '100%',
                     padding: '8px 12px',
                     borderRadius: '6px',
-                    background: 'rgba(0,0,0,0.2)',
-                    border: '1px solid var(--border-subtle)',
+                    background: 'rgba(0,0,0,0.25)',
+                    border: '1px solid rgba(255, 255, 255, 0.08)',
                     color: '#ffffff',
                     fontSize: '0.85rem',
                     marginTop: '4px',
                   }}
                 />
+                {editingQuestion.image && (
+                  <div style={{ marginTop: '8px', textAlign: 'center' }}>
+                    <img
+                      src={editingQuestion.image}
+                      alt="Preview"
+                      style={{ maxHeight: '90px', borderRadius: '6px', border: '1px solid rgba(56, 189, 248, 0.25)', background: '#ffffff', padding: '2px' }}
+                    />
+                  </div>
+                )}
               </div>
 
+              {/* Explanation in Kinyarwanda */}
               <div>
                 <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                  Explanation & Regulatory Reference
+                  Ibisobanuro & Ingingo y'Amategeko (Kinyarwanda)
                 </label>
                 <textarea
                   rows={2}
-                  value={editingQuestion.explanation || ''}
-                  onChange={(e) => setEditingQuestion({ ...editingQuestion, explanation: e.target.value })}
+                  value={editingQuestion.explanation_kinyarwanda || ''}
+                  onChange={(e) =>
+                    setEditingQuestion({ ...editingQuestion, explanation_kinyarwanda: e.target.value })
+                  }
+                  placeholder="Ibisobanuro by'amategeko mu Kinyarwanda..."
                   style={{
                     width: '100%',
                     padding: '8px 12px',
                     borderRadius: '6px',
-                    background: 'rgba(0,0,0,0.2)',
-                    border: '1px solid var(--border-subtle)',
+                    background: 'rgba(0,0,0,0.25)',
+                    border: '1px solid rgba(255, 255, 255, 0.08)',
                     color: '#ffffff',
                     fontSize: '0.85rem',
                     marginTop: '4px',
@@ -2482,37 +2600,41 @@ export const AdminExaminationsPage: React.FC = () => {
                 />
               </div>
 
+              {/* Action Buttons */}
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '12px' }}>
                 <button
                   onClick={() => setEditQuestionModalOpen(false)}
                   style={{
-                    padding: '8px 16px',
+                    padding: '8px 18px',
                     borderRadius: '6px',
-                    border: '1px solid var(--border-subtle)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
                     background: 'transparent',
                     color: 'var(--text-secondary)',
                     cursor: 'pointer',
+                    fontSize: '0.85rem',
                   }}
                 >
-                  Cancel
+                  Hagarika
                 </button>
                 <button
                   onClick={handleSaveQuestion}
                   disabled={isSavingQuestion}
                   style={{
-                    padding: '8px 20px',
+                    padding: '8px 22px',
                     borderRadius: '6px',
                     border: 'none',
-                    background: 'var(--primary)',
-                    color: '#ffffff',
+                    background: '#38bdf8',
+                    color: '#0f172a',
                     fontWeight: 700,
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
                     gap: '8px',
+                    fontSize: '0.85rem',
+                    boxShadow: '0 2px 8px rgba(56, 189, 248, 0.25)',
                   }}
                 >
-                  <Save size={16} /> {isSavingQuestion ? 'Saving...' : 'Save Question'}
+                  <Save size={16} /> {isSavingQuestion ? 'Birabikwa...' : 'Bika Impinduka'}
                 </button>
               </div>
             </div>

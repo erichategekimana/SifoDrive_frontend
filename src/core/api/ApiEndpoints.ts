@@ -141,5 +141,8 @@ export const ApiEndpoints = {
     AUDIT_INTEGRITY: `${API_BASE_URL}/audit/integrity/`,
     AUDIT_CRITICAL: `${API_BASE_URL}/audit/critical/`,
     AUDIT_USER_TRAIL: (userId: string) => `${API_BASE_URL}/audit/users/${userId}/`,
+
+    // Analytics Hub
+    ANALYTICS: (timeframe: string = '30d') => `${API_BASE_URL}/auth/admin/analytics/?timeframe=${encodeURIComponent(timeframe)}`,
   },
 } as const;

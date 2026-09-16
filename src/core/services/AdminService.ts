@@ -15,6 +15,8 @@ export interface AdminUserItem {
   status: string;
   is_active?: boolean;
   student_id?: string | null;
+  cohort_name?: string | null;
+  cohort_id?: string | null;
   school_name?: string | null;
   station_quota?: number | null;
   has_national_id?: boolean;
@@ -79,7 +81,12 @@ export interface CohortItem {
   start_date?: string;
   end_date?: string;
   is_active: boolean;
+  max_capacity?: number;
   student_count?: number;
+  tutor_count?: number;
+  ongoing_student_count?: number;
+  schedule_description?: string;
+  assigned_tutors?: Array<{ id: string; full_name?: string; phone_number?: string; email?: string }>;
   primary_tutor?: { id: string; full_name?: string } | null;
 }
 
@@ -295,6 +302,21 @@ export class AdminService {
     return this.http.post(ApiEndpoints.ADMIN.COURSE_CREATE, payload);
   }
 
+  public async updateCourse(
+    id: string,
+    payload: {
+      title?: string;
+      title_rw?: string;
+      code?: string;
+      description?: string;
+      estimated_hours?: number;
+      sort_order?: number;
+    }
+  ): Promise<any> {
+    logger.info(`Updating course ${id}: ${payload.title || ''}`);
+    return this.http.patch(ApiEndpoints.ADMIN.COURSE_UPDATE(id), payload);
+  }
+
   public async publishCourse(id: string): Promise<any> {
     return this.http.post(ApiEndpoints.ADMIN.COURSE_PUBLISH(id), {});
   }
@@ -390,8 +412,25 @@ export class AdminService {
     end_date: string;
     description?: string;
     code?: string;
+    max_capacity?: number;
+    schedule_description?: string;
   }): Promise<any> {
     return this.http.post(ApiEndpoints.ADMIN.COHORTS, payload);
+  }
+
+  public async updateCohort(id: string, payload: Partial<CohortItem>): Promise<any> {
+    logger.info(`Updating cohort ${id}`);
+    return this.http.patch(ApiEndpoints.ADMIN.COHORT_DETAIL(id), payload);
+  }
+
+  public async assignTutorsToCohort(cohortId: string, tutorIds: string[], action: 'assign' | 'unassign' = 'assign'): Promise<any> {
+    logger.info(`Assigning tutors [${tutorIds.join(',')}] to cohort ${cohortId} (action=${action})`);
+    return this.http.post(`${ApiEndpoints.ADMIN.COHORT_ASSIGN_TUTORS(cohortId)}?action=${action}`, { tutor_ids: tutorIds });
+  }
+
+  public async assignStudentsToCohort(cohortId: string, studentIds: string[], action: 'enroll' | 'unenroll' = 'enroll'): Promise<any> {
+    logger.info(`Enrolling students [${studentIds.join(',')}] in cohort ${cohortId} (action=${action})`);
+    return this.http.post(`${ApiEndpoints.ADMIN.COHORT_ASSIGN_STUDENTS(cohortId)}?action=${action}`, { student_ids: studentIds });
   }
 
   public async getLiveClasses(): Promise<LiveClassAdminItem[]> {
@@ -626,6 +665,10 @@ export class AdminService {
   public async verifyPublicCertificate(hashOrCode: string): Promise<any> {
     return this.http.get<any>(ApiEndpoints.ADMIN.EXAM_CERTIFICATE_VERIFY(hashOrCode));
   }
+
+  public async getPlatformAnalytics(timeframe: string = '30d'): Promise<PlatformAnalyticsData> {
+    return this.http.get<PlatformAnalyticsData>(ApiEndpoints.ADMIN.ANALYTICS(timeframe));
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -787,8 +830,152 @@ export interface AdminQuizQuestionItem {
   explanation: string;
   explanation_kinyarwanda: string;
   image?: string | null;
+  option_a_image?: string | null;
+  option_b_image?: string | null;
+  option_c_image?: string | null;
+  option_d_image?: string | null;
   is_active: boolean;
   road_sign_id?: string | null;
   created_at: string;
   updated_at: string;
+}
+
+// ---------------------------------------------------------------------------
+// Analytics Data Types
+// ---------------------------------------------------------------------------
+export interface AnalyticsExecutive {
+  gross_revenue: number;
+  total_users: number;
+  enrolled_students: number;
+  registered_guests: number;
+  exam_pass_rate: number;
+  certificates_issued: number;
+  sms_delivery_rate: number;
+  success_rate: number;
+}
+
+export interface AnalyticsFinanceProvider {
+  provider: string;
+  name: string;
+  amount: number;
+  count: number;
+  percentage: number;
+}
+
+export interface AnalyticsFeeStream {
+  key: string;
+  name: string;
+  amount: number;
+  percentage: number;
+}
+
+export interface AnalyticsRevenuePeriod {
+  period: string;
+  revenue: number;
+  transactions: number;
+}
+
+export interface AnalyticsTransactionItem {
+  id: string;
+  payer_name: string;
+  phone: string;
+  provider: string;
+  fee_type: string;
+  amount: number;
+  status: string;
+  created_at: string;
+}
+
+export interface AnalyticsFinance {
+  gross_revenue: number;
+  total_transactions: number;
+  successful_transactions: number;
+  pending_transactions: number;
+  failed_transactions: number;
+  success_rate: number;
+  arpu: number;
+  providers: AnalyticsFinanceProvider[];
+  fee_streams: AnalyticsFeeStream[];
+  revenue_trend: AnalyticsRevenuePeriod[];
+  recent_transactions: AnalyticsTransactionItem[];
+}
+
+export interface AnalyticsDomainPerformance {
+  domain: string;
+  name: string;
+  questions: number;
+  avg_pass_rate: number;
+}
+
+export interface AnalyticsBookings {
+  total: number;
+  completed: number;
+  confirmed: number;
+  in_progress: number;
+  cancelled: number;
+  completion_rate: number;
+}
+
+export interface AnalyticsActivities {
+  total_exams: number;
+  passed_exams: number;
+  failed_exams: number;
+  pass_rate: number;
+  avg_score: number;
+  domain_performance: AnalyticsDomainPerformance[];
+  bookings: AnalyticsBookings;
+}
+
+export interface AnalyticsCohortItem {
+  id: string;
+  name: string;
+  start_date: string;
+  students_count: number;
+  avg_progress: number;
+  status: string;
+}
+
+export interface AnalyticsStudents {
+  total_enrolled: number;
+  active_students: number;
+  completion_rate: number;
+  avg_course_progress: number;
+  certificates_issued: number;
+  cohorts: AnalyticsCohortItem[];
+}
+
+export interface AnalyticsFunnelStage {
+  stage: string;
+  count: number;
+  rate: number;
+  description: string;
+}
+
+export interface AnalyticsGuests {
+  total_registered: number;
+  mock_exam_attempts: number;
+  guest_pass_rate: number;
+  conversions: number;
+  conversion_rate: number;
+  funnel: AnalyticsFunnelStage[];
+}
+
+export interface AnalyticsOperations {
+  sms_sent: number;
+  sms_delivered: number;
+  sms_failed: number;
+  sms_delivery_rate: number;
+  estimated_sms_cost_rwf: number;
+  audit_events_count: number;
+}
+
+export interface PlatformAnalyticsData {
+  timeframe: string;
+  timeframe_label?: string;
+  executive: AnalyticsExecutive;
+  finance: AnalyticsFinance;
+  activities: AnalyticsActivities;
+  students: AnalyticsStudents;
+  guests: AnalyticsGuests;
+  operations: AnalyticsOperations;
 }

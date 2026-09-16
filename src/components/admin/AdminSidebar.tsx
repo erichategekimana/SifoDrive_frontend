@@ -10,6 +10,8 @@ import {
   ShieldCheck,
   ExternalLink,
   Shield,
+  TrendingUp,
+  Settings,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -18,12 +20,14 @@ export const AdminSidebar: React.FC = () => {
 
   const navItems = [
     { to: '/admin', label: 'Command Center', icon: <LayoutDashboard size={18} />, end: true },
+    { to: '/admin/analytics', label: 'Analytics', icon: <TrendingUp size={18} /> },
     { to: '/admin/users', label: 'User Directory', icon: <Users size={18} /> },
-    { to: '/admin/courses', label: 'LMS Curriculum Studio', icon: <BookOpen size={18} /> },
+    { to: '/admin/courses', label: 'LMS Studio', icon: <BookOpen size={18} /> },
     { to: '/admin/examinations', label: 'Examinations & Certs', icon: <Award size={18} /> },
     { to: '/admin/schedules', label: 'Schedules & Events', icon: <CalendarDays size={18} /> },
     { to: '/admin/sms', label: 'SMS Communication', icon: <MessageSquare size={18} /> },
     { to: '/admin/audit', label: 'Security & Audit Logs', icon: <ShieldCheck size={18} /> },
+    { to: '/admin/settings', label: 'Settings', icon: <Settings size={18} /> },
   ];
 
   return (
