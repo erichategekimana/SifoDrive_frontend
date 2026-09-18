@@ -12,6 +12,7 @@ import {
   Shield,
   TrendingUp,
   Settings,
+  UserCheck,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -22,6 +23,7 @@ export const AdminSidebar: React.FC = () => {
     { to: '/admin', label: 'Command Center', icon: <LayoutDashboard size={18} />, end: true },
     { to: '/admin/analytics', label: 'Analytics', icon: <TrendingUp size={18} /> },
     { to: '/admin/users', label: 'User Directory', icon: <Users size={18} /> },
+    { to: '/admin/agents-staff', label: 'Agents & Staff', icon: <UserCheck size={18} /> },
     { to: '/admin/courses', label: 'LMS Studio', icon: <BookOpen size={18} /> },
     { to: '/admin/examinations', label: 'Examinations & Certs', icon: <Award size={18} /> },
     { to: '/admin/schedules', label: 'Schedules & Events', icon: <CalendarDays size={18} /> },

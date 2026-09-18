@@ -156,11 +156,23 @@ export interface SMSTemplateItem {
 export interface AuditLogItem {
   id: string;
   action: string;
-  severity: 'INFO' | 'WARNING' | 'HIGH' | 'CRITICAL';
+  severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' | 'INFO' | 'WARNING';
+  created_at: string;
+  timestamp?: string;
+  performed_by_id?: string;
+  performed_by_phone?: string;
+  target_user_id?: string;
+  object_type?: string;
+  object_id?: string;
+  ip_address?: string;
+  request_id?: string;
+  http_method?: string;
+  endpoint?: string;
+  context?: Record<string, unknown>;
+  record_hash?: string;
+  hash_valid?: boolean | null;
   actor_phone?: string;
   actor_role?: string;
-  ip_address?: string;
-  created_at: string;
   payload?: Record<string, unknown>;
   checksum_valid?: boolean;
 }
@@ -179,6 +191,77 @@ export interface AdminDashboardStats {
   enrolled_students: number;
   total_graduated_students: number;
   lms_courses: number;
+}
+
+export interface StaffUserItem {
+  id: string;
+  phone_number: string;
+  first_name: string;
+  last_name: string;
+  full_name: string;
+  email?: string;
+  role: 'AGENT' | 'TUTOR' | 'TRAINING_ADMIN' | 'BOARD_REVIEWER' | 'ENTERPRISE_ADMIN' | 'SYSTEM_ADMIN' | string;
+  status: string;
+  is_active: boolean;
+  school_name?: string;
+  agent_code?: string;
+  business_name?: string;
+  district?: string;
+  sector?: string;
+  total_accrued_rwf?: number;
+  total_paid_out_rwf?: number;
+  pending_balance_rwf?: number;
+  last_payout_date?: string | null;
+  next_payout_due_date?: string | null;
+  clients_onboarded_count?: number;
+  assigned_cohorts_count?: number;
+  last_login?: string | null;
+  last_login_ip?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ServiceCommissionConfigItem {
+  id: string;
+  service_type: string;
+  service_name: string;
+  default_client_price_rwf: number;
+  commission_fee_rwf: number;
+  is_active: boolean;
+  notes?: string;
+  updated_at?: string;
+}
+
+export interface AgentCommissionItem {
+  id: string;
+  agent: string;
+  agent_name?: string;
+  agent_phone?: string;
+  agent_code?: string;
+  client?: string;
+  client_name?: string;
+  client_phone?: string;
+  service_type: string;
+  service_reference?: string;
+  amount_paid_by_client_rwf: number;
+  commission_amount_rwf: number;
+  status: 'ACCRUED' | 'PAID_OUT' | 'CANCELLED';
+  paid_out_at?: string | null;
+  payout_batch_id?: string;
+  notes?: string;
+  created_at: string;
+}
+
+export interface StaffMetricsSummary {
+  total_staff: number;
+  total_agents: number;
+  total_tutors: number;
+  total_training_admins: number;
+  total_board_reviewers: number;
+  total_enterprise_admins: number;
+  total_commissions_generated_rwf: number;
+  total_commissions_paid_out_rwf: number;
+  total_unpaid_commission_balance_rwf: number;
 }
 
 export class AdminService {
@@ -556,6 +639,13 @@ export class AdminService {
     return Array.isArray(res) ? res : res?.results || [];
   }
 
+  public async getUserAuditTrail(userId: string): Promise<AuditLogItem[]> {
+    const res = await this.http.get<any>(ApiEndpoints.ADMIN.AUDIT_USER_TRAIL(userId));
+    if (res && Array.isArray(res.results)) return res.results;
+    if (Array.isArray(res)) return res;
+    return [];
+  }
+
   // -------------------------------------------------------------------------
   // 7. Examination Lifecycle, Review Pipeline & Question Bank Studio
   // -------------------------------------------------------------------------
@@ -668,6 +758,102 @@ export class AdminService {
 
   public async getPlatformAnalytics(timeframe: string = '30d'): Promise<PlatformAnalyticsData> {
     return this.http.get<PlatformAnalyticsData>(ApiEndpoints.ADMIN.ANALYTICS(timeframe));
+  }
+
+  // ---------------------------------------------------------------------------
+  // Agents & Staff Hub
+  // ---------------------------------------------------------------------------
+  public async getStaffMetrics(): Promise<StaffMetricsSummary> {
+    return this.http.get<StaffMetricsSummary>(ApiEndpoints.ADMIN.STAFF_METRICS);
+  }
+
+  public async getStaff(params?: { role?: string; search?: string }): Promise<StaffUserItem[]> {
+    const q = new URLSearchParams();
+    if (params?.role && params.role !== 'ALL') q.set('role', params.role);
+    if (params?.search) q.set('search', params.search);
+    const url = `${ApiEndpoints.ADMIN.STAFF}${q.toString() ? '?' + q.toString() : ''}`;
+    const res = await this.http.get<any>(url);
+    return Array.isArray(res) ? res : res?.results || [];
+  }
+
+  public async createStaff(payload: {
+    phone_number: string;
+    first_name: string;
+    last_name: string;
+    role: string;
+    email?: string;
+    password?: string;
+    business_name?: string;
+    national_id_number?: string;
+    district?: string;
+    sector?: string;
+    school_name?: string;
+  }): Promise<StaffUserItem> {
+    return this.http.post<StaffUserItem>(ApiEndpoints.ADMIN.STAFF, payload);
+  }
+
+  public async updateStaff(id: string, payload: Partial<StaffUserItem>): Promise<StaffUserItem> {
+    return this.http.patch<StaffUserItem>(ApiEndpoints.ADMIN.STAFF_DETAIL(id), payload);
+  }
+
+  public async deleteStaff(id: string): Promise<any> {
+    return this.http.delete(ApiEndpoints.ADMIN.STAFF_DETAIL(id));
+  }
+
+  public async getCommissionRates(): Promise<ServiceCommissionConfigItem[]> {
+    const res = await this.http.get<any>(ApiEndpoints.ADMIN.AGENT_COMMISSION_RATES);
+    return Array.isArray(res) ? res : res?.results || [];
+  }
+
+  public async updateCommissionRate(payload: {
+    service_type: string;
+    commission_fee_rwf?: number;
+    default_client_price_rwf?: number;
+    notes?: string;
+  }): Promise<ServiceCommissionConfigItem> {
+    return this.http.patch<ServiceCommissionConfigItem>(ApiEndpoints.ADMIN.AGENT_COMMISSION_RATES, payload);
+  }
+
+  public async getAgentCommissions(params?: {
+    agent_id?: string;
+    service_type?: string;
+    status?: string;
+  }): Promise<AgentCommissionItem[]> {
+    const q = new URLSearchParams();
+    if (params?.agent_id) q.set('agent_id', params.agent_id);
+    if (params?.service_type && params.service_type !== 'ALL') q.set('service_type', params.service_type);
+    if (params?.status && params.status !== 'ALL') q.set('status', params.status);
+    const url = `${ApiEndpoints.ADMIN.AGENT_COMMISSIONS}${q.toString() ? '?' + q.toString() : ''}`;
+    const res = await this.http.get<any>(url);
+    return Array.isArray(res) ? res : res?.results || [];
+  }
+
+  public async payoutAgentMonthly(payload: {
+    agent_id: string;
+    payout_amount?: number;
+    notes?: string;
+  }): Promise<any> {
+    return this.http.post(ApiEndpoints.ADMIN.AGENT_PAYOUT, payload);
+  }
+
+  public async onboardClientAsAgent(payload: {
+    phone_number: string;
+    first_name: string;
+    last_name: string;
+    email?: string;
+    role?: string;
+  }): Promise<any> {
+    return this.http.post(ApiEndpoints.ADMIN.AGENT_ONBOARD_CLIENT, payload);
+  }
+
+  public async facilitateAgentService(payload: {
+    client_phone: string;
+    service_type: string;
+    service_reference?: string;
+    amount_paid_by_client_rwf?: number;
+    notes?: string;
+  }): Promise<AgentCommissionItem> {
+    return this.http.post<AgentCommissionItem>(ApiEndpoints.ADMIN.AGENT_FACILITATE_SERVICE, payload);
   }
 }
 

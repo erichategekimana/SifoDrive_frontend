@@ -144,5 +144,15 @@ export const ApiEndpoints = {
 
     // Analytics Hub
     ANALYTICS: (timeframe: string = '30d') => `${API_BASE_URL}/auth/admin/analytics/?timeframe=${encodeURIComponent(timeframe)}`,
+
+    // Agents & Staff Hub
+    STAFF: `${API_BASE_URL}/auth/staff/`,
+    STAFF_METRICS: `${API_BASE_URL}/auth/staff/metrics/`,
+    STAFF_DETAIL: (id: string) => `${API_BASE_URL}/auth/staff/${id}/`,
+    AGENT_COMMISSIONS: `${API_BASE_URL}/auth/agent-commissions/`,
+    AGENT_COMMISSION_RATES: `${API_BASE_URL}/auth/agent-commissions/rates/`,
+    AGENT_PAYOUT: `${API_BASE_URL}/auth/agent-commissions/payout/`,
+    AGENT_ONBOARD_CLIENT: `${API_BASE_URL}/auth/agent/onboard-client/`,
+    AGENT_FACILITATE_SERVICE: `${API_BASE_URL}/auth/agent/facilitate-service/`,
   },
 } as const;

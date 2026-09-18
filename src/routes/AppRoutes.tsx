@@ -32,6 +32,7 @@ import { AdminAuditPage } from '../pages/admin/AdminAuditPage';
 import { AdminExaminationsPage } from '../pages/admin/AdminExaminationsPage';
 import { AdminAnalyticsPage } from '../pages/admin/AdminAnalyticsPage';
 import { AdminSettingsPage } from '../pages/admin/AdminSettingsPage';
+import { AdminAgentsStaffPage } from '../pages/admin/AdminAgentsStaffPage';
 import { CertificateVerificationPage } from '../pages/public/CertificateVerificationPage';
 
 export const AppRoutes: React.FC = () => {
@@ -72,6 +73,7 @@ export const AppRoutes: React.FC = () => {
           <Route path="/admin/sms" element={<AdminNotificationsPage />} />
           <Route path="/admin/notifications" element={<AdminNotificationsPage />} />
           <Route path="/admin/audit" element={<AdminAuditPage />} />
+          <Route path="/admin/agents-staff" element={<AdminAgentsStaffPage />} />
           <Route path="/admin/settings" element={<AdminSettingsPage />} />
         </Route>
       </Route>
