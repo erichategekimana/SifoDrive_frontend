@@ -29,18 +29,16 @@ export const AdminAgentsStaffPage: React.FC = () => {
   const [staffRoleFilter, setStaffRoleFilter] = useState<StaffRoleFilter>('ALL');
   const [selectedAgentFilter, setSelectedAgentFilter] = useState<StaffUserItem | null>(null);
 
+  // Agent Individual Ledger Modal State
+  const [agentLedgerModal, setAgentLedgerModal] = useState<StaffUserItem | null>(null);
+  const [agentModalSearchQuery, setAgentModalSearchQuery] = useState<string>('');
+
   // Staff Audit State
   const [auditingStaff, setAuditingStaff] = useState<StaffUserItem | null>(null);
   const [staffAuditLogs, setStaffAuditLogs] = useState<AuditLogItem[]>([]);
   const [isAuditLoading, setIsAuditLoading] = useState<boolean>(false);
   const [auditSearchQuery, setAuditSearchQuery] = useState<string>('');
   const [auditSeverityFilter, setAuditSeverityFilter] = useState<string>('ALL');
-
-  // Agent Individual Ledger Modal State
-  const [viewingAgentLedger, setViewingAgentLedger] = useState<StaffUserItem | null>(null);
-  const [agentLedgerSearch, setAgentLedgerSearch] = useState<string>('');
-  const [agentLedgerServiceFilter, setAgentLedgerServiceFilter] = useState<string>('ALL');
-  const [agentLedgerStatusFilter, setAgentLedgerStatusFilter] = useState<string>('ALL');
 
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -149,19 +147,15 @@ export const AdminAgentsStaffPage: React.FC = () => {
       });
   }, [staffList, searchQuery]);
 
-  // View single agent's ledger in pop-out modal dialog
+  // View single agent's ledger in pop-out modal (stays on current screen)
   const handleViewAgentLedger = (agent: StaffUserItem) => {
-    setViewingAgentLedger(agent);
-    setAgentLedgerSearch('');
-    setAgentLedgerServiceFilter('ALL');
-    setAgentLedgerStatusFilter('ALL');
+    setAgentLedgerModal(agent);
+    setAgentModalSearchQuery('');
   };
 
-  const handleCloseAgentLedger = () => {
-    setViewingAgentLedger(null);
-    setAgentLedgerSearch('');
-    setAgentLedgerServiceFilter('ALL');
-    setAgentLedgerStatusFilter('ALL');
+  const handleCloseAgentLedgerModal = () => {
+    setAgentLedgerModal(null);
+    setAgentModalSearchQuery('');
   };
 
   // Trigger Individual Staff Audit
@@ -243,39 +237,26 @@ export const AdminAgentsStaffPage: React.FC = () => {
     );
   }, [commissionsLedger, selectedAgentFilter, searchQuery]);
 
-  // Filter Ledger Entries specifically for viewingAgentLedger in pop-out dialog
-  const agentSpecificLedger = useMemo(() => {
-    if (!viewingAgentLedger) return [];
-    return commissionsLedger.filter((item) => {
-      const matchAgent =
-        item.agent === viewingAgentLedger.id ||
-        (viewingAgentLedger.agent_code && item.agent_code === viewingAgentLedger.agent_code) ||
-        (viewingAgentLedger.phone_number && item.agent_phone === viewingAgentLedger.phone_number);
-
-      if (!matchAgent) return false;
-
-      if (agentLedgerServiceFilter !== 'ALL' && item.service_type !== agentLedgerServiceFilter) {
-        return false;
-      }
-
-      if (agentLedgerStatusFilter !== 'ALL' && item.status !== agentLedgerStatusFilter) {
-        return false;
-      }
-
-      if (agentLedgerSearch.trim()) {
-        const q = agentLedgerSearch.toLowerCase();
-        const refMatch = Boolean(item.service_reference && item.service_reference.toLowerCase().includes(q));
-        const clientMatch = Boolean(
-          (item.client_name && item.client_name.toLowerCase().includes(q)) ||
-          (item.client_phone && item.client_phone.includes(q))
-        );
-        const serviceMatch = Boolean(item.service_type && item.service_type.toLowerCase().includes(q));
-        return refMatch || clientMatch || serviceMatch;
-      }
-
-      return true;
-    });
-  }, [viewingAgentLedger, commissionsLedger, agentLedgerServiceFilter, agentLedgerStatusFilter, agentLedgerSearch]);
+  // Filter Ledger Entries for Individual Agent Pop-out Modal
+  const agentModalLedger = useMemo(() => {
+    if (!agentLedgerModal) return [];
+    let list = commissionsLedger.filter(
+      (c) =>
+        c.agent === agentLedgerModal.id ||
+        (agentLedgerModal.agent_code && c.agent_code === agentLedgerModal.agent_code) ||
+        c.agent_phone === agentLedgerModal.phone_number
+    );
+    if (!agentModalSearchQuery.trim()) return list;
+    const q = agentModalSearchQuery.toLowerCase();
+    return list.filter(
+      (c) =>
+        (c.service_reference && c.service_reference.toLowerCase().includes(q)) ||
+        (c.client_name && c.client_name.toLowerCase().includes(q)) ||
+        (c.client_phone && c.client_phone.toLowerCase().includes(q)) ||
+        (c.service_type && c.service_type.toLowerCase().includes(q)) ||
+        (c.status && c.status.toLowerCase().includes(q))
+    );
+  }, [commissionsLedger, agentLedgerModal, agentModalSearchQuery]);
 
   // Handle Create Staff / Agent
   const handleCreateStaff = async (e: React.FormEvent) => {
@@ -431,7 +412,7 @@ export const AdminAgentsStaffPage: React.FC = () => {
         service_type: rate.service_type,
         commission_fee_rwf: Number(newFee),
       });
-      success(`Updated ${rate.service_name} commission fee to ${Number(newFee).toLocaleString()} RWF.`);
+      success(`Updated ${rate.service_type} commission fee to ${Number(newFee).toLocaleString()} RWF.`);
       setEditingRate(null);
       loadAllData();
     } catch (err: any) {
@@ -1052,7 +1033,8 @@ export const AdminAgentsStaffPage: React.FC = () => {
 
       {/* 4. SECTION 2: AGENTS */}
       {activeTab === 'agents' && (
-        <div className="glass-panel" style={{ borderRadius: 'var(--radius-xl)', overflow: 'hidden', border: '1px solid var(--border-subtle)' }}>
+        <div>
+          <div className="glass-panel" style={{ borderRadius: 'var(--radius-xl)', overflow: 'hidden', border: '1px solid var(--border-subtle)' }}>
           
           {/* Sub-Header Toolbar: Sub-tabs & Search */}
           <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
@@ -1422,9 +1404,10 @@ export const AdminAgentsStaffPage: React.FC = () => {
               )}
             </div>
           )}
+          </div>
 
-          {/* POP-OUT MODAL: INDIVIDUAL AGENT SERVICE & COMMISSION LEDGER */}
-          {viewingAgentLedger && (
+          {/* POP-OUT MODAL: INDIVIDUAL AGENT COMMISSIONS LEDGER */}
+          {agentLedgerModal && (
             <div
               style={{
                 position: 'fixed',
@@ -1438,7 +1421,7 @@ export const AdminAgentsStaffPage: React.FC = () => {
                 padding: '20px',
               }}
               onClick={(e) => {
-                if (e.target === e.currentTarget) handleCloseAgentLedger();
+                if (e.target === e.currentTarget) handleCloseAgentLedgerModal();
               }}
             >
               <div
@@ -1456,7 +1439,7 @@ export const AdminAgentsStaffPage: React.FC = () => {
                   boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.85)',
                 }}
               >
-                {/* Header */}
+                {/* Header Bar */}
                 <div
                   style={{
                     padding: '14px 20px',
@@ -1473,56 +1456,31 @@ export const AdminAgentsStaffPage: React.FC = () => {
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <span style={{ fontSize: '1.05rem', fontWeight: 800, color: '#ffffff' }}>
-                        {viewingAgentLedger.full_name}
+                        {agentLedgerModal.full_name}
                       </span>
-                      {viewingAgentLedger.agent_code && (
-                        <span style={{ fontSize: '0.74rem', color: '#93c5fd', fontFamily: 'monospace', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', background: 'rgba(59, 130, 246, 0.15)' }}>
-                          {viewingAgentLedger.agent_code}
+                      {agentLedgerModal.agent_code && (
+                        <span style={{ fontSize: '0.74rem', color: '#93c5fd', fontFamily: 'monospace', fontWeight: 600, background: 'rgba(59, 130, 246, 0.15)', padding: '2px 8px', borderRadius: 'var(--radius-sm)' }}>
+                          {agentLedgerModal.agent_code}
                         </span>
                       )}
-                      <Badge variant="neutral">AGENT</Badge>
-                      {viewingAgentLedger.is_active ? (
+                      <Badge variant="info">AGENT</Badge>
+                      {agentLedgerModal.is_active ? (
                         <Badge variant="success">ACTIVE</Badge>
                       ) : (
                         <Badge variant="neutral">DEACTIVATED</Badge>
                       )}
                     </div>
                     <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>
-                      {viewingAgentLedger.phone_number} • {viewingAgentLedger.business_name || 'Kiosk'} ({[viewingAgentLedger.district, viewingAgentLedger.sector].filter(Boolean).join(', ') || 'Rwanda'})
+                      {agentLedgerModal.phone_number} {agentLedgerModal.email ? `• ${agentLedgerModal.email}` : ''}
                     </div>
                   </div>
 
-                  {/* Quick Agent Switcher */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <label style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>Agent:</label>
-                    <select
-                      value={viewingAgentLedger.id}
-                      onChange={(e) => {
-                        const found = staffList.find((s) => s.id === e.target.value);
-                        if (found) handleViewAgentLedger(found);
-                      }}
-                      style={{
-                        padding: '4px 8px',
-                        borderRadius: 'var(--radius-md)',
-                        background: 'var(--bg-surface)',
-                        border: '1px solid var(--border-subtle)',
-                        color: '#ffffff',
-                        fontSize: '0.78rem',
-                        maxWidth: '220px',
-                      }}
-                    >
-                      {staffList
-                        .filter((s) => s.role === 'AGENT')
-                        .map((a) => (
-                          <option key={a.id} value={a.id}>
-                            {a.full_name} ({a.agent_code || a.phone_number})
-                          </option>
-                        ))}
-                    </select>
+                  <div style={{ fontSize: '0.76rem', color: 'var(--text-secondary)' }}>
+                    Station: <strong style={{ color: '#ffffff' }}>{agentLedgerModal.business_name || 'Field Kiosk'}</strong> ({[agentLedgerModal.district, agentLedgerModal.sector].filter(Boolean).join(', ') || 'Rwanda'})
                   </div>
                 </div>
 
-                {/* Financial Summary Strip */}
+                {/* Profile / Financial Summary Strip */}
                 <div
                   style={{
                     padding: '12px 20px',
@@ -1535,42 +1493,42 @@ export const AdminAgentsStaffPage: React.FC = () => {
                   }}
                 >
                   <div>
-                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Total Accrued Commission</div>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Total Accrued</div>
                     <div style={{ fontSize: '0.92rem', fontWeight: 700, color: '#ffffff', marginTop: '2px' }}>
-                      {(viewingAgentLedger.total_accrued_rwf || 0).toLocaleString()} RWF
+                      {(agentLedgerModal.total_accrued_rwf || 0).toLocaleString()} RWF
                     </div>
                   </div>
 
                   <div>
                     <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Total Paid Out</div>
-                    <div style={{ fontSize: '0.92rem', fontWeight: 600, color: 'var(--text-secondary)', marginTop: '2px' }}>
-                      {(viewingAgentLedger.total_paid_out_rwf || 0).toLocaleString()} RWF
+                    <div style={{ fontSize: '0.92rem', fontWeight: 700, color: '#ffffff', marginTop: '2px' }}>
+                      {(agentLedgerModal.total_paid_out_rwf || 0).toLocaleString()} RWF
                     </div>
                   </div>
 
                   <div>
-                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Unpaid Pending Balance</div>
-                    <div style={{ fontSize: '0.95rem', fontWeight: 800, color: (viewingAgentLedger.pending_balance_rwf || 0) > 0 ? '#f59e0b' : '#10b981', marginTop: '2px' }}>
-                      {(viewingAgentLedger.pending_balance_rwf || 0).toLocaleString()} RWF
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Unpaid Balance</div>
+                    <div style={{ fontSize: '0.92rem', fontWeight: 700, color: (agentLedgerModal.pending_balance_rwf || 0) > 0 ? '#f59e0b' : '#10b981', marginTop: '2px' }}>
+                      {(agentLedgerModal.pending_balance_rwf || 0).toLocaleString()} RWF
+                    </div>
+                  </div>
+
+                  <div>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Clients Facilitated</div>
+                    <div style={{ fontSize: '0.92rem', fontWeight: 700, color: '#ffffff', marginTop: '2px' }}>
+                      {agentLedgerModal.clients_onboarded_count || 0}
                     </div>
                   </div>
 
                   <div>
                     <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Last Payout Date</div>
-                    <div style={{ fontSize: '0.85rem', color: '#ffffff', marginTop: '2px' }}>
-                      {viewingAgentLedger.last_payout_date || 'First Cycle (Pending 30-day settlement)'}
-                    </div>
-                  </div>
-
-                  <div>
-                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Total Facilitated Services</div>
-                    <div style={{ fontSize: '0.92rem', fontWeight: 700, color: '#ffffff', marginTop: '2px' }}>
-                      {commissionsLedger.filter((c) => c.agent === viewingAgentLedger.id || (viewingAgentLedger.agent_code && c.agent_code === viewingAgentLedger.agent_code)).length} Transactions
+                    <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', marginTop: '4px' }}>
+                      {agentLedgerModal.last_payout_date || 'First 30-Day Cycle'}
                     </div>
                   </div>
                 </div>
 
-                {/* Filters Toolbar */}
+                {/* Filter Toolbar */}
                 <div
                   style={{
                     padding: '8px 20px',
@@ -1584,31 +1542,13 @@ export const AdminAgentsStaffPage: React.FC = () => {
                     flexShrink: 0,
                   }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflowX: 'auto' }}>
-                    <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', fontWeight: 600 }}>Service:</span>
-                    {['ALL', 'BOOKING', 'SUBSCRIPTION', 'COURSE_ENROLLMENT', 'EXAM_PURCHASE'].map((srv) => (
-                      <button
-                        key={srv}
-                        onClick={() => setAgentLedgerServiceFilter(srv)}
-                        className={`btn btn-sm ${agentLedgerServiceFilter === srv ? 'btn-primary' : 'btn-secondary'}`}
-                        style={{ fontSize: '0.72rem', padding: '3px 8px', whiteSpace: 'nowrap' }}
-                      >
-                        {srv === 'ALL' && 'All'}
-                        {srv === 'BOOKING' && 'Bookings'}
-                        {srv === 'SUBSCRIPTION' && 'Subscriptions'}
-                        {srv === 'COURSE_ENROLLMENT' && 'Courses'}
-                        {srv === 'EXAM_PURCHASE' && 'Exams'}
-                      </button>
-                    ))}
-                  </div>
-
-                  <div style={{ position: 'relative', width: '220px' }}>
+                  <div style={{ position: 'relative', width: '260px' }}>
                     <Search size={13} style={{ position: 'absolute', left: '9px', top: '8px', color: 'var(--text-muted)' }} />
                     <input
                       type="text"
-                      placeholder="Filter client, ref, service..."
-                      value={agentLedgerSearch}
-                      onChange={(e) => setAgentLedgerSearch(e.target.value)}
+                      placeholder="Filter by ref, client, or service..."
+                      value={agentModalSearchQuery}
+                      onChange={(e) => setAgentModalSearchQuery(e.target.value)}
                       style={{
                         width: '100%',
                         padding: '5px 8px 5px 28px',
@@ -1620,13 +1560,25 @@ export const AdminAgentsStaffPage: React.FC = () => {
                       }}
                     />
                   </div>
+
+                  {(agentLedgerModal.pending_balance_rwf || 0) > 0 && (
+                    <button
+                      onClick={() => handleOpenPayout(agentLedgerModal)}
+                      className="btn btn-primary btn-sm"
+                      style={{ fontSize: '0.74rem', padding: '4px 12px' }}
+                    >
+                      Settle Payout
+                    </button>
+                  )}
                 </div>
 
                 {/* Ledger Table (Scrollable Body) */}
                 <div style={{ overflowY: 'auto', flex: 1, minHeight: '220px' }}>
-                  {agentSpecificLedger.length === 0 ? (
-                    <div style={{ padding: '48px', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.86rem' }}>
-                      No commission ledger entries recorded for {viewingAgentLedger.full_name} matching filter.
+                  {agentModalLedger.length === 0 ? (
+                    <div style={{ padding: '48px', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.84rem' }}>
+                      {commissionsLedger.some(c => c.agent === agentLedgerModal.id || (agentLedgerModal.agent_code && c.agent_code === agentLedgerModal.agent_code))
+                        ? 'No transactions matching your search query.'
+                        : `No commission transactions recorded yet for ${agentLedgerModal.full_name}.`}
                     </div>
                   ) : (
                     <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.82rem' }}>
@@ -1634,16 +1586,16 @@ export const AdminAgentsStaffPage: React.FC = () => {
                         <tr style={{ borderBottom: '1px solid var(--border-subtle)', color: 'var(--text-muted)', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.5px', background: 'var(--bg-surface)' }}>
                           <th style={{ padding: '10px 16px' }}>Date & Ref</th>
                           <th style={{ padding: '10px 16px' }}>Client</th>
-                          <th style={{ padding: '10px 16px' }}>Service Facilitated</th>
+                          <th style={{ padding: '10px 16px' }}>Service</th>
                           <th style={{ padding: '10px 16px' }}>Client Paid</th>
-                          <th style={{ padding: '10px 16px' }}>Commission Earned</th>
+                          <th style={{ padding: '10px 16px' }}>Commission</th>
                           <th style={{ padding: '10px 16px' }}>Status</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {agentSpecificLedger.map((c) => (
+                        {agentModalLedger.map((c) => (
                           <tr key={c.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                            <td style={{ padding: '10px 16px' }}>
+                            <td style={{ padding: '10px 16px', whiteSpace: 'nowrap' }}>
                               <div style={{ color: '#ffffff', fontWeight: 600, fontSize: '0.8rem' }}>
                                 {new Date(c.created_at).toLocaleDateString()}
                               </div>
@@ -1660,15 +1612,14 @@ export const AdminAgentsStaffPage: React.FC = () => {
                             </td>
 
                             <td style={{ padding: '10px 16px', color: 'var(--text-secondary)' }}>
-                              {c.service_type === 'BOOKING' && 'Practical Driving Booking'}
-                              {c.service_type === 'SUBSCRIPTION' && 'Premium Video Subscription'}
-                              {c.service_type === 'COURSE_ENROLLMENT' && 'Course Enrollment'}
-                              {c.service_type === 'EXAM_PURCHASE' && 'Theory Exam Purchase'}
+                              {c.service_type === 'BOOKING' && 'Driving Test Booking'}
+                              {c.service_type === 'SUBSCRIPTION' && 'Course Subscription'}
+                              {c.service_type === 'EXAM_PURCHASE' && 'Exam Purchase'}
                               {c.service_type === 'LEARNING_FEE' && 'Tuition Fee'}
-                              {c.service_type === 'OTHER' && 'Other Service'}
+                              {c.service_type === 'OTHER' && 'Other'}
                             </td>
 
-                            <td style={{ padding: '10px 16px', color: '#ffffff' }}>
+                            <td style={{ padding: '10px 16px', color: '#ffffff', fontWeight: 600 }}>
                               {c.amount_paid_by_client_rwf.toLocaleString()} RWF
                             </td>
 
@@ -1677,11 +1628,9 @@ export const AdminAgentsStaffPage: React.FC = () => {
                             </td>
 
                             <td style={{ padding: '10px 16px' }}>
-                              {c.status === 'ACCRUED' ? (
-                                <Badge variant="warning">ACCRUED</Badge>
-                              ) : (
-                                <Badge variant="success">PAID OUT</Badge>
-                              )}
+                              {c.status === 'ACCRUED' && <Badge variant="warning">ACCRUED</Badge>}
+                              {c.status === 'PAID_OUT' && <Badge variant="success">PAID OUT</Badge>}
+                              {c.status === 'CANCELLED' && <Badge variant="danger">CANCELLED</Badge>}
                             </td>
                           </tr>
                         ))}
@@ -1690,7 +1639,7 @@ export const AdminAgentsStaffPage: React.FC = () => {
                   )}
                 </div>
 
-                {/* Footer Bar */}
+                {/* Footer Bar with single Close button */}
                 <div
                   style={{
                     padding: '10px 20px',
@@ -1705,30 +1654,15 @@ export const AdminAgentsStaffPage: React.FC = () => {
                   }}
                 >
                   <div>
-                    Showing {agentSpecificLedger.length} of {commissionsLedger.filter((c) => c.agent === viewingAgentLedger.id || (viewingAgentLedger.agent_code && c.agent_code === viewingAgentLedger.agent_code)).length} transactions for {viewingAgentLedger.full_name}
+                    Showing {agentModalLedger.length} ledger transactions for {agentLedgerModal.full_name} ({agentLedgerModal.agent_code || agentLedgerModal.phone_number})
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    {(viewingAgentLedger.pending_balance_rwf || 0) > 0 && (
-                      <button
-                        onClick={() => {
-                          const target = viewingAgentLedger;
-                          handleCloseAgentLedger();
-                          handleOpenPayout(target);
-                        }}
-                        className="btn btn-primary btn-sm"
-                        style={{ fontSize: '0.74rem', padding: '4px 12px' }}
-                      >
-                        Settle Payout ({(viewingAgentLedger.pending_balance_rwf || 0).toLocaleString()} RWF)
-                      </button>
-                    )}
-                    <button
-                      onClick={handleCloseAgentLedger}
-                      className="btn btn-secondary btn-sm"
-                      style={{ fontSize: '0.74rem', padding: '4px 12px' }}
-                    >
-                      Close
-                    </button>
-                  </div>
+                  <button
+                    onClick={handleCloseAgentLedgerModal}
+                    className="btn btn-secondary btn-sm"
+                    style={{ fontSize: '0.74rem', padding: '4px 12px' }}
+                  >
+                    Close
+                  </button>
                 </div>
               </div>
             </div>
@@ -1741,10 +1675,10 @@ export const AdminAgentsStaffPage: React.FC = () => {
         <div className="glass-panel" style={{ borderRadius: 'var(--radius-xl)', padding: '20px', border: '1px solid var(--border-subtle)' }}>
           <div style={{ marginBottom: '16px' }}>
             <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: '#ffffff' }}>
-              Service Commission Rates
+              Commission Rates
             </h3>
             <p style={{ margin: '4px 0 0 0', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-              Configurable commission fees applied automatically when an agent facilitates a service.
+              Agent commission fees per service.
             </p>
           </div>
 
@@ -1766,18 +1700,14 @@ export const AdminAgentsStaffPage: React.FC = () => {
                   }}
                 >
                   <div>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600, fontFamily: 'monospace' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                      <h4 style={{ margin: 0, fontSize: '0.98rem', fontWeight: 700, color: '#ffffff', fontFamily: 'monospace' }}>
                         {rate.service_type}
-                      </span>
+                      </h4>
                       <Badge variant="success">ACTIVE</Badge>
                     </div>
 
-                    <h4 style={{ margin: '0 0 4px 0', fontSize: '0.98rem', fontWeight: 700, color: '#ffffff' }}>
-                      {rate.service_name}
-                    </h4>
-
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', padding: '10px', borderRadius: 'var(--radius-md)', background: 'rgba(0,0,0,0.2)', margin: '10px 0' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', padding: '10px', borderRadius: 'var(--radius-md)', background: 'rgba(0,0,0,0.2)', marginBottom: '12px' }}>
                       <div>
                         <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Client Price</div>
                         <div style={{ fontSize: '0.92rem', fontWeight: 600, color: '#ffffff', marginTop: '2px' }}>
@@ -1786,7 +1716,7 @@ export const AdminAgentsStaffPage: React.FC = () => {
                       </div>
 
                       <div>
-                        <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Agent Commission</div>
+                        <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Commission</div>
                         <div style={{ fontSize: '0.92rem', fontWeight: 700, color: '#10b981', marginTop: '2px' }}>
                           {rate.commission_fee_rwf.toLocaleString()} RWF
                         </div>
@@ -1796,7 +1726,7 @@ export const AdminAgentsStaffPage: React.FC = () => {
 
                   {isEditing ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', paddingTop: '8px', borderTop: '1px solid var(--border-subtle)' }}>
-                      <label style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>Commission Fee (RWF):</label>
+                      <label style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>Commission (RWF):</label>
                       <div style={{ display: 'flex', gap: '6px' }}>
                         <input
                           type="number"

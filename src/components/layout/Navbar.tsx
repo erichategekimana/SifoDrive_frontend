@@ -167,6 +167,25 @@ export const Navbar: React.FC = () => {
                   <span>Admin Console</span>
                 </Link>
               )}
+              {user.isTrainingAdmin() && (
+                <Link
+                  to="/admin"
+                  className="btn btn-secondary btn-sm"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    borderColor: 'rgba(245, 158, 11, 0.4)',
+                    color: '#f59e0b',
+                    background: 'rgba(245, 158, 11, 0.08)',
+                    fontSize: '0.8rem',
+                    fontWeight: 700,
+                  }}
+                >
+                  <Shield size={14} />
+                  <span>Training Console</span>
+                </Link>
+              )}
               <Link
                 to="/dashboard"
                 style={{

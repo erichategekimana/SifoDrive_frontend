@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { Outlet, Link, useNavigate } from 'react-router-dom';
-import { Compass, Sun, Moon, LogOut, Clock, Activity, Shield } from 'lucide-react';
+import { Compass, Sun, Moon, LogOut, Clock, Activity, Shield, GraduationCap, Globe } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
+import { useTranslation } from '../../context/I18nContext';
 import { AdminSidebar } from './AdminSidebar';
 import { Badge } from '../common/Badge';
 
 export const AdminLayout: React.FC = () => {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const { language, setLanguage } = useTranslation();
   const navigate = useNavigate();
   const [timeStr, setTimeStr] = useState<string>('');
 
@@ -58,17 +60,16 @@ export const AdminLayout: React.FC = () => {
           <Link to="/admin" style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none' }}>
             <div
               style={{
-                width: '38px',
-                height: '38px',
-                borderRadius: 'var(--radius-lg)',
-                background: 'linear-gradient(135deg, var(--primary) 0%, var(--accent-500) 100%)',
+                width: '36px',
+                height: '36px',
+                borderRadius: 'var(--radius-md)',
+                background: '#0284c7',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                boxShadow: '0 4px 12px var(--primary-glow)',
               }}
             >
-              <Compass size={22} color="#ffffff" />
+              <Compass size={20} color="#ffffff" />
             </div>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -79,15 +80,15 @@ export const AdminLayout: React.FC = () => {
                   style={{
                     padding: '2px 8px',
                     borderRadius: 'var(--radius-sm)',
-                    background: 'rgba(239, 68, 68, 0.15)',
-                    border: '1px solid rgba(239, 68, 68, 0.3)',
-                    color: '#ef4444',
+                    background: user?.isTrainingAdmin() ? 'rgba(2, 132, 199, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                    border: user?.isTrainingAdmin() ? '1px solid rgba(2, 132, 199, 0.25)' : '1px solid rgba(239, 68, 68, 0.25)',
+                    color: user?.isTrainingAdmin() ? '#0284c7' : '#ef4444',
                     fontSize: '0.68rem',
-                    fontWeight: 800,
-                    letterSpacing: '0.05em',
+                    fontWeight: 700,
+                    letterSpacing: '0.04em',
                   }}
                 >
-                  ADMIN CONSOLE
+                  {user?.isTrainingAdmin() ? "INDIRERWE Y'AMASOMO" : 'ADMIN CONSOLE'}
                 </span>
               </div>
               <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
@@ -137,6 +138,30 @@ export const AdminLayout: React.FC = () => {
             <span>Backend: <strong style={{ color: 'var(--text-primary)' }}>/api/v1</strong></span>
           </div>
 
+          {/* Language Toggle: Visible ONLY for Training Admin (System Admin has NO toggle) */}
+          {user?.isTrainingAdmin() && (
+            <button
+              onClick={() => setLanguage(language === 'rw' ? 'en' : 'rw')}
+              style={{
+                background: 'var(--bg-surface-elevated)',
+                border: '1px solid var(--border-subtle)',
+                borderRadius: 'var(--radius-md)',
+                padding: '6px 10px',
+                cursor: 'pointer',
+                color: 'var(--text-primary)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontSize: '0.78rem',
+                fontWeight: 700,
+              }}
+              title={language === 'rw' ? 'Hindura mu Cyongereza (Switch to English)' : 'Hindura mu Kinyarwanda (Switch to Kinyarwanda)'}
+            >
+              <Globe size={14} color="#0284c7" />
+              <span>{language === 'rw' ? 'RW' : 'EN'}</span>
+            </button>
+          )}
+
           {/* Theme Toggle */}
           <button
             onClick={toggleTheme}
@@ -174,7 +199,9 @@ export const AdminLayout: React.FC = () => {
                   width: '30px',
                   height: '30px',
                   borderRadius: '50%',
-                  background: 'linear-gradient(135deg, var(--danger) 0%, #b91c1c 100%)',
+                  background: user?.isTrainingAdmin()
+                    ? 'linear-gradient(135deg, #d97706 0%, #b45309 100%)'
+                    : 'linear-gradient(135deg, var(--danger) 0%, #b91c1c 100%)',
                   color: '#ffffff',
                   display: 'flex',
                   alignItems: 'center',
@@ -183,14 +210,17 @@ export const AdminLayout: React.FC = () => {
                   fontSize: '0.8rem',
                 }}
               >
-                <Shield size={16} />
+                {user?.isTrainingAdmin() ? <GraduationCap size={16} /> : <Shield size={16} />}
               </div>
               <div style={{ display: 'flex', flexDirection: 'column' }}>
                 <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                   {user.fullName}
                 </span>
-                <Badge variant="danger" style={{ fontSize: '0.65rem', padding: '1px 6px' }}>
-                  SYSTEM ADMIN
+                <Badge
+                  variant={user?.isTrainingAdmin() ? 'warning' : 'danger'}
+                  style={{ fontSize: '0.65rem', padding: '1px 6px' }}
+                >
+                  {user?.isTrainingAdmin() ? "UMUYOBOZI W'AMASOMO" : 'SYSTEM ADMIN'}
                 </Badge>
               </div>
               <button

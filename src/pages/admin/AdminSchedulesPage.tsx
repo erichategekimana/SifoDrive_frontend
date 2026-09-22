@@ -20,26 +20,38 @@ import {
 import { Badge } from '../../components/common/Badge';
 import { Spinner } from '../../components/common/Spinner';
 import { useToast } from '../../context/ToastContext';
-
-const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-const DAY_OPTIONS = [
-  { value: 0, label: 'Each Monday' },
-  { value: 1, label: 'Each Tuesday' },
-  { value: 2, label: 'Each Wednesday' },
-  { value: 3, label: 'Each Thursday' },
-  { value: 4, label: 'Each Friday' },
-  { value: 5, label: 'Each Saturday' },
-  { value: 6, label: 'Each Sunday' },
-];
-
-const PERIOD_OPTIONS = [
-  { value: 1, label: '1 Month (~4 weeks)' },
-  { value: 2, label: '2 Months (~8 weeks)' },
-  { value: 3, label: '3 Months (~12 weeks)' },
-  { value: 6, label: '6 Months (~24 weeks)' },
-];
+import { useTranslation } from '../../context/I18nContext';
 
 export const AdminSchedulesPage: React.FC = () => {
+  const { t } = useTranslation();
+
+  const dayOptions = useMemo(() => [
+    { value: 0, label: t('admin.liveClasses.dayOptions.monday') },
+    { value: 1, label: t('admin.liveClasses.dayOptions.tuesday') },
+    { value: 2, label: t('admin.liveClasses.dayOptions.wednesday') },
+    { value: 3, label: t('admin.liveClasses.dayOptions.thursday') },
+    { value: 4, label: t('admin.liveClasses.dayOptions.friday') },
+    { value: 5, label: t('admin.liveClasses.dayOptions.saturday') },
+    { value: 6, label: t('admin.liveClasses.dayOptions.sunday') },
+  ], [t]);
+
+  const periodOptions = useMemo(() => [
+    { value: 1, label: t('admin.liveClasses.periodOptions.oneMonth') },
+    { value: 2, label: t('admin.liveClasses.periodOptions.twoMonths') },
+    { value: 3, label: t('admin.liveClasses.periodOptions.threeMonths') },
+    { value: 6, label: t('admin.liveClasses.periodOptions.sixMonths') },
+  ], [t]);
+
+  const weekdaysList = useMemo(() => [
+    { key: 'mon', label: t('admin.liveClasses.weekdays.mon') },
+    { key: 'tue', label: t('admin.liveClasses.weekdays.tue') },
+    { key: 'wed', label: t('admin.liveClasses.weekdays.wed') },
+    { key: 'thu', label: t('admin.liveClasses.weekdays.thu') },
+    { key: 'fri', label: t('admin.liveClasses.weekdays.fri') },
+    { key: 'sat', label: t('admin.liveClasses.weekdays.sat') },
+    { key: 'sun', label: t('admin.liveClasses.weekdays.sun') },
+  ], [t]);
+
   const [classes, setClasses] = useState<LiveClassAdminItem[]>([]);
   const [cohorts, setCohorts] = useState<CohortItem[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -284,10 +296,10 @@ export const AdminSchedulesPage: React.FC = () => {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
         <div>
           <h1 style={{ fontSize: '1.65rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0, letterSpacing: '-0.02em' }}>
-            Schedules & Events
+            {t('admin.liveClasses.schedulesAndEvents')}
           </h1>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-            Platform calendar, recurring session timetable, and scheduled events.
+            {t('admin.liveClasses.subtitle')}
           </p>
         </div>
 
@@ -299,7 +311,7 @@ export const AdminSchedulesPage: React.FC = () => {
             style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
           >
             <Video size={14} />
-            <span>Classes & Cohorts</span>
+            <span>{t('admin.liveClasses.classesAndCohorts')}</span>
           </Link>
 
           <button
@@ -309,7 +321,7 @@ export const AdminSchedulesPage: React.FC = () => {
             title="Refresh schedules"
           >
             <RefreshCw size={13} className={isLoading ? 'spin' : ''} />
-            <span>Refresh</span>
+            <span>{t('admin.liveClasses.refresh')}</span>
           </button>
 
           <button
@@ -318,7 +330,7 @@ export const AdminSchedulesPage: React.FC = () => {
             style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
           >
             <Plus size={14} />
-            <span>Schedule Class</span>
+            <span>{t('admin.liveClasses.scheduleClass')}</span>
           </button>
         </div>
       </div>
@@ -348,9 +360,9 @@ export const AdminSchedulesPage: React.FC = () => {
             <button
               onClick={todayMonth}
               className="btn btn-secondary btn-sm"
-              style={{ fontSize: '0.8rem', padding: '5px 12px' }}
+              style={{ fontSize: '0.8rem', padding: '5px 10px' }}
             >
-              Today
+              {t('admin.liveClasses.today')}
             </button>
             <button
               onClick={nextMonth}
@@ -371,9 +383,9 @@ export const AdminSchedulesPage: React.FC = () => {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             {/* Weekday Row */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '6px', textAlign: 'center', marginBottom: '4px' }}>
-              {WEEKDAYS.map((w) => (
-                <div key={w} style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', padding: '6px 0' }}>
-                  {w}
+              {weekdaysList.map((w) => (
+                <div key={w.key} style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', padding: '6px 0' }}>
+                  {w.label}
                 </div>
               ))}
             </div>
@@ -745,7 +757,7 @@ export const AdminSchedulesPage: React.FC = () => {
                         value={recurringDay}
                         onChange={(e) => setRecurringDay(Number(e.target.value))}
                       >
-                        {DAY_OPTIONS.map((d) => (
+                        {dayOptions.map((d) => (
                           <option key={d.value} value={d.value}>
                             {d.label}
                           </option>
@@ -760,7 +772,7 @@ export const AdminSchedulesPage: React.FC = () => {
                         value={recurringPeriodMonths}
                         onChange={(e) => setRecurringPeriodMonths(Number(e.target.value))}
                       >
-                        {PERIOD_OPTIONS.map((p) => (
+                        {periodOptions.map((p) => (
                           <option key={p.value} value={p.value}>
                             {p.label}
                           </option>

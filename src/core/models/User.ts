@@ -3,7 +3,7 @@
  * Encapsulates identity, role permissions, and legal consent status.
  */
 
-export type UserRole = 'GUEST' | 'STUDENT' | 'TUTOR' | 'AGENT' | 'FINANCE_OFFICER' | 'BOARD_REVIEWER' | 'SYSTEM_ADMIN';
+export type UserRole = 'GUEST' | 'STUDENT' | 'TUTOR' | 'AGENT' | 'FINANCE_OFFICER' | 'BOARD_REVIEWER' | 'TRAINING_ADMIN' | 'ENTERPRISE_ADMIN' | 'SYSTEM_ADMIN';
 export type UserStatus = 'PENDING_VERIFICATION' | 'ACTIVE' | 'SUSPENDED' | 'DEACTIVATED';
 
 export interface UserDTO {
@@ -57,6 +57,18 @@ export class User {
     return this.role === 'TUTOR';
   }
 
+  public isTrainingAdmin(): boolean {
+    return this.role === 'TRAINING_ADMIN';
+  }
+
+  public isBoardReviewer(): boolean {
+    return this.role === 'BOARD_REVIEWER';
+  }
+
+  public isEnterpriseAdmin(): boolean {
+    return this.role === 'ENTERPRISE_ADMIN';
+  }
+
   public isAdmin(): boolean {
     return this.role === 'SYSTEM_ADMIN';
   }
@@ -65,8 +77,12 @@ export class User {
     return this.role === 'SYSTEM_ADMIN';
   }
 
+  public isAnyAdmin(): boolean {
+    return this.role === 'SYSTEM_ADMIN' || this.role === 'TRAINING_ADMIN';
+  }
+
   public isStaff(): boolean {
-    return ['TUTOR', 'AGENT', 'FINANCE_OFFICER', 'BOARD_REVIEWER', 'SYSTEM_ADMIN'].includes(this.role);
+    return ['TUTOR', 'AGENT', 'FINANCE_OFFICER', 'BOARD_REVIEWER', 'TRAINING_ADMIN', 'ENTERPRISE_ADMIN', 'SYSTEM_ADMIN'].includes(this.role);
   }
 
   public hasAcceptedLegalConsent(): boolean {
@@ -91,6 +107,9 @@ export class User {
       case 'STUDENT': return 'Full Student';
       case 'TUTOR': return 'Theory Instructor';
       case 'AGENT': return 'Irembo Agent';
+      case 'TRAINING_ADMIN': return 'Training Administrator';
+      case 'BOARD_REVIEWER': return 'Board Reviewer';
+      case 'ENTERPRISE_ADMIN': return 'Driving School Director';
       case 'SYSTEM_ADMIN': return 'System Administrator';
       default: return this.role;
     }

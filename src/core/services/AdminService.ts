@@ -106,6 +106,8 @@ export interface LiveClassAdminItem {
   meeting_link?: string;
   status: 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
   attendee_count?: number;
+  created_by_name?: string;
+  created_by_role?: string;
 }
 
 export interface SMSLogItem {
@@ -416,6 +418,61 @@ export class AdminService {
     return this.http.get(ApiEndpoints.ADMIN.COURSE_STATS(id));
   }
 
+  // ── Curriculum: Modules ───────────────────────────────────────────────────
+  public async getCourseModules(courseId: string): Promise<any[]> {
+    const res = await this.http.get<any>(ApiEndpoints.ADMIN.COURSE_MODULES(courseId));
+    return Array.isArray(res) ? res : res?.results || [];
+  }
+
+  public async createModule(payload: {
+    course: string;
+    title: string;
+    description?: string;
+    sort_order?: number;
+    is_foundational?: boolean;
+  }): Promise<any> {
+    return this.http.post(ApiEndpoints.ADMIN.MODULE_CREATE, payload);
+  }
+
+  public async updateModule(id: string, payload: Partial<{
+    title: string;
+    description: string;
+    sort_order: number;
+    is_foundational: boolean;
+  }>): Promise<any> {
+    return this.http.patch(ApiEndpoints.ADMIN.MODULE_UPDATE(id), payload);
+  }
+
+  public async deleteModule(id: string): Promise<void> {
+    return this.http.delete(ApiEndpoints.ADMIN.MODULE_DELETE(id));
+  }
+
+  public async publishModule(id: string): Promise<any> {
+    return this.http.post(ApiEndpoints.ADMIN.MODULE_PUBLISH(id), {});
+  }
+
+  public async unpublishModule(id: string): Promise<any> {
+    return this.http.post(ApiEndpoints.ADMIN.MODULE_UNPUBLISH(id), {});
+  }
+
+  // ── Curriculum: Lessons & Learning Materials ──────────────────────────────
+  public async getModuleLessons(moduleId: string): Promise<any[]> {
+    const res = await this.http.get<any>(ApiEndpoints.ADMIN.MODULE_LESSONS(moduleId));
+    return Array.isArray(res) ? res : res?.results || [];
+  }
+
+  public async createLesson(payload: FormData | Record<string, any>): Promise<any> {
+    return this.http.post(ApiEndpoints.ADMIN.LESSON_CREATE, payload);
+  }
+
+  public async updateLesson(id: string, payload: FormData | Record<string, any>): Promise<any> {
+    return this.http.patch(ApiEndpoints.ADMIN.LESSON_UPDATE(id), payload);
+  }
+
+  public async deleteLesson(id: string): Promise<void> {
+    return this.http.delete(ApiEndpoints.ADMIN.LESSON_DELETE(id));
+  }
+
   public async getRoadSigns(): Promise<any[]> {
     const res = await this.http.get<any>(ApiEndpoints.ADMIN.ROAD_SIGNS);
     return Array.isArray(res) ? res : res?.results || [];
@@ -676,10 +733,15 @@ export class AdminService {
 
   public async executeExamStageAction(
     id: string,
-    action: 'APPROVE' | 'REJECT' | 'REQUEST_CHANGES',
+    action: 'BOARD_DECISION' | 'TRAINING_DECISION' | 'SYSTEM_APPROVE' | 'REJECT' | string,
+    decision: 'APPROVE' | 'REJECT' | string = 'APPROVE',
     notes?: string
   ): Promise<any> {
-    return this.http.post(ApiEndpoints.ADMIN.EXAM_SESSION_ACTION(id), { action, notes });
+    return this.http.post(ApiEndpoints.ADMIN.EXAM_SESSION_ACTION(id), {
+      action,
+      decision,
+      notes: notes || '',
+    });
   }
 
   public async publishExams(payload: {

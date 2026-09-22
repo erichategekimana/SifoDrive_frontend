@@ -23,15 +23,16 @@ export const I18nProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return unsubscribe;
   }, [i18n]);
 
-  // When user role changes or logs in, apply default language rules if no manual selection was saved
+  // System Admin is strictly English. Other roles default to Kinyarwanda on initial setup but Training Admin can toggle.
   useEffect(() => {
     if (user) {
-      const targetLang = i18n.resolveLanguageForRole(user.role);
-      if (targetLang !== language) {
-        i18n.setLanguage(targetLang, false);
+      if (user.role === 'SYSTEM_ADMIN') {
+        if (i18n.getLanguage() !== 'en') {
+          i18n.setLanguage('en', false);
+        }
       }
     }
-  }, [user, i18n]);
+  }, [user?.role, i18n]);
 
   const setLanguage = useCallback(
     (newLang: SupportedLanguage) => {

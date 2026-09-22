@@ -41,19 +41,15 @@ export class I18nService {
   }
 
   /**
-   * Determine default language based on user role.
-   * Admin defaults to English, all other roles default to Kinyarwanda.
+   * Determine primary language based on user role.
+   * Only SYSTEM_ADMIN uses English as their primary and only language.
+   * All other roles (TRAINING_ADMIN, TUTOR, STUDENT, GUEST, AGENT, etc.)
+   * have Kinyarwanda as their primary language.
    */
   public resolveLanguageForRole(role?: string): SupportedLanguage {
-    const manualPreference = this.storage.getItem<SupportedLanguage>('sifo_language');
-    if (manualPreference) {
-      return manualPreference;
-    }
-
     if (role === 'SYSTEM_ADMIN') {
       return 'en';
     }
-
     return 'rw';
   }
 

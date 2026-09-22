@@ -1,16 +1,17 @@
 import React from 'react';
-import { Navigate, Outlet, Link } from 'react-router-dom';
+import { Navigate, Outlet, Link, useLocation } from 'react-router-dom';
 import { ShieldAlert, ArrowLeft, LogOut } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { Spinner } from '../components/common/Spinner';
 
 export const SystemAdminRoute: React.FC = () => {
   const { user, isAuthenticated, isLoading, logout } = useAuth();
+  const location = useLocation();
 
   if (isLoading) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <Spinner message="Verifying System Administrator privileges..." />
+        <Spinner message="Verifying administrative privileges..." />
       </div>
     );
   }
@@ -19,7 +20,8 @@ export const SystemAdminRoute: React.FC = () => {
     return <Navigate to="/login" replace />;
   }
 
-  if (!user.isSystemAdmin()) {
+  // Verify administrative role (System Admin or Training Admin)
+  if (!user.isSystemAdmin() && !user.isTrainingAdmin()) {
     const currentUser = user;
     return (
       <div
@@ -62,7 +64,7 @@ export const SystemAdminRoute: React.FC = () => {
           </div>
 
           <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '8px' }}>
-            System Admin Access Required
+            Administrative Access Required
           </h2>
           <p style={{ fontSize: '0.92rem', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: '24px' }}>
             Your account (<strong style={{ color: 'var(--text-primary)' }}>{currentUser.fullName}</strong>) has the role{' '}
@@ -78,7 +80,7 @@ export const SystemAdminRoute: React.FC = () => {
             >
               {currentUser.getRoleDisplay()}
             </span>
-            . Access to this console is restricted strictly to the <strong style={{ color: 'var(--primary-light)' }}>SYSTEM_ADMIN</strong> role.
+            . Access to this management console requires administrative privileges.
           </p>
 
           <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
@@ -98,6 +100,13 @@ export const SystemAdminRoute: React.FC = () => {
         </div>
       </div>
     );
+  }
+
+  // System Admin exclusive sections (Agents, Audits, System Settings)
+  const systemAdminOnlyPaths = ['/admin/agents-staff', '/admin/audit', '/admin/settings'];
+  const isRestrictedPath = systemAdminOnlyPaths.some((p) => location.pathname.startsWith(p));
+  if (user.isTrainingAdmin() && isRestrictedPath) {
+    return <Navigate to="/admin" replace />;
   }
 
   return <Outlet />;

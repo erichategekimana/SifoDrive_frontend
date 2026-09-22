@@ -13,81 +13,92 @@ import {
   TrendingUp,
   Settings,
   UserCheck,
+  Video,
+  GraduationCap,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useTranslation } from '../../context/I18nContext';
 
 export const AdminSidebar: React.FC = () => {
   const { user } = useAuth();
+  const { t } = useTranslation();
+  const isTrainingAdmin = user?.isTrainingAdmin();
 
-  const navItems = [
-    { to: '/admin', label: 'Command Center', icon: <LayoutDashboard size={18} />, end: true },
-    { to: '/admin/analytics', label: 'Analytics', icon: <TrendingUp size={18} /> },
-    { to: '/admin/users', label: 'User Directory', icon: <Users size={18} /> },
-    { to: '/admin/agents-staff', label: 'Agents & Staff', icon: <UserCheck size={18} /> },
-    { to: '/admin/courses', label: 'LMS Studio', icon: <BookOpen size={18} /> },
-    { to: '/admin/examinations', label: 'Examinations & Certs', icon: <Award size={18} /> },
-    { to: '/admin/schedules', label: 'Schedules & Events', icon: <CalendarDays size={18} /> },
-    { to: '/admin/sms', label: 'SMS Communication', icon: <MessageSquare size={18} /> },
-    { to: '/admin/audit', label: 'Security & Audit Logs', icon: <ShieldCheck size={18} /> },
-    { to: '/admin/settings', label: 'Settings', icon: <Settings size={18} /> },
+  const systemAdminNavItems = [
+    { to: '/admin', label: t('admin.sidebar.commandCenter'), icon: <LayoutDashboard size={18} />, end: true },
+    { to: '/admin/analytics', label: t('admin.sidebar.analytics'), icon: <TrendingUp size={18} /> },
+    { to: '/admin/users', label: t('admin.sidebar.users'), icon: <Users size={18} /> },
+    { to: '/admin/agents-staff', label: t('admin.sidebar.agentsStaff'), icon: <UserCheck size={18} /> },
+    { to: '/admin/courses', label: t('admin.sidebar.lmsStudio'), icon: <BookOpen size={18} /> },
+    { to: '/admin/examinations', label: t('admin.sidebar.examinations'), icon: <Award size={18} /> },
+    { to: '/admin/schedules', label: t('admin.sidebar.schedules'), icon: <CalendarDays size={18} /> },
+    { to: '/admin/sms', label: t('admin.sidebar.sms'), icon: <MessageSquare size={18} /> },
+    { to: '/admin/audit', label: t('admin.sidebar.audit'), icon: <ShieldCheck size={18} /> },
+    { to: '/admin/settings', label: t('admin.sidebar.settings'), icon: <Settings size={18} /> },
   ];
+
+  const trainingAdminNavItems = [
+    { to: '/admin', label: t('admin.sidebar.commandCenter'), icon: <LayoutDashboard size={18} />, end: true },
+    { to: '/admin/courses', label: t('admin.sidebar.lmsStudio'), icon: <BookOpen size={18} /> },
+    { to: '/admin/examinations', label: t('admin.sidebar.examinations'), icon: <Award size={18} /> },
+    { to: '/admin/schedules', label: t('admin.sidebar.schedules'), icon: <CalendarDays size={18} /> },
+    { to: '/admin/live-classes', label: t('admin.sidebar.liveClasses'), icon: <Video size={18} /> },
+    { to: '/admin/analytics', label: t('admin.sidebar.analytics'), icon: <TrendingUp size={18} /> },
+  ];
+
+  const navItems = isTrainingAdmin ? trainingAdminNavItems : systemAdminNavItems;
 
   return (
     <aside
-      className="glass-panel"
       style={{
-        width: '270px',
+        width: '260px',
         minHeight: 'calc(100vh - 64px)',
-        borderTop: 'none',
-        borderBottom: 'none',
-        borderLeft: 'none',
-        borderRadius: 0,
-        padding: '24px 16px',
+        background: 'var(--bg-surface)',
+        borderRight: '1px solid var(--border-subtle)',
+        padding: '20px 14px',
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'space-between',
         flexShrink: 0,
       }}
     >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+        {/* Canvas LMS style role header */}
         <div
           style={{
-            padding: '0 12px 14px 12px',
+            padding: '4px 10px 14px 10px',
             display: 'flex',
             alignItems: 'center',
-            gap: '8px',
+            gap: '10px',
             borderBottom: '1px solid var(--border-subtle)',
-            marginBottom: '8px',
+            marginBottom: '12px',
           }}
         >
           <div
             style={{
-              width: '28px',
-              height: '28px',
+              width: '32px',
+              height: '32px',
               borderRadius: 'var(--radius-md)',
-              background: 'linear-gradient(135deg, var(--danger) 0%, #dc2626 100%)',
+              background: isTrainingAdmin ? '#0284c7' : '#ef4444',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               color: '#ffffff',
             }}
           >
-            <Shield size={16} />
+            {isTrainingAdmin ? <GraduationCap size={18} /> : <Shield size={18} />}
           </div>
           <div>
-            <div style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '0.02em' }}>
-              SYSTEM ADMIN
+            <div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+              {isTrainingAdmin ? t('admin.roles.trainingAdminBadge') : t('admin.roles.systemAdminBadge')}
             </div>
-            <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-              Platform Governance
+            <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+              {isTrainingAdmin ? t('admin.roles.trainingAdminSub') : t('admin.roles.systemAdminSub')}
             </div>
           </div>
         </div>
 
-        <div style={{ padding: '0 12px 8px 12px', fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-          Navigation
-        </div>
-
+        {/* Navigation list in Canvas LMS style: clean, high contrast, functional */}
         {navItems.map((item) => (
           <NavLink
             key={item.to}
@@ -96,18 +107,20 @@ export const AdminSidebar: React.FC = () => {
             style={({ isActive }) => ({
               display: 'flex',
               alignItems: 'center',
-              gap: '12px',
-              padding: '10px 14px',
-              borderRadius: 'var(--radius-lg)',
-              fontSize: '0.88rem',
-              fontWeight: 500,
+              gap: '10px',
+              padding: '9px 12px',
+              borderRadius: 'var(--radius-md)',
+              fontSize: '0.86rem',
+              fontWeight: isActive ? 700 : 500,
               textDecoration: 'none',
-              color: isActive ? '#ffffff' : 'var(--text-secondary)',
               background: isActive
-                ? 'linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%)'
+                ? isTrainingAdmin
+                  ? '#0284c7'
+                  : 'var(--primary)'
                 : 'transparent',
-              boxShadow: isActive ? '0 4px 12px var(--primary-glow)' : 'none',
-              transition: 'all var(--transition-fast)',
+              color: isActive ? '#ffffff' : 'var(--text-secondary)',
+              borderLeft: isActive ? '3px solid #38bdf8' : '3px solid transparent',
+              transition: 'background-color 0.15s ease, color 0.15s ease',
             })}
           >
             {item.icon}
@@ -116,53 +129,53 @@ export const AdminSidebar: React.FC = () => {
         ))}
       </div>
 
-      {/* Bottom Switcher & Status Info */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '24px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
         <Link
           to="/dashboard"
           style={{
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            padding: '10px 14px',
-            borderRadius: 'var(--radius-lg)',
+            padding: '8px 12px',
+            borderRadius: 'var(--radius-md)',
             background: 'var(--bg-surface-elevated)',
             border: '1px solid var(--border-subtle)',
             textDecoration: 'none',
             color: 'var(--text-secondary)',
-            fontSize: '0.85rem',
+            fontSize: '0.82rem',
             fontWeight: 600,
-            transition: 'all var(--transition-fast)',
           }}
         >
-          <span>Learner Portal</span>
-          <ExternalLink size={15} color="var(--primary-light)" />
+          <span>{isTrainingAdmin ? "Ahabanza h'Umunyeshuri" : 'Learner Portal'}</span>
+          <ExternalLink size={14} color="#0284c7" />
         </Link>
 
         {user && (
           <div
             style={{
-              padding: '12px 14px',
-              borderRadius: 'var(--radius-lg)',
-              background: 'rgba(16, 185, 129, 0.08)',
-              border: '1px solid rgba(16, 185, 129, 0.2)',
+              padding: '10px 12px',
+              borderRadius: 'var(--radius-md)',
+              background: isTrainingAdmin ? 'rgba(2, 132, 199, 0.08)' : 'rgba(239, 68, 68, 0.08)',
+              border: isTrainingAdmin ? '1px solid rgba(2, 132, 199, 0.2)' : '1px solid rgba(239, 68, 68, 0.2)',
               fontSize: '0.75rem',
               color: 'var(--text-secondary)',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '3px' }}>
               <span
                 style={{
-                  width: '8px',
-                  height: '8px',
+                  width: '7px',
+                  height: '7px',
                   borderRadius: '50%',
-                  background: 'var(--success)',
+                  background: isTrainingAdmin ? '#0284c7' : '#ef4444',
                   display: 'inline-block',
                 }}
               />
-              <strong style={{ color: 'var(--text-primary)' }}>System Admin Mode</strong>
+              <strong style={{ color: 'var(--text-primary)' }}>
+                {isTrainingAdmin ? t('admin.sidebar.footerBadge') : 'System Admin Mode'}
+              </strong>
             </div>
-            <div>{user.fullName}</div>
+            <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{user.fullName}</div>
             <div style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>{user.phoneNumber}</div>
           </div>
         )}

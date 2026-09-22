@@ -46,7 +46,7 @@ export const LoginPage: React.FC = () => {
     try {
       const user = await login(cleanPhone, password);
       success(`${t('dashboard.greeting')} ${user.fullName}!`);
-      if (user.isSystemAdmin()) {
+      if (user.isSystemAdmin() || user.isTrainingAdmin()) {
         navigate('/admin');
       } else {
         navigate('/dashboard');

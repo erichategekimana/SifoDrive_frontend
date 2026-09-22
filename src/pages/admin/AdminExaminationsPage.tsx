@@ -28,6 +28,7 @@ import {
 import { Badge } from '../../components/common/Badge';
 import { Spinner } from '../../components/common/Spinner';
 import { useToast } from '../../context/ToastContext';
+import { useTranslation } from '../../context/I18nContext';
 import { CertificateLandscapeDocument } from '../../components/common/CertificateLandscapeDocument';
 
 const DOMAIN_LABELS_KINYARWANDA: Record<string, string> = {
@@ -37,20 +38,34 @@ const DOMAIN_LABELS_KINYARWANDA: Record<string, string> = {
   SPEED: "Umuvuduko n'Intera Hagati y'Ibinyabiziga",
   LIGHTS: "Amatara n'Ibimenyetso by'Ibinyabiziga",
   OVERTAKING: "Kunyuranaho n'Imyitwarire mu Mayira",
-  ACCIDENTS: "Impanuka n'Ubutabazi bw'Ibanze",
-  SIGNAGE: "Ibyapa by'Umuhanda",
-  SAFETY: "Umutekano wo ku Muhanda",
   PARKING: "Guhagarara no Guhagarika Ibinyabiziga",
-  GENERAL: "Amategeko Rusange",
+  CROSSINGS: "Amasangano y'Imiyoboro n'Inzira za Gari ya Moshi",
+  GENERAL_RULES: "Amategeko Rusange n'Ibiziririzwa",
+  ACCIDENTS: "Impanuka, Ubutabazi n'Umutekano wo mu Muhanda",
 };
 
 const DIFFICULTY_LABELS_KINYARWANDA: Record<string, string> = {
-  EASY: "Kyoroshye",
+  ALL: "Ingorane Zose",
+  EASY: "Byoroshye",
   MEDIUM: "Kiringaniye",
   HARD: "Gikomeye",
 };
 
 export const AdminExaminationsPage: React.FC = () => {
+  const { t, language } = useTranslation();
+
+  const getDomainLabel = (domain: string) => {
+    const key = `admin.examinations.domains.${domain}`;
+    const translated = t(key);
+    return translated !== key ? translated : (DOMAIN_LABELS_KINYARWANDA[domain] || domain);
+  };
+
+  const getDifficultyLabel = (diff: string) => {
+    const key = `admin.examinations.difficulties.${diff}`;
+    const translated = t(key);
+    return translated !== key ? translated : (DIFFICULTY_LABELS_KINYARWANDA[diff] || diff);
+  };
+
   const { showToast } = useToast();
   const adminService = AdminService.getInstance();
 
@@ -249,12 +264,15 @@ export const AdminExaminationsPage: React.FC = () => {
     }
   };
 
-  const handleStageAction = async (action: 'APPROVE' | 'REJECT' | 'REQUEST_CHANGES') => {
+  const handleStageAction = async (
+    action: 'BOARD_DECISION' | 'TRAINING_DECISION' | 'SYSTEM_APPROVE' | 'REJECT' | string,
+    decision: 'APPROVE' | 'REJECT' = 'APPROVE'
+  ) => {
     if (!inspectDetail) return;
     try {
       setIsExecutingAction(true);
-      const res = await adminService.executeExamStageAction(inspectDetail.id, action, actionNotes);
-      showToast(res.message || `Exam ${action.toLowerCase()} processed successfully!`, 'success');
+      const res = await adminService.executeExamStageAction(inspectDetail.id, action, decision, actionNotes);
+      showToast(res.message || `Review action (${decision.toLowerCase()}) processed successfully!`, 'success');
       // Refresh inspection & list
       const updated = await adminService.getExamSessionDetail(inspectDetail.id);
       setInspectDetail(updated);
@@ -467,10 +485,10 @@ export const AdminExaminationsPage: React.FC = () => {
             </div>
             <div>
               <h1 style={{ fontSize: '1.6rem', fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>
-                Examinations Hub & Certification Pipeline
+                {t('admin.examinations.examinationsHub')}
               </h1>
               <p style={{ margin: '4px 0 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                Multi-stage review governance, question bank studio, and tamper-proof certificate generation
+                {t('admin.examinations.subtitle')}
               </p>
             </div>
           </div>
@@ -504,7 +522,7 @@ export const AdminExaminationsPage: React.FC = () => {
               transition: 'all 0.2s',
             }}
           >
-            <Layers size={16} /> Review Pipeline
+            <Layers size={16} /> {t('admin.examinations.pipeline')}
           </button>
           <button
             onClick={() => setActiveTab('questions')}
@@ -523,7 +541,7 @@ export const AdminExaminationsPage: React.FC = () => {
               transition: 'all 0.2s',
             }}
           >
-            <HelpCircle size={16} /> Question Bank Studio
+            <HelpCircle size={16} /> {t('admin.examinations.questions')}
           </button>
           <button
             onClick={() => setActiveTab('certificates')}
@@ -542,7 +560,7 @@ export const AdminExaminationsPage: React.FC = () => {
               transition: 'all 0.2s',
             }}
           >
-            <Award size={16} /> Certificates & Templates
+            <Award size={16} /> {t('admin.examinations.certificates')}
           </button>
           <button
             onClick={() => setActiveTab('settings')}
@@ -561,7 +579,7 @@ export const AdminExaminationsPage: React.FC = () => {
               transition: 'all 0.2s',
             }}
           >
-            <Settings size={16} /> Exam Settings & Policies
+            <Settings size={16} /> {t('admin.examinations.settings')}
           </button>
         </div>
       </div>
@@ -671,7 +689,7 @@ export const AdminExaminationsPage: React.FC = () => {
                 <Search size={15} color="var(--text-muted)" style={{ marginRight: '8px' }} />
                 <input
                   type="text"
-                  placeholder="Search student or phone..."
+                  placeholder={t('admin.examinations.searchStudentPlaceholder')}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   style={{
@@ -687,7 +705,7 @@ export const AdminExaminationsPage: React.FC = () => {
 
               {/* Cohort Selector */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>Cohort:</span>
+                <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>{t('admin.examinations.cohortLabel')}</span>
                 <select
                   value={cohortFilter}
                   onChange={(e) => setCohortFilter(e.target.value)}
@@ -701,7 +719,7 @@ export const AdminExaminationsPage: React.FC = () => {
                     outline: 'none',
                   }}
                 >
-                  <option value="ALL">All Cohorts</option>
+                  <option value="ALL">{t('admin.examinations.allCohorts')}</option>
                   {cohortsList.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.name}
@@ -712,7 +730,7 @@ export const AdminExaminationsPage: React.FC = () => {
 
               {/* Stage Filter */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>Stage:</span>
+                <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>{t('admin.examinations.stageLabel')}</span>
                 <select
                   value={stageFilter}
                   onChange={(e) => setStageFilter(e.target.value)}
@@ -726,14 +744,14 @@ export const AdminExaminationsPage: React.FC = () => {
                     outline: 'none',
                   }}
                 >
-                  <option value="ALL">All Stages</option>
-                  <option value="BOARD_REVIEW">Stage 1: Board Review</option>
-                  <option value="TRAINING_REVIEW">Stage 2: Training Admin</option>
-                  <option value="SYSTEM_REVIEW">Stage 3: System Admin Turn</option>
-                  <option value="APPROVED">Approved (Ready to Publish)</option>
-                  <option value="PUBLISHED">Published</option>
-                  <option value="REJECTED">Rejected</option>
-                  <option value="FLAGGED">Flagged</option>
+                  <option value="ALL">{t('admin.examinations.allStages')}</option>
+                  <option value="BOARD_REVIEW">{t('admin.examinations.stage1')}</option>
+                  <option value="TRAINING_REVIEW">{t('admin.examinations.stage2')}</option>
+                  <option value="SYSTEM_REVIEW">{t('admin.examinations.stage3')}</option>
+                  <option value="APPROVED">{t('admin.examinations.approvedStage')}</option>
+                  <option value="PUBLISHED">{t('admin.examinations.publishedStage')}</option>
+                  <option value="REJECTED">{t('admin.examinations.rejectedStage')}</option>
+                  <option value="FLAGGED">{t('admin.examinations.flaggedStage')}</option>
                 </select>
               </div>
 
@@ -1053,7 +1071,7 @@ export const AdminExaminationsPage: React.FC = () => {
                 <Search size={16} color="#38bdf8" style={{ marginRight: '8px' }} />
                 <input
                   type="text"
-                  placeholder="Shakisha ikibazo mu Kinyarwanda..."
+                  placeholder={t('admin.examinations.searchQuestionPlaceholder')}
                   value={questionSearch}
                   onChange={(e) => setQuestionSearch(e.target.value)}
                   style={{
@@ -1067,7 +1085,7 @@ export const AdminExaminationsPage: React.FC = () => {
                 />
               </div>
 
-              {/* Domain Filter in Kinyarwanda */}
+              {/* Domain Filter */}
               <select
                 value={domainFilter}
                 onChange={(e) => {
@@ -1084,16 +1102,16 @@ export const AdminExaminationsPage: React.FC = () => {
                   outline: 'none',
                 }}
               >
-                <option value="ALL">Ibyiciro Byose</option>
-                <option value="ROAD_SIGNS">Ibyapa n'Ibimenyetso byo ku Muhanda</option>
-                <option value="PRIORITY">Ubutware n'Uburenganzira bwo Gutambuka</option>
-                <option value="SPEED">Umuvuduko n'Intera Hagati y'Ibinyabiziga</option>
-                <option value="LIGHTS">Amatara n'Ibimenyetso by'Ibinyabiziga</option>
-                <option value="OVERTAKING">Kunyuranaho n'Imyitwarire mu Mayira</option>
-                <option value="ACCIDENTS">Impanuka n'Ubutabazi bw'Ibanze</option>
-                <option value="SIGNAGE">Ibyapa by'Umuhanda</option>
-                <option value="SAFETY">Umutekano wo ku Muhanda</option>
-                <option value="PARKING">Guhagarara no Guhagarika Ibinyabiziga</option>
+                <option value="ALL">{getDomainLabel('ALL')}</option>
+                <option value="ROAD_SIGNS">{getDomainLabel('ROAD_SIGNS')}</option>
+                <option value="PRIORITY">{getDomainLabel('PRIORITY')}</option>
+                <option value="SPEED">{getDomainLabel('SPEED')}</option>
+                <option value="LIGHTS">{getDomainLabel('LIGHTS')}</option>
+                <option value="OVERTAKING">{getDomainLabel('OVERTAKING')}</option>
+                <option value="PARKING">{getDomainLabel('PARKING')}</option>
+                <option value="CROSSINGS">{getDomainLabel('CROSSINGS')}</option>
+                <option value="GENERAL_RULES">{getDomainLabel('GENERAL_RULES')}</option>
+                <option value="ACCIDENTS">{getDomainLabel('ACCIDENTS')}</option>
               </select>
             </div>
           </div>
@@ -1102,12 +1120,12 @@ export const AdminExaminationsPage: React.FC = () => {
           {isQuestionsLoading ? (
             <div style={{ padding: '60px 20px', textAlign: 'center' }}>
               <Spinner size={36} />
-              <p style={{ marginTop: '12px', color: 'var(--text-muted)' }}>Ibibazo birimo gushakishwa mu bubiko...</p>
+              <p style={{ marginTop: '12px', color: 'var(--text-muted)' }}>{t('admin.examinations.loadingQuestions')}</p>
             </div>
           ) : questionsData.results.length === 0 ? (
             <div className="glass-panel" style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
               <HelpCircle size={48} style={{ opacity: 0.3, marginBottom: '12px', color: '#38bdf8' }} />
-              <p>Nta bibazo bihuye n'ibyo mushakishije mu bubiko.</p>
+              <p>{t('admin.examinations.noQuestionsFound')}</p>
             </div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(420px, 1fr))', gap: '16px' }}>
@@ -1139,7 +1157,7 @@ export const AdminExaminationsPage: React.FC = () => {
                             fontSize: '0.78rem',
                           }}
                         >
-                          Ikibazo #{q.question_number}
+                          {language === 'rw' ? `Ikibazo #${q.question_number}` : `Question #${q.question_number}`}
                         </span>
                         <span
                           style={{
@@ -1152,10 +1170,10 @@ export const AdminExaminationsPage: React.FC = () => {
                             fontSize: '0.72rem',
                           }}
                         >
-                          {DOMAIN_LABELS_KINYARWANDA[q.domain] || q.domain}
+                          {getDomainLabel(q.domain)}
                         </span>
                         <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                          &bull; {DIFFICULTY_LABELS_KINYARWANDA[q.difficulty] || q.difficulty}
+                          &bull; {getDifficultyLabel(q.difficulty)}
                         </span>
                       </div>
                       <button
@@ -1175,13 +1193,13 @@ export const AdminExaminationsPage: React.FC = () => {
                           transition: 'all 0.15s ease',
                         }}
                       >
-                        <Edit3 size={13} /> Kosora Ikibazo
+                        <Edit3 size={13} /> {t('admin.examinations.editQuestion')}
                       </button>
                     </div>
 
-                    {/* Question text in Kinyarwanda ONLY */}
+                    {/* Question text */}
                     <div style={{ fontWeight: 700, fontSize: '0.94rem', color: '#ffffff', lineHeight: '1.5' }}>
-                      {q.question_text_kinyarwanda || q.question_text}
+                      {language === 'rw' ? (q.question_text_kinyarwanda || q.question_text) : (q.question_text || q.question_text_kinyarwanda)}
                     </div>
 
                     {/* Diagram preview if present */}
@@ -1189,19 +1207,19 @@ export const AdminExaminationsPage: React.FC = () => {
                       <div style={{ margin: '12px 0', textAlign: 'center' }}>
                         <img
                           src={q.image}
-                          alt="Igishushanyo cy'Ikibazo"
+                          alt="Diagram preview"
                           style={{ maxHeight: '110px', borderRadius: '6px', border: '1px solid rgba(56, 189, 248, 0.25)', background: '#ffffff', padding: '2px' }}
                         />
                       </div>
                     )}
 
-                    {/* Options A, B, C, D in Kinyarwanda */}
+                    {/* Options A, B, C, D */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '12px' }}>
                       {[
-                        { key: 'A', text: q.option_a_kinyarwanda || q.option_a, image: q.option_a_image },
-                        { key: 'B', text: q.option_b_kinyarwanda || q.option_b, image: q.option_b_image },
-                        { key: 'C', text: q.option_c_kinyarwanda || q.option_c, image: q.option_c_image },
-                        { key: 'D', text: q.option_d_kinyarwanda || q.option_d, image: q.option_d_image },
+                        { key: 'A', text: language === 'rw' ? (q.option_a_kinyarwanda || q.option_a) : (q.option_a || q.option_a_kinyarwanda), image: q.option_a_image },
+                        { key: 'B', text: language === 'rw' ? (q.option_b_kinyarwanda || q.option_b) : (q.option_b || q.option_b_kinyarwanda), image: q.option_b_image },
+                        { key: 'C', text: language === 'rw' ? (q.option_c_kinyarwanda || q.option_c) : (q.option_c || q.option_c_kinyarwanda), image: q.option_c_image },
+                        { key: 'D', text: language === 'rw' ? (q.option_d_kinyarwanda || q.option_d) : (q.option_d || q.option_d_kinyarwanda), image: q.option_d_image },
                       ].map((opt) => {
                         const isCorrect = q.correct_option === opt.key;
                         return (
@@ -1230,7 +1248,7 @@ export const AdminExaminationsPage: React.FC = () => {
                             {opt.image && (
                               <img
                                 src={opt.image}
-                                alt={`Ihitamo ${opt.key}`}
+                                alt={`Option ${opt.key}`}
                                 style={{
                                   height: '32px',
                                   borderRadius: '4px',
@@ -1245,7 +1263,7 @@ export const AdminExaminationsPage: React.FC = () => {
                             </span>
                             {isCorrect && (
                               <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#38bdf8', letterSpacing: '0.03em' }}>
-                                CY'UKURI
+                                {t('admin.examinations.correctBadge')}
                               </span>
                             )}
                           </div>
@@ -1254,18 +1272,21 @@ export const AdminExaminationsPage: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Explanation footer in Kinyarwanda */}
+                  {/* Explanation footer */}
                   {(q.explanation_kinyarwanda || q.explanation) && (
                     <div
                       style={{
                         marginTop: '12px',
-                        paddingTop: '8px',
-                        borderTop: '1px solid var(--border-subtle)',
+                        padding: '8px 10px',
+                        borderRadius: '6px',
+                        background: 'rgba(56, 189, 248, 0.05)',
+                        border: '1px solid rgba(56, 189, 248, 0.15)',
                         fontSize: '0.78rem',
-                        color: 'var(--text-muted)',
+                        color: 'var(--text-secondary)',
                       }}
                     >
-                      <strong style={{ color: '#38bdf8' }}>Ibisobanuro:</strong> {q.explanation_kinyarwanda || q.explanation}
+                      <strong style={{ color: '#38bdf8' }}>{language === 'rw' ? 'Ibisobanuro: ' : 'Explanation: '}</strong>
+                      {language === 'rw' ? (q.explanation_kinyarwanda || q.explanation) : (q.explanation || q.explanation_kinyarwanda)}
                     </div>
                   )}
                 </div>
@@ -2255,6 +2276,51 @@ export const AdminExaminationsPage: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Prior Review Stages Notes (Board Reviewer & Training Admin) */}
+                {inspectDetail.board_notes && (
+                  <div
+                    style={{
+                      padding: '10px 14px',
+                      borderRadius: '6px',
+                      background: 'rgba(59, 130, 246, 0.08)',
+                      border: '1px solid rgba(59, 130, 246, 0.25)',
+                      marginBottom: '12px',
+                    }}
+                  >
+                    <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#60a5fa', textTransform: 'uppercase', marginBottom: '2px' }}>
+                      Board Reviewer Evaluation (Stage 1)
+                    </div>
+                    <div style={{ fontSize: '0.82rem', color: 'var(--text-primary)' }}>{inspectDetail.board_notes}</div>
+                    {inspectDetail.board_reviewer?.full_name && (
+                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                        Evaluated by: {inspectDetail.board_reviewer.full_name}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {inspectDetail.training_notes && (
+                  <div
+                    style={{
+                      padding: '10px 14px',
+                      borderRadius: '6px',
+                      background: 'rgba(245, 158, 11, 0.08)',
+                      border: '1px solid rgba(245, 158, 11, 0.25)',
+                      marginBottom: '12px',
+                    }}
+                  >
+                    <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#f59e0b', textTransform: 'uppercase', marginBottom: '2px' }}>
+                      Training Admin Pedagogical Review (Stage 2)
+                    </div>
+                    <div style={{ fontSize: '0.82rem', color: 'var(--text-primary)' }}>{inspectDetail.training_notes}</div>
+                    {inspectDetail.training_admin?.full_name && (
+                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                        Evaluated by: {inspectDetail.training_admin.full_name}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* Decision Action Area */}
                 <div
                   style={{
@@ -2266,18 +2332,22 @@ export const AdminExaminationsPage: React.FC = () => {
                 >
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
                     <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                      Decision Remarks & Actions
+                      {t('admin.examinations.decisionRemarks')}
                     </div>
-                    {inspectDetail.can_system_approve ? (
-                      <Badge variant="success">Approval Unlocked</Badge>
+                    {inspectDetail.status === 'TRAINING_REVIEW' ? (
+                      <Badge variant="warning">{t('admin.examinations.stage2')}</Badge>
+                    ) : inspectDetail.status === 'BOARD_REVIEW' ? (
+                      <Badge variant="info">{t('admin.examinations.stage1')}</Badge>
+                    ) : inspectDetail.can_system_approve ? (
+                      <Badge variant="success">{t('admin.examinations.stage3')}</Badge>
                     ) : (
-                      <Badge variant="neutral">Approval Locked (Awaiting Prior Reviews)</Badge>
+                      <Badge variant="neutral">Approval Locked</Badge>
                     )}
                   </div>
 
                   <input
                     type="text"
-                    placeholder="Decision remarks (optional)..."
+                    placeholder={t('admin.examinations.decisionPlaceholder')}
                     value={actionNotes}
                     onChange={(e) => setActionNotes(e.target.value)}
                     style={{
@@ -2293,40 +2363,115 @@ export const AdminExaminationsPage: React.FC = () => {
                     }}
                   />
 
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px' }}>
-                    <button
-                      onClick={() => handleStageAction('REJECT')}
-                      disabled={isExecutingAction || inspectDetail.status === 'PUBLISHED'}
-                      style={{
-                        padding: '6px 14px',
-                        borderRadius: '6px',
-                        border: '1px solid var(--border-subtle)',
-                        background: 'transparent',
-                        color: '#ef4444',
-                        fontWeight: 500,
-                        fontSize: '0.8rem',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      Reject
-                    </button>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px', flexWrap: 'wrap' }}>
+                    {/* Stage 2: Training Admin Actions */}
+                    {inspectDetail.status === 'TRAINING_REVIEW' ? (
+                      <>
+                        <button
+                          onClick={() => handleStageAction('TRAINING_DECISION', 'REJECT')}
+                          disabled={isExecutingAction}
+                          style={{
+                            padding: '6px 14px',
+                            borderRadius: '6px',
+                            border: '1px solid var(--border-subtle)',
+                            background: 'transparent',
+                            color: '#ef4444',
+                            fontWeight: 500,
+                            fontSize: '0.8rem',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {t('admin.examinations.rejectSession')}
+                        </button>
+                        <button
+                          onClick={() => handleStageAction('TRAINING_DECISION', 'APPROVE')}
+                          disabled={isExecutingAction}
+                          style={{
+                            padding: '6px 16px',
+                            borderRadius: '6px',
+                            border: 'none',
+                            background: '#d97706',
+                            color: '#ffffff',
+                            fontWeight: 600,
+                            fontSize: '0.8rem',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {t('admin.examinations.approveForward')}
+                        </button>
+                      </>
+                    ) : inspectDetail.status === 'BOARD_REVIEW' ? (
+                      <>
+                        <button
+                          onClick={() => handleStageAction('BOARD_DECISION', 'REJECT')}
+                          disabled={isExecutingAction}
+                          style={{
+                            padding: '6px 14px',
+                            borderRadius: '6px',
+                            border: '1px solid var(--border-subtle)',
+                            background: 'transparent',
+                            color: '#ef4444',
+                            fontWeight: 500,
+                            fontSize: '0.8rem',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          Reject
+                        </button>
+                        <button
+                          onClick={() => handleStageAction('BOARD_DECISION', 'APPROVE')}
+                          disabled={isExecutingAction}
+                          style={{
+                            padding: '6px 16px',
+                            borderRadius: '6px',
+                            border: 'none',
+                            background: 'var(--primary)',
+                            color: '#ffffff',
+                            fontWeight: 600,
+                            fontSize: '0.8rem',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          Approve & Forward to Training Admin
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => handleStageAction('REJECT', 'REJECT')}
+                          disabled={isExecutingAction || inspectDetail.status === 'PUBLISHED'}
+                          style={{
+                            padding: '6px 14px',
+                            borderRadius: '6px',
+                            border: '1px solid var(--border-subtle)',
+                            background: 'transparent',
+                            color: '#ef4444',
+                            fontWeight: 500,
+                            fontSize: '0.8rem',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          Reject
+                        </button>
 
-                    <button
-                      onClick={() => handleStageAction('APPROVE')}
-                      disabled={!inspectDetail.can_system_approve || isExecutingAction}
-                      style={{
-                        padding: '6px 16px',
-                        borderRadius: '6px',
-                        border: 'none',
-                        background: inspectDetail.can_system_approve ? 'var(--primary)' : 'rgba(255,255,255,0.05)',
-                        color: inspectDetail.can_system_approve ? '#ffffff' : 'var(--text-muted)',
-                        fontWeight: 600,
-                        fontSize: '0.8rem',
-                        cursor: inspectDetail.can_system_approve ? 'pointer' : 'not-allowed',
-                      }}
-                    >
-                      Approve & Issue Certificate
-                    </button>
+                        <button
+                          onClick={() => handleStageAction('SYSTEM_APPROVE', 'APPROVE')}
+                          disabled={!inspectDetail.can_system_approve || isExecutingAction}
+                          style={{
+                            padding: '6px 16px',
+                            borderRadius: '6px',
+                            border: 'none',
+                            background: inspectDetail.can_system_approve ? 'var(--primary)' : 'rgba(255,255,255,0.05)',
+                            color: inspectDetail.can_system_approve ? '#ffffff' : 'var(--text-muted)',
+                            fontWeight: 600,
+                            fontSize: '0.8rem',
+                            cursor: inspectDetail.can_system_approve ? 'pointer' : 'not-allowed',
+                          }}
+                        >
+                          Approve & Issue Certificate
+                        </button>
+                      </>
+                    )}
 
                     {inspectDetail.can_publish && !inspectDetail.is_published && (
                       <button
@@ -2397,7 +2542,7 @@ export const AdminExaminationsPage: React.FC = () => {
                       fontSize: '0.8rem',
                     }}
                   >
-                    Ikibazo #{editingQuestion.question_number}
+                    {language === 'rw' ? `Ikibazo #${editingQuestion.question_number}` : `Question #${editingQuestion.question_number}`}
                   </span>
                   <span
                     style={{
@@ -2410,14 +2555,14 @@ export const AdminExaminationsPage: React.FC = () => {
                       fontSize: '0.72rem',
                     }}
                   >
-                    {DOMAIN_LABELS_KINYARWANDA[editingQuestion.domain] || editingQuestion.domain}
+                    {getDomainLabel(editingQuestion.domain)}
                   </span>
                 </div>
                 <h2 style={{ fontSize: '1.2rem', fontWeight: 800, margin: 0, color: '#ffffff' }}>
-                  Kosora Ikibazo #{editingQuestion.question_number}
+                  {language === 'rw' ? `Kosora Ikibazo #${editingQuestion.question_number}` : `Edit Question #${editingQuestion.question_number}`}
                 </h2>
                 <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                  Kosora amakosa y'imyandikire, amahitamo y'ibisubizo, n'ibisobanuro mu Kinyarwanda.
+                  {t('admin.examinations.editQuestionSubtitle')}
                 </div>
               </div>
               <button
@@ -2432,7 +2577,7 @@ export const AdminExaminationsPage: React.FC = () => {
               {/* Question Text in Kinyarwanda */}
               <div>
                 <label style={{ fontSize: '0.82rem', fontWeight: 700, color: '#38bdf8' }}>
-                  Umwandiko w'Ikibazo (Kinyarwanda)
+                  {t('admin.examinations.questionTextLabel')}
                 </label>
                 <textarea
                   rows={3}
@@ -2443,7 +2588,7 @@ export const AdminExaminationsPage: React.FC = () => {
                       question_text_kinyarwanda: e.target.value,
                     })
                   }
-                  placeholder="Andika umwandiko w'ikibazo mu Kinyarwanda..."
+                  placeholder={t('admin.examinations.questionTextPlaceholder')}
                   style={{
                     width: '100%',
                     padding: '10px 12px',
@@ -2462,7 +2607,7 @@ export const AdminExaminationsPage: React.FC = () => {
               {/* Options A, B, C, D Edit & Correct Answer Selection */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 <label style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
-                  Amahitamo y'Ibisubizo & Kanda ku Nyuguti Guhitamo Igisubizo cy'Ukuri
+                  {t('admin.examinations.optionsInstruction')}
                 </label>
                 {(['A', 'B', 'C', 'D'] as const).map((key) => {
                   const prop = `option_${key.toLowerCase()}_kinyarwanda` as keyof AdminQuizQuestionItem;
@@ -2499,14 +2644,14 @@ export const AdminExaminationsPage: React.FC = () => {
                           flexShrink: 0,
                           transition: 'all 0.15s ease',
                         }}
-                        title={`Kanda hano kugira ngo ${key} bibe igisubizo cy'ukuri`}
+                        title={`Select ${key} as correct answer`}
                       >
                         {key}
                       </button>
                       {editingQuestion[imgProp] && (
                         <img
                           src={editingQuestion[imgProp] as string}
-                          alt={`Ihitamo ${key}`}
+                          alt={`Option ${key}`}
                           style={{
                             height: '32px',
                             background: '#ffffff',
@@ -2523,7 +2668,7 @@ export const AdminExaminationsPage: React.FC = () => {
                         onChange={(e) =>
                           setEditingQuestion({ ...editingQuestion, [prop]: e.target.value })
                         }
-                        placeholder={`Ihitamo ${key} mu Kinyarwanda...`}
+                        placeholder={`Option ${key}...`}
                         style={{
                           flex: 1,
                           background: 'transparent',
@@ -2535,7 +2680,7 @@ export const AdminExaminationsPage: React.FC = () => {
                       />
                       {isCorrect && (
                         <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#38bdf8', letterSpacing: '0.03em', flexShrink: 0 }}>
-                          CY'UKURI
+                          {t('admin.examinations.correctBadge')}
                         </span>
                       )}
                     </div>
@@ -2546,13 +2691,13 @@ export const AdminExaminationsPage: React.FC = () => {
               {/* Diagram / Image */}
               <div>
                 <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                  Ifoto / Igishushanyo cy'Ikibazo (Niba gihari)
+                  {t('admin.examinations.imageLabel')}
                 </label>
                 <input
                   type="text"
                   value={editingQuestion.image || ''}
                   onChange={(e) => setEditingQuestion({ ...editingQuestion, image: e.target.value })}
-                  placeholder="/media/lms/questions/... cyangwa https://..."
+                  placeholder="/media/lms/questions/... or https://..."
                   style={{
                     width: '100%',
                     padding: '8px 12px',
@@ -2578,7 +2723,7 @@ export const AdminExaminationsPage: React.FC = () => {
               {/* Explanation in Kinyarwanda */}
               <div>
                 <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                  Ibisobanuro & Ingingo y'Amategeko (Kinyarwanda)
+                  {t('admin.examinations.explanationLabel')}
                 </label>
                 <textarea
                   rows={2}
@@ -2586,7 +2731,7 @@ export const AdminExaminationsPage: React.FC = () => {
                   onChange={(e) =>
                     setEditingQuestion({ ...editingQuestion, explanation_kinyarwanda: e.target.value })
                   }
-                  placeholder="Ibisobanuro by'amategeko mu Kinyarwanda..."
+                  placeholder={t('admin.examinations.explanationPlaceholder')}
                   style={{
                     width: '100%',
                     padding: '8px 12px',
@@ -2614,7 +2759,7 @@ export const AdminExaminationsPage: React.FC = () => {
                     fontSize: '0.85rem',
                   }}
                 >
-                  Hagarika
+                  {t('admin.examinations.cancel')}
                 </button>
                 <button
                   onClick={handleSaveQuestion}
@@ -2634,7 +2779,7 @@ export const AdminExaminationsPage: React.FC = () => {
                     boxShadow: '0 2px 8px rgba(56, 189, 248, 0.25)',
                   }}
                 >
-                  <Save size={16} /> {isSavingQuestion ? 'Birabikwa...' : 'Bika Impinduka'}
+                  <Save size={16} /> {isSavingQuestion ? t('admin.examinations.saving') : t('admin.examinations.saveChanges')}
                 </button>
               </div>
             </div>

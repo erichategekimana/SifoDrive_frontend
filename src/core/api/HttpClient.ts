@@ -205,7 +205,7 @@ export class HttpClient {
       url,
       {
         method: 'POST',
-        body: data !== undefined ? JSON.stringify(data) : undefined,
+        body: data !== undefined ? (data instanceof FormData ? data : JSON.stringify(data)) : undefined,
       },
       requiresAuth
     );
@@ -216,7 +216,7 @@ export class HttpClient {
       url,
       {
         method: 'PATCH',
-        body: data !== undefined ? JSON.stringify(data) : undefined,
+        body: data !== undefined ? (data instanceof FormData ? data : JSON.stringify(data)) : undefined,
       },
       requiresAuth
     );

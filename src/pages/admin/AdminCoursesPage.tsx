@@ -17,20 +17,34 @@ import {
   Search,
   Check,
   ArrowRightLeft,
-  Power,
-  PowerOff,
   CheckSquare,
   Square,
+  Layers,
+  FileText,
+  Headphones,
+  Compass,
+  PlayCircle,
+  ArrowLeft,
+  ExternalLink,
+  Power,
+  PowerOff,
 } from 'lucide-react';
 import { AdminService } from '../../core/services/AdminService';
 import type { CohortItem, AdminUserItem, LiveClassAdminItem } from '../../core/services/AdminService';
 import { Badge } from '../../components/common/Badge';
 import { Spinner } from '../../components/common/Spinner';
 import { useToast } from '../../context/ToastContext';
+import { useAuth } from '../../context/AuthContext';
+import { useTranslation } from '../../context/I18nContext';
 
 type LMSStudioSection = 'courses' | 'cohorts' | 'learners' | 'quizzes' | 'tutors';
 
 export const AdminCoursesPage: React.FC = () => {
+  const { user } = useAuth();
+  const { language, t } = useTranslation();
+  const isTrainingAdmin = user?.isTrainingAdmin();
+  const isSystemAdmin = user?.isSystemAdmin();
+
   const [activeSection, setActiveSection] = useState<LMSStudioSection>('courses');
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
@@ -92,6 +106,37 @@ export const AdminCoursesPage: React.FC = () => {
   const [classMeetingLink, setClassMeetingLink] = useState<string>('');
 
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+
+  // ── Curriculum: Course Modules & Lessons Builder State ────────────────────
+  const [selectedCourseForCurriculum, setSelectedCourseForCurriculum] = useState<any | null>(null);
+  const [courseModules, setCourseModules] = useState<any[]>([]);
+  const [isModulesLoading, setIsModulesLoading] = useState<boolean>(false);
+  const [selectedModule, setSelectedModule] = useState<any | null>(null);
+  const [moduleLessons, setModuleLessons] = useState<any[]>([]);
+  const [isLessonsLoading, setIsLessonsLoading] = useState<boolean>(false);
+  const [roadSignsList, setRoadSignsList] = useState<any[]>([]);
+
+  // Module Modal State
+  const [isModuleModalOpen, setIsModuleModalOpen] = useState<boolean>(false);
+  const [editingModuleId, setEditingModuleId] = useState<string | null>(null);
+  const [modTitle, setModTitle] = useState<string>('');
+  const [modDescription, setModDescription] = useState<string>('');
+  const [modSortOrder, setModSortOrder] = useState<number>(1);
+  const [modIsFoundational, setModIsFoundational] = useState<boolean>(false);
+
+  // Lesson Modal State
+  const [isLessonModalOpen, setIsLessonModalOpen] = useState<boolean>(false);
+  const [editingLessonId, setEditingLessonId] = useState<string | null>(null);
+  const [lesTitle, setLesTitle] = useState<string>('');
+  const [lesType, setLesType] = useState<'TEXT' | 'AUDIO' | 'VIDEO' | 'ROAD_SIGN' | 'QUIZ'>('TEXT');
+  const [lesContentText, setLesContentText] = useState<string>('');
+  const [lesMediaUrl, setLesMediaUrl] = useState<string>('');
+  const [lesMediaFile, setLesMediaFile] = useState<File | null>(null);
+  const [lesRoadSignId, setLesRoadSignId] = useState<string>('');
+  const [lesDurationMinutes, setLesDurationMinutes] = useState<number>(15);
+  const [lesIsFreePreview, setLesIsFreePreview] = useState<boolean>(false);
+  const [lesIsStudentOnly, setLesIsStudentOnly] = useState<boolean>(false);
+  const [lesSortOrder, setLesSortOrder] = useState<number>(1);
 
   const adminService = AdminService.getInstance();
   const { success, warning, error: toastError } = useToast();
@@ -428,6 +473,277 @@ export const AdminCoursesPage: React.FC = () => {
     }
   };
 
+  // -------------------------------------------------------------------------
+  // 5. Curriculum Builder Handlers
+  // -------------------------------------------------------------------------
+  const handleOpenCurriculumBuilder = async (course: any) => {
+    setSelectedCourseForCurriculum(course);
+    setIsModulesLoading(true);
+    setSelectedModule(null);
+    setModuleLessons([]);
+    try {
+      const [mods, signs] = await Promise.all([
+        adminService.getCourseModules(course.id),
+        roadSignsList.length === 0 ? adminService.getRoadSigns().catch(() => []) : Promise.resolve(roadSignsList),
+      ]);
+      const sorted = (mods || []).sort((a: any, b: any) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+      setCourseModules(sorted);
+      if (roadSignsList.length === 0 && Array.isArray(signs)) {
+        setRoadSignsList(signs);
+      }
+      if (sorted.length > 0) {
+        handleSelectModule(sorted[0]);
+      }
+    } catch (err: any) {
+      toastError(err?.message || 'Failed to load course modules.');
+    } finally {
+      setIsModulesLoading(false);
+    }
+  };
+
+  const handleSelectModule = async (mod: any) => {
+    setSelectedModule(mod);
+    setIsLessonsLoading(true);
+    try {
+      const lessons = await adminService.getModuleLessons(mod.id);
+      const sorted = (lessons || []).sort((a: any, b: any) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+      setModuleLessons(sorted);
+    } catch (err: any) {
+      toastError(err?.message || 'Failed to load module lessons.');
+    } finally {
+      setIsLessonsLoading(false);
+    }
+  };
+
+  const handleOpenCreateModule = () => {
+    setEditingModuleId(null);
+    setModTitle('');
+    setModDescription('');
+    setModSortOrder(courseModules.length + 1);
+    setModIsFoundational(false);
+    setIsModuleModalOpen(true);
+  };
+
+  const handleOpenEditModule = (mod: any) => {
+    setEditingModuleId(mod.id);
+    setModTitle(mod.title || '');
+    setModDescription(mod.description || '');
+    setModSortOrder(mod.sort_order ?? 1);
+    setModIsFoundational(!!mod.is_foundational);
+    setIsModuleModalOpen(true);
+  };
+
+  const handleSaveModule = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!modTitle.trim()) {
+      warning('Module title is required.');
+      return;
+    }
+    if (!selectedCourseForCurriculum) return;
+    setIsSubmitting(true);
+    try {
+      if (editingModuleId) {
+        await adminService.updateModule(editingModuleId, {
+          title: modTitle.trim(),
+          description: modDescription.trim() || undefined,
+          sort_order: Number(modSortOrder) || 1,
+          is_foundational: modIsFoundational,
+        });
+        success('Updated module successfully.');
+      } else {
+        await adminService.createModule({
+          course: selectedCourseForCurriculum.id,
+          title: modTitle.trim(),
+          description: modDescription.trim() || undefined,
+          sort_order: Number(modSortOrder) || (courseModules.length + 1),
+          is_foundational: modIsFoundational,
+        });
+        success('Created new module.');
+      }
+      setIsModuleModalOpen(false);
+      const mods = await adminService.getCourseModules(selectedCourseForCurriculum.id);
+      const sorted = (mods || []).sort((a: any, b: any) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+      setCourseModules(sorted);
+      if (editingModuleId && selectedModule?.id === editingModuleId) {
+        const updated = sorted.find((m: any) => m.id === editingModuleId);
+        if (updated) setSelectedModule(updated);
+      } else if (!selectedModule && sorted.length > 0) {
+        handleSelectModule(sorted[0]);
+      }
+      loadAllData();
+    } catch (err: any) {
+      toastError(err?.message || 'Failed to save module.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleTogglePublishModule = async (mod: any) => {
+    if (!selectedCourseForCurriculum) return;
+    try {
+      if (mod.is_published) {
+        await adminService.unpublishModule(mod.id);
+        success(`Unpublished module "${mod.title}".`);
+      } else {
+        await adminService.publishModule(mod.id);
+        success(`Published module "${mod.title}".`);
+      }
+      const mods = await adminService.getCourseModules(selectedCourseForCurriculum.id);
+      const sorted = (mods || []).sort((a: any, b: any) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+      setCourseModules(sorted);
+      if (selectedModule?.id === mod.id) {
+        const updated = sorted.find((m: any) => m.id === mod.id);
+        if (updated) setSelectedModule(updated);
+      }
+    } catch (err: any) {
+      toastError(err?.message || 'Failed to toggle module publish status.');
+    }
+  };
+
+  const handleDeleteModule = async (moduleId: string, title: string) => {
+    if (!window.confirm(`Are you sure you want to delete module "${title}" and all its lessons?`)) return;
+    if (!selectedCourseForCurriculum) return;
+    try {
+      await adminService.deleteModule(moduleId);
+      success(`Deleted module "${title}".`);
+      const mods = await adminService.getCourseModules(selectedCourseForCurriculum.id);
+      const sorted = (mods || []).sort((a: any, b: any) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+      setCourseModules(sorted);
+      if (selectedModule?.id === moduleId) {
+        if (sorted.length > 0) {
+          handleSelectModule(sorted[0]);
+        } else {
+          setSelectedModule(null);
+          setModuleLessons([]);
+        }
+      }
+      loadAllData();
+    } catch (err: any) {
+      toastError(err?.message || 'Failed to delete module.');
+    }
+  };
+
+  const handleOpenCreateLesson = () => {
+    if (!selectedModule) {
+      warning('Please select a module first.');
+      return;
+    }
+    setEditingLessonId(null);
+    setLesTitle('');
+    setLesType('TEXT');
+    setLesContentText('');
+    setLesMediaUrl('');
+    setLesMediaFile(null);
+    setLesRoadSignId('');
+    setLesDurationMinutes(15);
+    setLesIsFreePreview(false);
+    setLesIsStudentOnly(false);
+    setLesSortOrder(moduleLessons.length + 1);
+    setIsLessonModalOpen(true);
+  };
+
+  const handleOpenEditLesson = (les: any) => {
+    setEditingLessonId(les.id);
+    setLesTitle(les.title || '');
+    setLesType(les.lesson_type || 'TEXT');
+    setLesContentText(les.content_text || '');
+    setLesMediaUrl(les.media_url || '');
+    setLesMediaFile(null);
+    setLesRoadSignId(les.road_sign || '');
+    setLesDurationMinutes(les.duration_minutes || 15);
+    setLesIsFreePreview(!!les.is_free_preview);
+    setLesIsStudentOnly(!!les.is_student_only);
+    setLesSortOrder(les.sort_order ?? 1);
+    setIsLessonModalOpen(true);
+  };
+
+  const handleSaveLesson = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!lesTitle.trim()) {
+      warning('Lesson title is required.');
+      return;
+    }
+    if (!selectedModule) return;
+
+    if (lesType === 'TEXT' && !lesContentText.trim()) {
+      warning('Please enter article / guide content for TEXT lessons.');
+      return;
+    }
+    if (lesType === 'AUDIO' && !lesMediaFile && !lesMediaUrl.trim()) {
+      warning('Please upload an audio file or provide a streaming audio URL.');
+      return;
+    }
+    if (lesType === 'VIDEO' && !lesMediaFile && !lesMediaUrl.trim()) {
+      warning('Please upload a video file or provide a video streaming / YouTube link.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      let payload: FormData | Record<string, any>;
+      if (lesMediaFile) {
+        const fd = new FormData();
+        fd.append('module', selectedModule.id);
+        fd.append('title', lesTitle.trim());
+        fd.append('lesson_type', lesType);
+        fd.append('sort_order', String(lesSortOrder));
+        fd.append('duration_minutes', String(lesDurationMinutes));
+        fd.append('is_free_preview', String(lesIsFreePreview));
+        fd.append('is_student_only', String(lesIsStudentOnly));
+        if (lesContentText.trim()) fd.append('content_text', lesContentText.trim());
+        if (lesMediaUrl.trim()) fd.append('media_url', lesMediaUrl.trim());
+        fd.append('media_file', lesMediaFile);
+        if (lesRoadSignId) fd.append('road_sign', lesRoadSignId);
+        payload = fd;
+      } else {
+        payload = {
+          module: selectedModule.id,
+          title: lesTitle.trim(),
+          lesson_type: lesType,
+          sort_order: Number(lesSortOrder) || 1,
+          duration_minutes: Number(lesDurationMinutes) || 15,
+          is_free_preview: Boolean(lesIsFreePreview),
+          is_student_only: Boolean(lesIsStudentOnly),
+          content_text: lesContentText.trim() || undefined,
+          media_url: lesMediaUrl.trim() || undefined,
+          road_sign: lesRoadSignId || undefined,
+        };
+      }
+
+      if (editingLessonId) {
+        await adminService.updateLesson(editingLessonId, payload);
+        success('Updated lesson successfully.');
+      } else {
+        await adminService.createLesson(payload);
+        success('Created lesson successfully.');
+      }
+      setIsLessonModalOpen(false);
+      const lessons = await adminService.getModuleLessons(selectedModule.id);
+      const sorted = (lessons || []).sort((a: any, b: any) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+      setModuleLessons(sorted);
+      loadAllData();
+    } catch (err: any) {
+      toastError(err?.message || 'Failed to save lesson.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteLesson = async (lessonId: string, title: string) => {
+    if (!window.confirm(`Are you sure you want to delete lesson "${title}"?`)) return;
+    if (!selectedModule) return;
+    try {
+      await adminService.deleteLesson(lessonId);
+      success(`Deleted lesson "${title}".`);
+      const lessons = await adminService.getModuleLessons(selectedModule.id);
+      const sorted = (lessons || []).sort((a: any, b: any) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+      setModuleLessons(sorted);
+      loadAllData();
+    } catch (err: any) {
+      toastError(err?.message || 'Failed to delete lesson.');
+    }
+  };
+
   // Filtered lists
   const filteredCourses = useMemo(() => {
     return courses.filter((c) => {
@@ -502,11 +818,13 @@ export const AdminCoursesPage: React.FC = () => {
       {/* Page Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
         <div>
-          <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#ffffff', margin: 0, letterSpacing: '-0.02em' }}>
-            LMS Studio
+          <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0, letterSpacing: '-0.02em' }}>
+            {isTrainingAdmin ? t('admin.courses.trainingAdminTitle') : t('admin.courses.systemAdminTitle')}
           </h1>
           <p style={{ fontSize: '0.86rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-            Central administrative console for curriculum courses, cohorts, tutor assignments, and learner activities.
+            {isTrainingAdmin
+              ? t('admin.courses.trainingAdminSubtitle')
+              : t('admin.courses.systemAdminSubtitle')}
           </p>
         </div>
 
@@ -517,7 +835,7 @@ export const AdminCoursesPage: React.FC = () => {
             style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
           >
             <RefreshCw size={14} className={isLoading ? 'spin' : ''} />
-            <span>Refresh</span>
+            <span>{t('admin.dashboard.refresh')}</span>
           </button>
         </div>
       </div>
@@ -539,7 +857,7 @@ export const AdminCoursesPage: React.FC = () => {
           style={{ display: 'flex', alignItems: 'center', gap: '8px', borderRadius: 'var(--radius-lg)' }}
         >
           <BookOpen size={15} />
-          <span>Curriculum Courses ({courses.length})</span>
+          <span>{t('admin.courses.tabCourses')} ({courses.length})</span>
         </button>
 
         <button
@@ -548,7 +866,7 @@ export const AdminCoursesPage: React.FC = () => {
           style={{ display: 'flex', alignItems: 'center', gap: '8px', borderRadius: 'var(--radius-lg)' }}
         >
           <GraduationCap size={15} />
-          <span>Cohorts & Tutors ({cohorts.length})</span>
+          <span>{t('admin.courses.tabCohorts')} ({cohorts.length})</span>
         </button>
 
         <button
@@ -557,7 +875,7 @@ export const AdminCoursesPage: React.FC = () => {
           style={{ display: 'flex', alignItems: 'center', gap: '8px', borderRadius: 'var(--radius-lg)' }}
         >
           <Users size={15} />
-          <span>Learners ({students.length + guests.length})</span>
+          <span>{t('admin.courses.tabLearners')} ({students.length + guests.length})</span>
         </button>
 
         <button
@@ -566,7 +884,7 @@ export const AdminCoursesPage: React.FC = () => {
           style={{ display: 'flex', alignItems: 'center', gap: '8px', borderRadius: 'var(--radius-lg)' }}
         >
           <HelpCircle size={15} />
-          <span>Practice Quizzes ({questions.length})</span>
+          <span>{t('admin.courses.tabQuizzes')} ({questions.length})</span>
         </button>
 
         <button
@@ -575,7 +893,7 @@ export const AdminCoursesPage: React.FC = () => {
           style={{ display: 'flex', alignItems: 'center', gap: '8px', borderRadius: 'var(--radius-lg)' }}
         >
           <Video size={15} />
-          <span>Tutors & Live Classes ({tutors.length})</span>
+          <span>{t('admin.courses.tabTutors')} ({tutors.length})</span>
         </button>
       </div>
 
@@ -589,172 +907,728 @@ export const AdminCoursesPage: React.FC = () => {
           {/* SECTION 1: CURRICULUM COURSES                                             */}
           {/* ========================================================================= */}
           {activeSection === 'courses' && (
-            <div className="glass-panel" style={{ borderRadius: 'var(--radius-2xl)', overflow: 'hidden' }}>
-              <div
-                style={{
-                  padding: '18px 24px',
-                  borderBottom: '1px solid var(--border-subtle)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  flexWrap: 'wrap',
-                  gap: '12px',
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <div style={{ position: 'relative', width: '280px' }}>
-                    <Search size={15} style={{ position: 'absolute', left: '12px', top: '10px', color: 'var(--text-muted)' }} />
-                    <input
-                      type="text"
-                      placeholder="Search courses..."
-                      value={courseSearch}
-                      onChange={(e) => setCourseSearch(e.target.value)}
-                      style={{
-                        width: '100%',
-                        padding: '8px 12px 8px 36px',
-                        borderRadius: 'var(--radius-md)',
-                        background: 'var(--bg-surface-elevated)',
-                        border: '1px solid var(--border-subtle)',
-                        color: '#ffffff',
-                        fontSize: '0.84rem',
-                      }}
-                    />
+            selectedCourseForCurriculum ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                {/* System Admin Read-Only Inspector Alert */}
+                {isSystemAdmin && (
+                  <div
+                    style={{
+                      background: 'rgba(59, 130, 246, 0.1)',
+                      border: '1px solid rgba(59, 130, 246, 0.3)',
+                      padding: '12px 18px',
+                      borderRadius: 'var(--radius-xl)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px',
+                      fontSize: '0.86rem',
+                      color: '#93c5fd',
+                    }}
+                  >
+                    <Eye size={20} color="#60a5fa" style={{ flexShrink: 0 }} />
+                    <div>
+                      <strong style={{ color: '#ffffff' }}>Executive Curriculum Inspector (Read-Only): </strong>
+                      You have full oversight over curriculum modules, lessons, audio/video lectures, and road signs prepared by the Training Admin. System Admin initializes courses and manages publishing, but does not author module materials.
+                    </div>
+                  </div>
+                )}
+
+                {/* Top Banner / Breadcrumb */}
+                <div
+                  style={{
+                    padding: '16px 22px',
+                    borderRadius: 'var(--radius-lg)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '12px',
+                    background: 'var(--bg-surface)',
+                    border: '1px solid var(--border-subtle)',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                    <button
+                      onClick={() => setSelectedCourseForCurriculum(null)}
+                      className="btn btn-secondary btn-sm"
+                      style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px' }}
+                    >
+                      <ArrowLeft size={15} />
+                      <span>{t('admin.courses.backToCourses')}</span>
+                    </button>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                        <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                          {language === 'rw' && selectedCourseForCurriculum.title_rw
+                            ? selectedCourseForCurriculum.title_rw
+                            : selectedCourseForCurriculum.title}
+                        </h2>
+                        {selectedCourseForCurriculum.is_published ? (
+                          <Badge variant="success">{t('admin.courses.publishedBadge')}</Badge>
+                        ) : (
+                          <Badge variant="warning">{t('admin.courses.draftBadgeUpper')}</Badge>
+                        )}
+                        <span style={{ fontSize: '0.75rem', color: '#0284c7', fontFamily: 'monospace', background: 'rgba(2, 132, 199, 0.1)', padding: '2px 8px', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(2, 132, 199, 0.2)' }}>
+                          {selectedCourseForCurriculum.code || 'CODE'}
+                        </span>
+                      </div>
+                      <p style={{ margin: '4px 0 0', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+                        {t('admin.courses.trainingAdminSubtitle')}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Add Module is only visible to Training Admin / Content Author (Read-only for System Admin) */}
+                  {!isSystemAdmin && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <button
+                        onClick={handleOpenCreateModule}
+                        className="btn btn-primary btn-sm"
+                        style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', background: '#0284c7' }}
+                      >
+                        <Plus size={15} />
+                        <span>{t('admin.courses.addModule')}</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Two-Column Studio Layout */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'minmax(320px, 380px) 1fr', gap: '20px', alignItems: 'start' }}>
+                  {/* Left Column: Modules List */}
+                  <div className="glass-panel" style={{ borderRadius: 'var(--radius-2xl)', overflow: 'hidden' }}>
+                    <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Layers size={17} color="var(--primary)" />
+                        <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: '#ffffff' }}>
+                          {t('admin.courses.modulesTitle')} ({courseModules.length})
+                        </h3>
+                      </div>
+                      {!isSystemAdmin && (
+                        <button
+                          onClick={handleOpenCreateModule}
+                          className="btn btn-secondary btn-sm"
+                          style={{ fontSize: '0.72rem', padding: '3px 8px', display: 'flex', alignItems: 'center', gap: '3px' }}
+                        >
+                          <Plus size={13} />
+                          <span>{t('admin.courses.new')}</span>
+                        </button>
+                      )}
+                    </div>
+
+                    {isModulesLoading ? (
+                      <div style={{ padding: '40px', textAlign: 'center' }}>
+                        <Spinner />
+                      </div>
+                    ) : courseModules.length === 0 ? (
+                      <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.86rem' }}>
+                        <p style={{ margin: '0 0 12px' }}>
+                          {t('admin.courses.noModulesYet')}
+                        </p>
+                        {!isSystemAdmin && (
+                          <button onClick={handleOpenCreateModule} className="btn btn-primary btn-sm">
+                            {t('admin.courses.createFirstModule')}
+                          </button>
+                        )}
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', padding: '10px' }}>
+                        {courseModules.map((mod, idx) => {
+                          const isSelected = selectedModule?.id === mod.id;
+                          return (
+                            <div
+                              key={mod.id}
+                              onClick={() => handleSelectModule(mod)}
+                              style={{
+                                padding: '12px 14px',
+                                borderRadius: 'var(--radius-lg)',
+                                marginBottom: '6px',
+                                cursor: 'pointer',
+                                background: isSelected ? 'var(--bg-surface-elevated)' : 'transparent',
+                                border: isSelected ? '1px solid var(--primary)' : '1px solid transparent',
+                                transition: 'all 0.15s ease',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '6px',
+                              }}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', background: 'rgba(255, 255, 255, 0.05)', padding: '2px 6px', borderRadius: '4px' }}>
+                                    #{mod.sort_order ?? idx + 1}
+                                  </span>
+                                  <span style={{ fontWeight: 700, color: isSelected ? 'var(--primary-light)' : '#ffffff', fontSize: '0.88rem' }}>
+                                    {mod.title}
+                                  </span>
+                                </div>
+
+                                {!isSystemAdmin && (
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }} onClick={(e) => e.stopPropagation()}>
+                                    <button
+                                      onClick={() => handleTogglePublishModule(mod)}
+                                      className="btn btn-secondary btn-sm"
+                                      style={{ padding: '3px 6px', fontSize: '0.7rem' }}
+                                      title={mod.is_published ? t('admin.courses.unpublishModuleTitle') : t('admin.courses.publishModuleTitle')}
+                                    >
+                                      {mod.is_published ? <EyeOff size={12} /> : <Eye size={12} />}
+                                    </button>
+                                    <button
+                                      onClick={() => handleOpenEditModule(mod)}
+                                      className="btn btn-secondary btn-sm"
+                                      style={{ padding: '3px 6px', fontSize: '0.7rem' }}
+                                      title={t('admin.courses.editModuleTitle')}
+                                    >
+                                      <Pencil size={12} />
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeleteModule(mod.id, mod.title)}
+                                      className="btn btn-secondary btn-sm"
+                                      style={{ padding: '3px 6px', fontSize: '0.7rem', color: 'var(--danger)' }}
+                                      title={t('admin.courses.deleteModuleTitle')}
+                                    >
+                                      <Trash2 size={12} />
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+
+                              {mod.description && (
+                                <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  {mod.description}
+                                </p>
+                              )}
+
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
+                                {mod.is_foundational && (
+                                  <Badge variant="warning">{t('admin.courses.foundationalBadge')}</Badge>
+                                )}
+                                <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                                  {mod.lesson_count ?? 0} {mod.lesson_count === 1 ? t('admin.courses.lessonWord') : t('admin.courses.lessonsWord')}
+                                </span>
+                                {mod.is_published ? (
+                                  <span style={{ fontSize: '0.7rem', color: 'var(--success)' }}>
+                                    {t('admin.courses.liveBadge')}
+                                  </span>
+                                ) : (
+                                  <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                                    {t('admin.courses.draftBadge')}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Right Column: Lessons for Selected Module */}
+                  <div className="glass-panel" style={{ borderRadius: 'var(--radius-2xl)', overflow: 'hidden' }}>
+                    {selectedModule ? (
+                      <>
+                        <div
+                          style={{
+                            padding: '16px 22px',
+                            borderBottom: '1px solid var(--border-subtle)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            flexWrap: 'wrap',
+                            gap: '12px',
+                          }}
+                        >
+                          <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <BookOpen size={18} color="var(--primary)" />
+                              <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, color: '#ffffff' }}>
+                                {selectedModule.title}
+                              </h3>
+                              {selectedModule.is_published ? (
+                                <Badge variant="success">{t('admin.courses.publishedBadge')}</Badge>
+                              ) : (
+                                <Badge variant="neutral">{t('admin.courses.draftBadgeUpper')}</Badge>
+                              )}
+                            </div>
+                            <p style={{ margin: '4px 0 0', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                              {selectedModule.description || t('admin.courses.trainingAdminSubtitle')}
+                            </p>
+                          </div>
+
+                          {!isSystemAdmin && (
+                            <button
+                              onClick={handleOpenCreateLesson}
+                              className="btn btn-primary btn-sm"
+                              style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px' }}
+                            >
+                              <Plus size={15} />
+                              <span>{t('admin.courses.addLessonBtn')}</span>
+                            </button>
+                          )}
+                        </div>
+
+                        {isLessonsLoading ? (
+                          <div style={{ padding: '60px', textAlign: 'center' }}>
+                            <Spinner />
+                          </div>
+                        ) : moduleLessons.length === 0 ? (
+                          <div style={{ padding: '60px 24px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                            <div style={{ display: 'inline-flex', padding: '16px', borderRadius: '50%', background: 'rgba(59, 130, 246, 0.08)', marginBottom: '16px' }}>
+                              <BookOpen size={32} color="var(--primary)" />
+                            </div>
+                            <h4 style={{ margin: '0 0 6px', color: '#ffffff', fontSize: '1rem', fontWeight: 700 }}>
+                              {t('admin.courses.noLessonsYet')}
+                            </h4>
+                            <p style={{ margin: '0 0 16px', fontSize: '0.84rem', maxWidth: '400px', marginInline: 'auto' }}>
+                              {t('admin.courses.selectModuleToView')}
+                            </p>
+                            {!isSystemAdmin && (
+                              <button onClick={handleOpenCreateLesson} className="btn btn-primary btn-sm">
+                                <Plus size={14} style={{ marginRight: '6px' }} />
+                                {t('admin.courses.addFirstLesson')}
+                              </button>
+                            )}
+                          </div>
+                        ) : (
+                          <div style={{ display: 'flex', flexDirection: 'column' }}>
+                            {moduleLessons.map((les, lIdx) => {
+                              const isText = les.lesson_type === 'TEXT';
+                              const isAudio = les.lesson_type === 'AUDIO';
+                              const isVideo = les.lesson_type === 'VIDEO';
+                              const isRoadSign = les.lesson_type === 'ROAD_SIGN';
+                              const isQuiz = les.lesson_type === 'QUIZ';
+
+                              const typeLabel = isText
+                                ? t('admin.courses.text')
+                                : isAudio
+                                ? t('admin.courses.audio')
+                                : isVideo
+                                ? t('admin.courses.video')
+                                : isRoadSign
+                                ? t('admin.courses.roadSign')
+                                : t('admin.courses.quiz');
+
+                              return (
+                                <div
+                                  key={les.id}
+                                  style={{
+                                    padding: '16px 20px',
+                                    display: 'flex',
+                                    alignItems: 'flex-start',
+                                    justifyContent: 'space-between',
+                                    gap: '16px',
+                                    borderBottom: '1px solid var(--border-subtle)',
+                                  }}
+                                >
+                                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '14px', flex: 1 }}>
+                                    {/* Type Icon Badge */}
+                                    <div
+                                      style={{
+                                        width: '38px',
+                                        height: '38px',
+                                        borderRadius: 'var(--radius-md)',
+                                        background: isAudio
+                                          ? 'rgba(168, 85, 247, 0.15)'
+                                          : isVideo
+                                          ? 'rgba(6, 182, 212, 0.15)'
+                                          : isRoadSign
+                                          ? 'rgba(245, 158, 11, 0.15)'
+                                          : isQuiz
+                                          ? 'rgba(16, 185, 129, 0.15)'
+                                          : 'rgba(59, 130, 246, 0.15)',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        flexShrink: 0,
+                                      }}
+                                    >
+                                      {isAudio && <Headphones size={18} color="#c084fc" />}
+                                      {isVideo && <Video size={18} color="#22d3ee" />}
+                                      {isRoadSign && <Compass size={18} color="#fbbf24" />}
+                                      {isQuiz && <HelpCircle size={18} color="#34d399" />}
+                                      {isText && <FileText size={18} color="var(--primary-light)" />}
+                                    </div>
+
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 }}>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                        <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)' }}>
+                                          #{les.sort_order ?? lIdx + 1}
+                                        </span>
+                                        <h4 style={{ margin: 0, fontSize: '0.92rem', fontWeight: 700, color: '#ffffff' }}>
+                                          {les.title}
+                                        </h4>
+                                        <span
+                                          style={{
+                                            fontSize: '0.68rem',
+                                            fontWeight: 700,
+                                            padding: '2px 6px',
+                                            borderRadius: '4px',
+                                            background: isAudio
+                                              ? 'rgba(168, 85, 247, 0.2)'
+                                              : isVideo
+                                              ? 'rgba(6, 182, 212, 0.2)'
+                                              : isRoadSign
+                                              ? 'rgba(245, 158, 11, 0.2)'
+                                              : isQuiz
+                                              ? 'rgba(16, 185, 129, 0.2)'
+                                              : 'rgba(59, 130, 246, 0.2)',
+                                            color: isAudio
+                                              ? '#d8b4fe'
+                                              : isVideo
+                                              ? '#67e8f9'
+                                              : isRoadSign
+                                              ? '#fde68a'
+                                              : isQuiz
+                                              ? '#6ee7b7'
+                                              : '#93c5fd',
+                                          }}
+                                        >
+                                          {typeLabel}
+                                        </span>
+
+                                        {les.is_free_preview && (
+                                          <Badge variant="success">{t('admin.courses.freePreviewBadge')}</Badge>
+                                        )}
+                                        {les.is_student_only && (
+                                          <Badge variant="neutral">{t('admin.courses.enrolledOnlyBadge')}</Badge>
+                                        )}
+                                        <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                                          ~{les.duration_minutes || 15} min
+                                        </span>
+                                      </div>
+
+                                      {/* Snippet / Content Preview */}
+                                      {isText && les.content_text && (
+                                        <p style={{ margin: '2px 0 0', fontSize: '0.78rem', color: 'var(--text-secondary)', maxHeight: '38px', overflow: 'hidden' }}>
+                                          {les.content_text.slice(0, 160)}...
+                                        </p>
+                                      )}
+
+                                      {isAudio && (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                                          <Headphones size={13} color="#c084fc" />
+                                          <span>
+                                            {t('admin.courses.audioMaterialLabel')}
+                                            {les.media_url ? (
+                                              <a href={les.media_url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary-light)', textDecoration: 'underline' }}>
+                                                {t('admin.courses.listenStream')}{' '}
+                                                <ExternalLink size={11} style={{ display: 'inline', marginLeft: '2px' }} />
+                                              </a>
+                                            ) : les.media_file ? (
+                                              t('admin.courses.uploadedMp3')
+                                            ) : (
+                                              t('admin.courses.noAudioSource')
+                                            )}
+                                          </span>
+                                        </div>
+                                      )}
+
+                                      {isVideo && (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                                          <PlayCircle size={13} color="#22d3ee" />
+                                          <span>
+                                            {t('admin.courses.videoStreamLabel')}
+                                            {les.media_url ? (
+                                              <a href={les.media_url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary-light)', textDecoration: 'underline' }}>
+                                                {t('admin.courses.watchVideo')}{' '}
+                                                <ExternalLink size={11} style={{ display: 'inline', marginLeft: '2px' }} />
+                                              </a>
+                                            ) : les.media_file ? (
+                                              t('admin.courses.uploadedMp4')
+                                            ) : (
+                                              t('admin.courses.noVideoSource')
+                                            )}
+                                          </span>
+                                        </div>
+                                      )}
+
+                                      {isRoadSign && (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                                          <Compass size={13} color="#fbbf24" />
+                                          <span>
+                                            {t('admin.courses.roadSignLabel')}
+                                            {les.road_sign || t('admin.courses.attachedInLesson')}
+                                          </span>
+                                        </div>
+                                      )}
+
+                                      {isQuiz && (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                                          <HelpCircle size={13} color="#34d399" />
+                                          <span>
+                                            {t('admin.courses.typeQuiz')} — {les.question_count ?? 0}
+                                          </span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  {!isSystemAdmin && (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                      <button
+                                        onClick={() => handleOpenEditLesson(les)}
+                                        className="btn btn-secondary btn-sm"
+                                        style={{ padding: '4px 8px', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                        title={t('admin.courses.editLesson')}
+                                      >
+                                        <Pencil size={12} />
+                                        <span>{t('admin.courses.edit')}</span>
+                                      </button>
+                                      <button
+                                        onClick={() => handleDeleteLesson(les.id, les.title)}
+                                        className="btn btn-secondary btn-sm"
+                                        style={{ padding: '4px 8px', fontSize: '0.75rem', color: 'var(--danger)' }}
+                                        title={t('admin.courses.deleteLesson')}
+                                      >
+                                        <Trash2 size={12} />
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div style={{ padding: '60px 24px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                        <Layers size={36} color="var(--text-muted)" style={{ marginBottom: '12px' }} />
+                        <h4 style={{ margin: '0 0 6px', color: '#ffffff', fontSize: '1rem', fontWeight: 700 }}>
+                          {t('admin.courses.selectModule')}
+                        </h4>
+                        <p style={{ margin: 0, fontSize: '0.84rem' }}>
+                          {t('admin.courses.selectModuleToView')}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
-
-                <button
-                  onClick={() => setIsCreateCourseModalOpen(true)}
-                  className="btn btn-primary btn-sm"
-                  style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                >
-                  <Plus size={15} />
-                  <span>Create Course</span>
-                </button>
               </div>
+            ) : (
+              <div className="glass-panel" style={{ borderRadius: 'var(--radius-2xl)', overflow: 'hidden' }}>
+                {/* Training Admin Role Guidance Banner */}
+                {isTrainingAdmin && (
+                  <div
+                    style={{
+                      margin: '18px 24px 0',
+                      padding: '12px 18px',
+                      borderRadius: 'var(--radius-xl)',
+                      background: 'rgba(245, 158, 11, 0.08)',
+                      border: '1px solid rgba(245, 158, 11, 0.25)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px',
+                      fontSize: '0.84rem',
+                      color: '#fef3c7',
+                    }}
+                  >
+                    <AlertCircle size={18} color="#f59e0b" style={{ flexShrink: 0 }} />
+                    <div>
+                      <strong style={{ color: '#f59e0b' }}>{t('admin.courses.roleNoticeTitle')}: </strong>
+                      {t('admin.courses.roleNoticeDesc')}
+                    </div>
+                  </div>
+                )}
 
-              {filteredCourses.length === 0 ? (
-                <div style={{ padding: '48px', textAlign: 'center', color: 'var(--text-secondary)' }}>
-                  No courses found. Click "Create Course" to add a new curriculum course.
+                <div
+                  style={{
+                    padding: '18px 24px',
+                    borderBottom: '1px solid var(--border-subtle)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '12px',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ position: 'relative', width: '280px' }}>
+                      <Search size={15} style={{ position: 'absolute', left: '12px', top: '10px', color: 'var(--text-muted)' }} />
+                      <input
+                        type="text"
+                        placeholder={t('admin.courses.searchCoursesPlaceholder')}
+                        value={courseSearch}
+                        onChange={(e) => setCourseSearch(e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '8px 12px 8px 36px',
+                          borderRadius: 'var(--radius-md)',
+                          background: 'var(--bg-surface-elevated)',
+                          border: '1px solid var(--border-subtle)',
+                          color: '#ffffff',
+                          fontSize: '0.84rem',
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Create Course is strictly for System Admin */}
+                  {isSystemAdmin && (
+                    <button
+                      onClick={() => setIsCreateCourseModalOpen(true)}
+                      className="btn btn-primary btn-sm"
+                      style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                    >
+                      <Plus size={15} />
+                      <span>{t('admin.courses.createCourse')}</span>
+                    </button>
+                  )}
                 </div>
-              ) : (
-                <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
-                    <thead>
-                      <tr style={{ background: 'var(--bg-surface-elevated)', textAlign: 'left' }}>
-                        <th style={{ padding: '14px 16px', color: 'var(--text-muted)', fontWeight: 600 }}>Code</th>
-                        <th style={{ padding: '14px 16px', color: 'var(--text-muted)', fontWeight: 600 }}>Course Title</th>
-                        <th style={{ padding: '14px 16px', color: 'var(--text-muted)', fontWeight: 600 }}>Description</th>
-                        <th style={{ padding: '14px 16px', color: 'var(--text-muted)', fontWeight: 600 }}>Status</th>
-                        <th style={{ padding: '14px 16px', color: 'var(--text-muted)', fontWeight: 600 }}>Modules</th>
-                        <th style={{ padding: '14px 16px', color: 'var(--text-muted)', fontWeight: 600 }}>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredCourses.map((c) => {
-                        const modCount = c.module_count ?? c.modules_count ?? 0;
-                        const isEmpty = modCount === 0;
-                        const displayCode = c.code || (c.id ? c.id.slice(0, 8).toUpperCase() : 'RW-LMS');
 
-                        return (
-                          <tr key={c.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                            <td style={{ padding: '14px 16px', fontWeight: 800, color: 'var(--primary-light)', fontFamily: 'monospace' }}>
-                              {displayCode}
-                            </td>
-                            <td style={{ padding: '14px 16px', fontWeight: 700, color: '#ffffff' }}>
-                              <div>{c.title}</div>
-                              {c.estimated_hours ? (
-                                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 400, marginTop: '2px' }}>
-                                  ~{c.estimated_hours} hrs study time
+                {filteredCourses.length === 0 ? (
+                  <div style={{ padding: '48px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                    {isTrainingAdmin
+                      ? t('admin.courses.noCoursesFoundTraining')
+                      : t('admin.courses.noCoursesFoundSystem')}
+                  </div>
+                ) : (
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
+                      <thead>
+                        <tr style={{ background: 'var(--bg-surface-elevated)', textAlign: 'left' }}>
+                          <th style={{ padding: '14px 16px', color: 'var(--text-muted)', fontWeight: 600 }}>
+                            {t('admin.courses.codeCol')}
+                          </th>
+                          <th style={{ padding: '14px 16px', color: 'var(--text-muted)', fontWeight: 600 }}>
+                            {t('admin.courses.titleCol')}
+                          </th>
+                          <th style={{ padding: '14px 16px', color: 'var(--text-muted)', fontWeight: 600 }}>
+                            {t('admin.courses.descCol')}
+                          </th>
+                          <th style={{ padding: '14px 16px', color: 'var(--text-muted)', fontWeight: 600 }}>
+                            {t('admin.courses.statusCol')}
+                          </th>
+                          <th style={{ padding: '14px 16px', color: 'var(--text-muted)', fontWeight: 600 }}>
+                            {t('admin.courses.modulesCol')}
+                          </th>
+                          <th style={{ padding: '14px 16px', color: 'var(--text-muted)', fontWeight: 600 }}>
+                            {t('admin.courses.actionsCol')}
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredCourses.map((c) => {
+                          const modCount = c.module_count ?? c.modules_count ?? 0;
+                          const isEmpty = modCount === 0;
+                          const displayCode = c.code || (c.id ? c.id.slice(0, 8).toUpperCase() : 'RW-LMS');
+
+                          return (
+                            <tr key={c.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                              <td style={{ padding: '14px 16px', fontWeight: 800, color: 'var(--primary-light)', fontFamily: 'monospace' }}>
+                                {displayCode}
+                              </td>
+                              <td style={{ padding: '14px 16px', fontWeight: 700, color: '#ffffff' }}>
+                                <div>{language === 'rw' && c.title_rw ? c.title_rw : c.title}</div>
+                                {c.estimated_hours ? (
+                                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 400, marginTop: '2px' }}>
+                                    ~{c.estimated_hours} {t('admin.courses.hrsStudyTime')}
+                                  </div>
+                                ) : null}
+                              </td>
+                              <td style={{ padding: '14px 16px', color: 'var(--text-secondary)', maxWidth: '240px' }}>
+                                <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                  {c.title_rw || c.description || '—'}
                                 </div>
-                              ) : null}
-                            </td>
-                            <td style={{ padding: '14px 16px', color: 'var(--text-secondary)', maxWidth: '240px' }}>
-                              <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                {c.title_rw || c.description || '—'}
-                              </div>
-                            </td>
-                            <td style={{ padding: '14px 16px' }}>
-                              {c.is_published ? (
-                                <Badge variant="success">PUBLISHED</Badge>
-                              ) : isEmpty ? (
-                                <Badge variant="warning">DRAFT (EMPTY)</Badge>
-                              ) : (
-                                <Badge variant="neutral">DRAFT ({modCount} MODS)</Badge>
-                              )}
-                            </td>
-                            <td style={{ padding: '14px 16px' }}>
-                              {isEmpty ? (
-                                <span style={{ color: 'var(--warning)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '0.8rem' }}>
-                                  <AlertCircle size={14} />
-                                  0 Modules (Awaiting Content)
-                                </span>
-                              ) : (
-                                <span style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>
-                                  {modCount} {modCount === 1 ? 'Module' : 'Modules'}
-                                </span>
-                              )}
-                            </td>
-                            <td style={{ padding: '14px 16px' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              </td>
+                              <td style={{ padding: '14px 16px' }}>
                                 {c.is_published ? (
-                                  <button
-                                    onClick={() => handleTogglePublish(c)}
-                                    className="btn btn-secondary btn-sm"
-                                    style={{ fontSize: '0.75rem', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: '4px' }}
-                                    title="Unpublish course"
-                                  >
-                                    <EyeOff size={13} />
-                                    <span>Unpublish</span>
-                                  </button>
+                                  <Badge variant="success">{t('admin.courses.publishedBadge')}</Badge>
+                                ) : isEmpty ? (
+                                  <Badge variant="warning">{t('admin.courses.draftEmpty')}</Badge>
                                 ) : (
-                                  <button
-                                    onClick={() => handleTogglePublish(c)}
-                                    className="btn btn-secondary btn-sm"
-                                    style={{
-                                      fontSize: '0.75rem',
-                                      padding: '4px 8px',
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      gap: '4px',
-                                      opacity: isEmpty ? 0.75 : 1,
-                                      borderColor: isEmpty ? 'rgba(234, 179, 8, 0.4)' : undefined,
-                                      color: isEmpty ? 'var(--warning)' : undefined,
-                                    }}
-                                    title={isEmpty ? 'Cannot publish empty course. Training admin must add modules first.' : 'Publish course'}
-                                  >
-                                    {isEmpty ? <Lock size={13} /> : <Eye size={13} />}
-                                    <span>Publish</span>
-                                  </button>
+                                  <Badge variant="neutral">
+                                    {t('admin.courses.draftWithMods', { count: modCount })}
+                                  </Badge>
                                 )}
+                              </td>
+                              <td style={{ padding: '14px 16px' }}>
+                                {isEmpty ? (
+                                  <span style={{ color: 'var(--warning)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '0.8rem' }}>
+                                    <AlertCircle size={14} />
+                                    {t('admin.courses.awaitingContent')}
+                                  </span>
+                                ) : (
+                                  <span style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>
+                                    {modCount} {modCount === 1 ? t('admin.courses.lessonWord') : t('admin.courses.modulesTitle')}
+                                  </span>
+                                )}
+                              </td>
+                              <td style={{ padding: '14px 16px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  {/* Curriculum Studio button */}
+                                  <button
+                                    onClick={() => handleOpenCurriculumBuilder(c)}
+                                    className="btn btn-primary btn-sm"
+                                    style={{ fontSize: '0.75rem', padding: '5px 10px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                    title={t('admin.courses.curriculumBtnTitle')}
+                                  >
+                                    <BookOpen size={13} />
+                                    <span>{t('admin.courses.curriculumBtn')}</span>
+                                  </button>
 
-                                <button
-                                  onClick={() => handleOpenEditCourse(c)}
-                                  className="btn btn-secondary btn-sm"
-                                  style={{ fontSize: '0.75rem', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--primary-light)' }}
-                                  title="Edit course"
-                                >
-                                  <Pencil size={13} />
-                                  <span>Edit</span>
-                                </button>
+                                  {/* Course Publishing, Edit, and Delete are strictly for System Admin */}
+                                  {isSystemAdmin && (
+                                    <>
+                                      {c.is_published ? (
+                                        <button
+                                          onClick={() => handleTogglePublish(c)}
+                                          className="btn btn-secondary btn-sm"
+                                          style={{ fontSize: '0.75rem', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                          title={t('admin.courses.unpublish')}
+                                        >
+                                          <EyeOff size={13} />
+                                          <span>{t('admin.courses.unpublish')}</span>
+                                        </button>
+                                      ) : (
+                                        <button
+                                          onClick={() => handleTogglePublish(c)}
+                                          className="btn btn-secondary btn-sm"
+                                          style={{
+                                            fontSize: '0.75rem',
+                                            padding: '4px 8px',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '4px',
+                                            opacity: isEmpty ? 0.75 : 1,
+                                            borderColor: isEmpty ? 'rgba(234, 179, 8, 0.4)' : undefined,
+                                            color: isEmpty ? 'var(--warning)' : undefined,
+                                          }}
+                                          title={isEmpty ? 'Cannot publish empty course. Training admin must add modules first.' : 'Publish course'}
+                                        >
+                                          {isEmpty ? <Lock size={13} /> : <Eye size={13} />}
+                                          <span>{t('admin.courses.publish')}</span>
+                                        </button>
+                                      )}
 
-                                <button
-                                  onClick={() => handleDeleteCourse(c.id, c.title)}
-                                  className="btn btn-secondary btn-sm"
-                                  style={{ fontSize: '0.75rem', padding: '4px 8px', color: 'var(--danger)' }}
-                                  title="Delete course"
-                                >
-                                  <Trash2 size={13} />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
+                                      <button
+                                        onClick={() => handleOpenEditCourse(c)}
+                                        className="btn btn-secondary btn-sm"
+                                        style={{ fontSize: '0.75rem', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--primary-light)' }}
+                                        title={t('admin.courses.editCourse')}
+                                      >
+                                        <Pencil size={13} />
+                                        <span>{t('admin.courses.editCourse')}</span>
+                                      </button>
+
+                                      <button
+                                        onClick={() => handleDeleteCourse(c.id, c.title)}
+                                        className="btn btn-secondary btn-sm"
+                                        style={{ fontSize: '0.75rem', padding: '4px 8px', color: 'var(--danger)' }}
+                                        title={t('admin.courses.deleteCourse')}
+                                      >
+                                        <Trash2 size={13} />
+                                      </button>
+                                    </>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )
           )}
 
           {/* ========================================================================= */}
@@ -1891,6 +2765,387 @@ export const AdminCoursesPage: React.FC = () => {
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '8px' }}>
                 <button type="button" onClick={() => setIsScheduleClassModalOpen(false)} className="btn btn-secondary">Cancel</button>
                 <button type="submit" disabled={isSubmitting} className="btn btn-primary">{isSubmitting ? 'Scheduling...' : 'Schedule Class'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 7. Module Create / Edit Modal */}
+      {isModuleModalOpen && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0, 0, 0, 0.7)', backdropFilter: 'blur(8px)', padding: '16px' }}>
+          <div className="glass-panel" style={{ width: '100%', maxWidth: '520px', borderRadius: 'var(--radius-2xl)', padding: '28px', border: '1px solid var(--border-medium)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
+              <Layers size={22} color="var(--primary)" />
+              <h3 style={{ margin: 0 }}>
+                {editingModuleId
+                  ? t('admin.courses.modalEditModule')
+                  : t('admin.courses.modalCreateModule')}
+              </h3>
+            </div>
+
+            <form onSubmit={handleSaveModule} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                  {t('admin.courses.moduleTitleLabel')}
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder={t('admin.courses.moduleTitlePlaceholder')}
+                  value={modTitle}
+                  onChange={(e) => setModTitle(e.target.value)}
+                  style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', color: '#ffffff' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                  {t('admin.courses.moduleDescLabel')}
+                </label>
+                <textarea
+                  rows={3}
+                  placeholder={t('admin.courses.moduleDescPlaceholder')}
+                  value={modDescription}
+                  onChange={(e) => setModDescription(e.target.value)}
+                  style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', color: '#ffffff', resize: 'vertical' }}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', alignItems: 'center' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                    {t('admin.courses.moduleSortOrderLabel')}
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={modSortOrder}
+                    onChange={(e) => setModSortOrder(parseInt(e.target.value) || 1)}
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', color: '#ffffff' }}
+                  />
+                </div>
+
+                <div style={{ marginTop: '22px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.84rem', color: '#ffffff' }}>
+                    <input
+                      type="checkbox"
+                      checked={modIsFoundational}
+                      onChange={(e) => setModIsFoundational(e.target.checked)}
+                      style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                    />
+                    <span>{t('admin.courses.moduleFoundationalLabel')}</span>
+                  </label>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '10px' }}>
+                <button type="button" onClick={() => setIsModuleModalOpen(false)} className="btn btn-secondary">
+                  {t('admin.courses.cancelBtn')}
+                </button>
+                <button type="submit" disabled={isSubmitting} className="btn btn-primary">
+                  {isSubmitting
+                    ? t('admin.courses.saving')
+                    : editingModuleId
+                    ? t('admin.courses.saveChanges')
+                    : t('admin.courses.createModuleBtn')}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 8. Lesson Create / Edit Modal with Text, Audio, Video, Road Sign */}
+      {isLessonModalOpen && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0, 0, 0, 0.7)', backdropFilter: 'blur(8px)', padding: '16px' }}>
+          <div className="glass-panel" style={{ width: '100%', maxWidth: '640px', maxHeight: '90vh', overflowY: 'auto', borderRadius: 'var(--radius-2xl)', padding: '28px', border: '1px solid var(--border-medium)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
+              <BookOpen size={22} color="var(--primary)" />
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800, color: '#ffffff' }}>
+                  {editingLessonId
+                    ? t('admin.courses.modalEditLesson')
+                    : t('admin.courses.modalAddLesson')}
+                </h3>
+                <p style={{ margin: '2px 0 0', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                  {t('admin.courses.modulePrefix')} {selectedModule?.title}
+                </p>
+              </div>
+            </div>
+
+            <form onSubmit={handleSaveLesson} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                    {t('admin.courses.lessonTitleLabel')}
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder={t('admin.courses.lessonTitlePlaceholder')}
+                    value={lesTitle}
+                    onChange={(e) => setLesTitle(e.target.value)}
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', color: '#ffffff' }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                    {t('admin.courses.materialTypeLabel')}
+                  </label>
+                  <select
+                    value={lesType}
+                    onChange={(e) => setLesType(e.target.value as any)}
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', color: '#ffffff' }}
+                  >
+                    <option value="TEXT">
+                      {t('admin.courses.typeText')}
+                    </option>
+                    <option value="AUDIO">
+                      {t('admin.courses.typeAudio')}
+                    </option>
+                    <option value="VIDEO">
+                      {t('admin.courses.typeVideo')}
+                    </option>
+                    <option value="ROAD_SIGN">
+                      {t('admin.courses.typeRoadSign')}
+                    </option>
+                    <option value="QUIZ">
+                      {t('admin.courses.typeQuiz')}
+                    </option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Dynamic Type Fields */}
+              {lesType === 'TEXT' && (
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                    {t('admin.courses.lessonTextLabel')}
+                  </label>
+                  <textarea
+                    rows={8}
+                    required
+                    placeholder={t('admin.courses.lessonTextPlaceholder')}
+                    value={lesContentText}
+                    onChange={(e) => setLesContentText(e.target.value)}
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', color: '#ffffff', resize: 'vertical', fontFamily: 'sans-serif' }}
+                  />
+                </div>
+              )}
+
+              {lesType === 'AUDIO' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                      {t('admin.courses.uploadAudioLabel')}
+                    </label>
+                    <input
+                      type="file"
+                      accept="audio/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0] || null;
+                        setLesMediaFile(file);
+                      }}
+                      style={{ width: '100%', padding: '8px 12px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', color: '#ffffff' }}
+                    />
+                  </div>
+
+                  <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 600 }}>
+                    {t('admin.courses.orAudioStream')}
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                      {t('admin.courses.audioStreamUrlLabel')}
+                    </label>
+                    <input
+                      type="url"
+                      placeholder="https://cdn.example.com/audio/lesson-01.mp3"
+                      value={lesMediaUrl}
+                      onChange={(e) => setLesMediaUrl(e.target.value)}
+                      style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', color: '#ffffff' }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                      {t('admin.courses.audioTranscriptLabel')}
+                    </label>
+                    <textarea
+                      rows={3}
+                      placeholder={t('admin.courses.audioTranscriptPlaceholder')}
+                      value={lesContentText}
+                      onChange={(e) => setLesContentText(e.target.value)}
+                      style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', color: '#ffffff', resize: 'vertical' }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {lesType === 'VIDEO' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                      {t('admin.courses.uploadVideoLabel')}
+                    </label>
+                    <input
+                      type="file"
+                      accept="video/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0] || null;
+                        setLesMediaFile(file);
+                      }}
+                      style={{ width: '100%', padding: '8px 12px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', color: '#ffffff' }}
+                    />
+                  </div>
+
+                  <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 600 }}>
+                    {t('admin.courses.orVideoStream')}
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                      {t('admin.courses.videoStreamUrlLabel')}
+                    </label>
+                    <input
+                      type="url"
+                      placeholder="https://www.youtube.com/watch?v=... or https://cdn.example.com/video.mp4"
+                      value={lesMediaUrl}
+                      onChange={(e) => setLesMediaUrl(e.target.value)}
+                      style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', color: '#ffffff' }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                      {t('admin.courses.videoNotesLabel')}
+                    </label>
+                    <textarea
+                      rows={3}
+                      placeholder={t('admin.courses.videoNotesPlaceholder')}
+                      value={lesContentText}
+                      onChange={(e) => setLesContentText(e.target.value)}
+                      style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', color: '#ffffff', resize: 'vertical' }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {lesType === 'ROAD_SIGN' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                      {t('admin.courses.chooseRoadSignLabel')}
+                    </label>
+                    <select
+                      value={lesRoadSignId}
+                      onChange={(e) => setLesRoadSignId(e.target.value)}
+                      style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', color: '#ffffff' }}
+                    >
+                      <option value="">{t('admin.courses.chooseRoadSignPlaceholder')}</option>
+                      {roadSignsList.map((rs: any) => (
+                        <option key={rs.id} value={rs.id}>
+                          {rs.code ? `[${rs.code}] ` : ''}{rs.name || rs.title || 'Road Sign'} ({rs.category || 'General'})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                      {t('admin.courses.roadSignDescriptionLabel')}
+                    </label>
+                    <textarea
+                      rows={4}
+                      placeholder={t('admin.courses.roadSignDescriptionPlaceholder')}
+                      value={lesContentText}
+                      onChange={(e) => setLesContentText(e.target.value)}
+                      style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', color: '#ffffff', resize: 'vertical' }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {lesType === 'QUIZ' && (
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                    {t('admin.courses.quizInstructionsLabel')}
+                  </label>
+                  <textarea
+                    rows={4}
+                    placeholder={t('admin.courses.quizInstructionsPlaceholder')}
+                    value={lesContentText}
+                    onChange={(e) => setLesContentText(e.target.value)}
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', color: '#ffffff', resize: 'vertical' }}
+                  />
+                </div>
+              )}
+
+              {/* Common Lesson Settings */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', alignItems: 'center' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                    {t('admin.courses.estDurationLabel')}
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={300}
+                    value={lesDurationMinutes}
+                    onChange={(e) => setLesDurationMinutes(parseInt(e.target.value) || 15)}
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', color: '#ffffff' }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                    {t('admin.courses.sortOrderLabel')}
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={lesSortOrder}
+                    onChange={(e) => setLesSortOrder(parseInt(e.target.value) || 1)}
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', color: '#ffffff' }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '20px', padding: '10px 0' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.84rem', color: '#ffffff' }}>
+                  <input
+                    type="checkbox"
+                    checked={lesIsFreePreview}
+                    onChange={(e) => setLesIsFreePreview(e.target.checked)}
+                    style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                  />
+                  <span>{t('admin.courses.freePreviewLabel')}</span>
+                </label>
+
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.84rem', color: '#ffffff' }}>
+                  <input
+                    type="checkbox"
+                    checked={lesIsStudentOnly}
+                    onChange={(e) => setLesIsStudentOnly(e.target.checked)}
+                    style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                  />
+                  <span>{t('admin.courses.studentOnlyLabel')}</span>
+                </label>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '10px' }}>
+                <button type="button" onClick={() => setIsLessonModalOpen(false)} className="btn btn-secondary">
+                  {t('admin.courses.cancelBtn')}
+                </button>
+                <button type="submit" disabled={isSubmitting} className="btn btn-primary">
+                  {isSubmitting
+                    ? t('admin.courses.saving')
+                    : editingLessonId
+                    ? t('admin.courses.saveChanges')
+                    : t('admin.courses.createLessonBtn')}
+                </button>
               </div>
             </form>
           </div>

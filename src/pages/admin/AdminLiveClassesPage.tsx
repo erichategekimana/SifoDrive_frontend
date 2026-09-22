@@ -22,26 +22,38 @@ import {
 import { Badge } from '../../components/common/Badge';
 import { Spinner } from '../../components/common/Spinner';
 import { useToast } from '../../context/ToastContext';
-
-const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-const DAY_OPTIONS = [
-  { value: 0, label: 'Each Monday' },
-  { value: 1, label: 'Each Tuesday' },
-  { value: 2, label: 'Each Wednesday' },
-  { value: 3, label: 'Each Thursday' },
-  { value: 4, label: 'Each Friday' },
-  { value: 5, label: 'Each Saturday' },
-  { value: 6, label: 'Each Sunday' },
-];
-
-const PERIOD_OPTIONS = [
-  { value: 1, label: '1 Month (~4 weeks)' },
-  { value: 2, label: '2 Months (~8 weeks)' },
-  { value: 3, label: '3 Months (~12 weeks)' },
-  { value: 6, label: '6 Months (~24 weeks)' },
-];
+import { useTranslation } from '../../context/I18nContext';
 
 export const AdminLiveClassesPage: React.FC = () => {
+  const { t, language } = useTranslation();
+
+  const dayOptions = useMemo(() => [
+    { value: 0, label: t('admin.liveClasses.dayOptions.monday') },
+    { value: 1, label: t('admin.liveClasses.dayOptions.tuesday') },
+    { value: 2, label: t('admin.liveClasses.dayOptions.wednesday') },
+    { value: 3, label: t('admin.liveClasses.dayOptions.thursday') },
+    { value: 4, label: t('admin.liveClasses.dayOptions.friday') },
+    { value: 5, label: t('admin.liveClasses.dayOptions.saturday') },
+    { value: 6, label: t('admin.liveClasses.dayOptions.sunday') },
+  ], [t]);
+
+  const periodOptions = useMemo(() => [
+    { value: 1, label: t('admin.liveClasses.periodOptions.oneMonth') },
+    { value: 2, label: t('admin.liveClasses.periodOptions.twoMonths') },
+    { value: 3, label: t('admin.liveClasses.periodOptions.threeMonths') },
+    { value: 6, label: t('admin.liveClasses.periodOptions.sixMonths') },
+  ], [t]);
+
+  const weekdaysList = useMemo(() => [
+    { key: 'mon', label: t('admin.liveClasses.weekdays.mon') },
+    { key: 'tue', label: t('admin.liveClasses.weekdays.tue') },
+    { key: 'wed', label: t('admin.liveClasses.weekdays.wed') },
+    { key: 'thu', label: t('admin.liveClasses.weekdays.thu') },
+    { key: 'fri', label: t('admin.liveClasses.weekdays.fri') },
+    { key: 'sat', label: t('admin.liveClasses.weekdays.sat') },
+    { key: 'sun', label: t('admin.liveClasses.weekdays.sun') },
+  ], [t]);
+
   const [classes, setClasses] = useState<LiveClassAdminItem[]>([]);
   const [cohorts, setCohorts] = useState<CohortItem[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -278,10 +290,10 @@ export const AdminLiveClassesPage: React.FC = () => {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
         <div>
           <h1 style={{ fontSize: '1.65rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0, letterSpacing: '-0.02em' }}>
-            Classes & Cohorts
+            {t('admin.liveClasses.classesAndCohorts')}
           </h1>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-            Manage student cohorts, schedule recurring curriculum sessions, and conduct live Google Meet classes.
+            {t('admin.liveClasses.subtitle')}
           </p>
         </div>
 
@@ -292,7 +304,7 @@ export const AdminLiveClassesPage: React.FC = () => {
             style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
           >
             <CalendarIcon size={14} />
-            <span>Schedules & Events</span>
+            <span>{t('admin.liveClasses.schedulesAndEvents')}</span>
           </Link>
 
           <div style={{ display: 'flex', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '2px' }}>
@@ -313,7 +325,7 @@ export const AdminLiveClassesPage: React.FC = () => {
               }}
             >
               <CalendarIcon size={13} />
-              <span>Calendar</span>
+              <span>{t('admin.liveClasses.calendar')}</span>
             </button>
             <button
               onClick={() => setViewMode('TABLE')}
@@ -332,7 +344,7 @@ export const AdminLiveClassesPage: React.FC = () => {
               }}
             >
               <List size={13} />
-              <span>Table</span>
+              <span>{t('admin.liveClasses.table')}</span>
             </button>
           </div>
 
@@ -342,7 +354,7 @@ export const AdminLiveClassesPage: React.FC = () => {
             style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
           >
             <RefreshCw size={13} className={isLoading ? 'spin' : ''} />
-            <span>Refresh</span>
+            <span>{t('admin.liveClasses.refresh')}</span>
           </button>
           <button
             onClick={() => setIsCohortModalOpen(true)}
@@ -350,7 +362,7 @@ export const AdminLiveClassesPage: React.FC = () => {
             style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
           >
             <Users size={14} />
-            <span>New Cohort</span>
+            <span>{t('admin.liveClasses.newCohort')}</span>
           </button>
           <button
             onClick={() => setIsClassModalOpen(true)}
@@ -358,7 +370,7 @@ export const AdminLiveClassesPage: React.FC = () => {
             style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
           >
             <Plus size={14} />
-            <span>Schedule Class</span>
+            <span>{t('admin.liveClasses.scheduleClass')}</span>
           </button>
         </div>
       </div>
@@ -367,13 +379,13 @@ export const AdminLiveClassesPage: React.FC = () => {
       <div className="glass-panel" style={{ padding: '20px', borderRadius: 'var(--radius-xl)', border: '1px solid var(--border-subtle)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
           <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-            Student Cohorts ({cohorts.length})
+            {`${t('admin.liveClasses.studentCohorts')} (${cohorts.length})`}
           </h3>
         </div>
 
         {cohorts.length === 0 ? (
           <div style={{ color: 'var(--text-muted)', fontSize: '0.82rem' }}>
-            No cohorts registered yet. Create a cohort with start date, end date, and description.
+            {t('admin.dashboard.noCohorts')}
           </div>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '14px' }}>
@@ -395,7 +407,7 @@ export const AdminLiveClassesPage: React.FC = () => {
                     {c.name}
                   </span>
                   <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                    {c.student_count ?? 0} students
+                    {c.student_count ?? 0} {t('admin.liveClasses.students')}
                   </span>
                 </div>
 
@@ -406,9 +418,9 @@ export const AdminLiveClassesPage: React.FC = () => {
                 )}
 
                 <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                  {c.start_date ? new Date(c.start_date).toLocaleDateString('en-RW') : 'TBD'}
+                  {c.start_date ? new Date(c.start_date).toLocaleDateString(language === 'rw' ? 'en-RW' : 'en-US') : 'TBD'}
                   {' → '}
-                  {c.end_date ? new Date(c.end_date).toLocaleDateString('en-RW') : 'Open'}
+                  {c.end_date ? new Date(c.end_date).toLocaleDateString(language === 'rw' ? 'en-RW' : 'en-US') : t('admin.liveClasses.open')}
                 </div>
               </div>
             ))}
@@ -448,7 +460,7 @@ export const AdminLiveClassesPage: React.FC = () => {
                 className="btn btn-secondary btn-sm"
                 style={{ padding: '4px 10px', fontSize: '0.78rem' }}
               >
-                Today
+                {t('admin.liveClasses.today')}
               </button>
               <button
                 onClick={nextMonth}
@@ -471,9 +483,9 @@ export const AdminLiveClassesPage: React.FC = () => {
               textAlign: 'center',
             }}
           >
-            {WEEKDAYS.map((day) => (
+            {weekdaysList.map((day) => (
               <div
-                key={day}
+                key={day.key}
                 style={{
                   fontSize: '0.75rem',
                   fontWeight: 600,
@@ -483,7 +495,7 @@ export const AdminLiveClassesPage: React.FC = () => {
                   letterSpacing: '0.04em',
                 }}
               >
-                {day}
+                {day.label}
               </div>
             ))}
           </div>
@@ -603,24 +615,37 @@ export const AdminLiveClassesPage: React.FC = () => {
         <div className="glass-panel" style={{ borderRadius: 'var(--radius-xl)', overflow: 'hidden', border: '1px solid var(--border-subtle)' }}>
           <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-subtle)' }}>
             <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-              All Scheduled Classes ({classes.length})
+              {`${t('admin.liveClasses.allScheduledClasses')} (${classes.length})`}
             </h3>
           </div>
 
           {classes.length === 0 ? (
             <div style={{ padding: '36px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.88rem' }}>
-              No classes scheduled yet.
+              {t('admin.liveClasses.noClassesScheduled')}
             </div>
           ) : (
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.86rem' }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid var(--border-subtle)', textAlign: 'left' }}>
-                    <th style={{ padding: '10px 14px', color: 'var(--text-muted)', fontWeight: 600 }}>Topic / Title</th>
-                    <th style={{ padding: '10px 14px', color: 'var(--text-muted)', fontWeight: 600 }}>Cohort</th>
-                    <th style={{ padding: '10px 14px', color: 'var(--text-muted)', fontWeight: 600 }}>Scheduled Date & Time</th>
-                    <th style={{ padding: '10px 14px', color: 'var(--text-muted)', fontWeight: 600 }}>Status</th>
-                    <th style={{ padding: '10px 14px', color: 'var(--text-muted)', fontWeight: 600, textAlign: 'right' }}>Actions</th>
+                    <th style={{ padding: '10px 14px', color: 'var(--text-muted)', fontWeight: 600 }}>
+                      {t('admin.liveClasses.topic')}
+                    </th>
+                    <th style={{ padding: '10px 14px', color: 'var(--text-muted)', fontWeight: 600 }}>
+                      {t('admin.liveClasses.cohort')}
+                    </th>
+                    <th style={{ padding: '10px 14px', color: 'var(--text-muted)', fontWeight: 600 }}>
+                      {t('admin.liveClasses.time')}
+                    </th>
+                    <th style={{ padding: '10px 14px', color: 'var(--text-muted)', fontWeight: 600 }}>
+                      {t('admin.liveClasses.scheduledBy')}
+                    </th>
+                    <th style={{ padding: '10px 14px', color: 'var(--text-muted)', fontWeight: 600 }}>
+                      {t('admin.liveClasses.status')}
+                    </th>
+                    <th style={{ padding: '10px 14px', color: 'var(--text-muted)', fontWeight: 600, textAlign: 'right' }}>
+                      {t('admin.liveClasses.actions')}
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -629,7 +654,7 @@ export const AdminLiveClassesPage: React.FC = () => {
                       ? `${cls.scheduled_date} ${cls.start_time ? cls.start_time.slice(0, 5) : ''}`
                       : cls.scheduled_at
                       ? new Date(cls.scheduled_at).toLocaleString('en-RW', { dateStyle: 'medium', timeStyle: 'short' })
-                      : 'Scheduled';
+                      : t('admin.liveClasses.scheduled');
 
                     return (
                       <tr key={cls.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
@@ -638,14 +663,36 @@ export const AdminLiveClassesPage: React.FC = () => {
                           {cls.topic && <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{cls.topic}</div>}
                         </td>
                         <td style={{ padding: '10px 14px', color: 'var(--text-secondary)' }}>
-                          {cls.cohort_name || 'General Cohort'}
+                          {cls.cohort_name || t('admin.liveClasses.generalCohort')}
                         </td>
                         <td style={{ padding: '10px 14px', color: 'var(--text-muted)' }}>
                           {dateDisplay}
                         </td>
                         <td style={{ padding: '10px 14px' }}>
+                          {cls.created_by_name ? (
+                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                              <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                                {cls.created_by_name}
+                              </span>
+                              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                                {cls.created_by_role === 'TRAINING_ADMIN'
+                                  ? t('admin.liveClasses.roleTrainingAdmin')
+                                  : cls.created_by_role === 'SYSTEM_ADMIN'
+                                  ? t('admin.liveClasses.roleSystemAdmin')
+                                  : cls.created_by_role || t('admin.liveClasses.roleStaff')}
+                              </span>
+                            </div>
+                          ) : (
+                            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>System</span>
+                          )}
+                        </td>
+                        <td style={{ padding: '10px 14px' }}>
                           <Badge variant={cls.status === 'IN_PROGRESS' ? 'success' : cls.status === 'COMPLETED' ? 'neutral' : 'info'}>
-                            {cls.status}
+                            {cls.status === 'IN_PROGRESS'
+                              ? t('admin.liveClasses.inProgress')
+                              : cls.status === 'COMPLETED'
+                              ? t('admin.liveClasses.completed')
+                              : t('admin.liveClasses.scheduled')}
                           </Badge>
                         </td>
                         <td style={{ padding: '10px 14px', textAlign: 'right' }}>
@@ -658,7 +705,7 @@ export const AdminLiveClassesPage: React.FC = () => {
                                 className="btn btn-secondary btn-sm"
                                 style={{ padding: '3px 8px', fontSize: '0.75rem' }}
                               >
-                                <span>Join</span>
+                                <span>{t('admin.liveClasses.join')}</span>
                                 <ExternalLink size={12} />
                               </a>
                             )}
@@ -667,7 +714,7 @@ export const AdminLiveClassesPage: React.FC = () => {
                                 onClick={() => handleClassAction(cls.id, 'START')}
                                 className="btn btn-secondary btn-sm"
                                 style={{ padding: '3px 8px', fontSize: '0.75rem' }}
-                                title="Start session"
+                                title={t('admin.liveClasses.startSession')}
                               >
                                 <Play size={12} />
                               </button>
@@ -677,7 +724,7 @@ export const AdminLiveClassesPage: React.FC = () => {
                                 onClick={() => handleClassAction(cls.id, 'END')}
                                 className="btn btn-secondary btn-sm"
                                 style={{ padding: '3px 8px', fontSize: '0.75rem' }}
-                                title="End session"
+                                title={t('admin.liveClasses.endSession')}
                               >
                                 <Square size={12} />
                               </button>
@@ -722,7 +769,7 @@ export const AdminLiveClassesPage: React.FC = () => {
           <div className="glass-panel" style={{ width: '100%', maxWidth: '480px', padding: '24px', borderRadius: 'var(--radius-xl)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
               <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                New Cohort
+                {t('admin.liveClasses.cohortModalTitle')}
               </h3>
               <button onClick={() => setIsCohortModalOpen(false)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
                 <X size={18} />
@@ -732,12 +779,12 @@ export const AdminLiveClassesPage: React.FC = () => {
             <form onSubmit={handleCreateCohort} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>
-                  Cohort Name *
+                  {t('admin.liveClasses.cohortNameLabel')}
                 </label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Kigali Morning Cohort Q4"
+                  placeholder={t('admin.liveClasses.cohortNamePlaceholder')}
                   value={cohortName}
                   onChange={(e) => setCohortName(e.target.value)}
                   style={{
@@ -755,7 +802,7 @@ export const AdminLiveClassesPage: React.FC = () => {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>
-                    Start Date *
+                    {t('admin.liveClasses.startDateLabel')}
                   </label>
                   <input
                     type="date"
@@ -776,7 +823,7 @@ export const AdminLiveClassesPage: React.FC = () => {
 
                 <div>
                   <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>
-                    End Date *
+                    {t('admin.liveClasses.endDateLabel')}
                   </label>
                   <input
                     type="date"
@@ -799,7 +846,7 @@ export const AdminLiveClassesPage: React.FC = () => {
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
                   <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                    Description (max 165 characters)
+                    {t('admin.liveClasses.cohortDescLabel')}
                   </label>
                   <span
                     style={{
@@ -814,7 +861,7 @@ export const AdminLiveClassesPage: React.FC = () => {
                 <textarea
                   maxLength={165}
                   rows={3}
-                  placeholder="Brief summary of syllabus focus, schedule rhythm, or target learners..."
+                  placeholder={t('admin.liveClasses.cohortDescPlaceholder')}
                   value={cohortDescription}
                   onChange={(e) => setCohortDescription(e.target.value)}
                   style={{
@@ -832,10 +879,10 @@ export const AdminLiveClassesPage: React.FC = () => {
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '8px' }}>
                 <button type="button" onClick={() => setIsCohortModalOpen(false)} className="btn btn-secondary btn-sm">
-                  Cancel
+                  {t('admin.liveClasses.cancel')}
                 </button>
                 <button type="submit" disabled={isSubmitting} className="btn btn-secondary btn-sm">
-                  {isSubmitting ? 'Creating...' : 'Create Cohort'}
+                  {isSubmitting ? t('admin.liveClasses.creating') : t('admin.liveClasses.createCohort')}
                 </button>
               </div>
             </form>
@@ -861,7 +908,7 @@ export const AdminLiveClassesPage: React.FC = () => {
           <div className="glass-panel" style={{ width: '100%', maxWidth: '520px', padding: '24px', borderRadius: 'var(--radius-xl)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
               <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                Schedule Live Class
+                {t('admin.liveClasses.scheduleClassModalTitle')}
               </h3>
               <button onClick={() => setIsClassModalOpen(false)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
                 <X size={18} />
@@ -894,7 +941,7 @@ export const AdminLiveClassesPage: React.FC = () => {
                   cursor: 'pointer',
                 }}
               >
-                Recurring Series (Period)
+                {t('admin.liveClasses.recurringSeries')}
               </button>
               <button
                 type="button"
@@ -910,19 +957,19 @@ export const AdminLiveClassesPage: React.FC = () => {
                   cursor: 'pointer',
                 }}
               >
-                Single Session
+                {t('admin.liveClasses.singleSession')}
               </button>
             </div>
 
             <form onSubmit={handleScheduleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>
-                  Class Title / Subject *
+                  {t('admin.liveClasses.classTitleLabel')}
                 </label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Priority Rules & Roundabout Navigation"
+                  placeholder={t('admin.liveClasses.classTitlePlaceholder')}
                   value={classTitle}
                   onChange={(e) => setClassTitle(e.target.value)}
                   style={{
@@ -939,7 +986,7 @@ export const AdminLiveClassesPage: React.FC = () => {
 
               <div>
                 <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>
-                  Assigned Cohort (Optional)
+                  {t('admin.liveClasses.assignedCohortLabel')}
                 </label>
                 <select
                   value={classCohortId}
@@ -954,10 +1001,10 @@ export const AdminLiveClassesPage: React.FC = () => {
                     fontSize: '0.85rem',
                   }}
                 >
-                  <option value="">Platform-Wide (Open to all enrolled students)</option>
+                  <option value="">{t('admin.liveClasses.openToAllEnrolled')}</option>
                   {cohorts.map((c) => (
                     <option key={c.id} value={c.id}>
-                      {c.name} ({c.student_count ?? 0} students)
+                      {c.name} ({c.student_count ?? 0} {t('admin.liveClasses.students')})
                     </option>
                   ))}
                 </select>
@@ -969,7 +1016,7 @@ export const AdminLiveClassesPage: React.FC = () => {
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                     <div>
                       <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>
-                        Weekly Cadence *
+                        {t('admin.liveClasses.weeklyCadenceLabel')}
                       </label>
                       <select
                         value={recurringDay}
@@ -984,7 +1031,7 @@ export const AdminLiveClassesPage: React.FC = () => {
                           fontSize: '0.85rem',
                         }}
                       >
-                        {DAY_OPTIONS.map((d) => (
+                        {dayOptions.map((d) => (
                           <option key={d.value} value={d.value}>
                             {d.label}
                           </option>
@@ -994,7 +1041,7 @@ export const AdminLiveClassesPage: React.FC = () => {
 
                     <div>
                       <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>
-                        Recurrence Period *
+                        {t('admin.liveClasses.recurrencePeriodLabel')}
                       </label>
                       <select
                         value={recurringPeriodMonths}
@@ -1009,7 +1056,7 @@ export const AdminLiveClassesPage: React.FC = () => {
                           fontSize: '0.85rem',
                         }}
                       >
-                        {PERIOD_OPTIONS.map((p) => (
+                        {periodOptions.map((p) => (
                           <option key={p.value} value={p.value}>
                             {p.label}
                           </option>
@@ -1021,7 +1068,7 @@ export const AdminLiveClassesPage: React.FC = () => {
                   {/* Start Date */}
                   <div>
                     <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>
-                      Start Recurrence From Date *
+                      {t('admin.liveClasses.startRecurrenceFromLabel')}
                     </label>
                     <input
                       type="date"
@@ -1043,7 +1090,7 @@ export const AdminLiveClassesPage: React.FC = () => {
               ) : (
                 <div>
                   <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>
-                    Session Date *
+                    {t('admin.liveClasses.sessionDateLabel')}
                   </label>
                   <input
                     type="date"
@@ -1067,7 +1114,7 @@ export const AdminLiveClassesPage: React.FC = () => {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>
-                    Start Time *
+                    {t('admin.liveClasses.startTimeLabel')}
                   </label>
                   <input
                     type="time"
@@ -1088,7 +1135,7 @@ export const AdminLiveClassesPage: React.FC = () => {
 
                 <div>
                   <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>
-                    End Time *
+                    {t('admin.liveClasses.endTimeLabel')}
                   </label>
                   <input
                     type="time"
@@ -1111,7 +1158,7 @@ export const AdminLiveClassesPage: React.FC = () => {
               {/* Google Meet Link */}
               <div>
                 <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>
-                  Google Meet Link (Optional)
+                  {t('admin.liveClasses.googleMeetLinkLabel')}
                 </label>
                 <input
                   type="url"
@@ -1142,21 +1189,21 @@ export const AdminLiveClassesPage: React.FC = () => {
                     color: 'var(--text-secondary)',
                   }}
                 >
-                  Cadence:{' '}
+                  {t('admin.liveClasses.cadence')}{' '}
                   <strong style={{ color: 'var(--text-primary)' }}>
-                    {DAY_OPTIONS.find((d) => d.value === recurringDay)?.label} at {classStartTime}
+                    {dayOptions.find((d) => d.value === recurringDay)?.label} at {classStartTime}
                   </strong>{' '}
-                  for <strong style={{ color: 'var(--text-primary)' }}>{recurringPeriodMonths} months</strong>.
-                  Sessions will automatically populate on the academy calendar.
+                  {t('admin.liveClasses.forMonths')} <strong style={{ color: 'var(--text-primary)' }}>{recurringPeriodMonths} {t('admin.liveClasses.months')}</strong>.{' '}
+                  {t('admin.liveClasses.sessionsAutoPopulate')}
                 </div>
               )}
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '8px' }}>
                 <button type="button" onClick={() => setIsClassModalOpen(false)} className="btn btn-secondary btn-sm">
-                  Cancel
+                  {t('admin.liveClasses.cancel')}
                 </button>
                 <button type="submit" disabled={isSubmitting} className="btn btn-secondary btn-sm">
-                  {isSubmitting ? 'Scheduling...' : 'Schedule Class'}
+                  {isSubmitting ? t('admin.liveClasses.scheduling') : t('admin.liveClasses.scheduleClass')}
                 </button>
               </div>
             </form>
@@ -1182,7 +1229,7 @@ export const AdminLiveClassesPage: React.FC = () => {
           <div className="glass-panel" style={{ width: '100%', maxWidth: '440px', padding: '24px', borderRadius: 'var(--radius-xl)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
               <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                Class Details
+                {t('admin.liveClasses.classDetailsModalTitle')}
               </h3>
               <button onClick={() => setSelectedClass(null)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
                 <X size={18} />
@@ -1191,26 +1238,42 @@ export const AdminLiveClassesPage: React.FC = () => {
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '0.85rem' }}>
               <div>
-                <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', textTransform: 'uppercase', display: 'block' }}>Topic</span>
+                <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', textTransform: 'uppercase', display: 'block' }}>{t('admin.liveClasses.topic')}</span>
                 <strong style={{ color: 'var(--text-primary)' }}>{selectedClass.title}</strong>
               </div>
 
               <div>
-                <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', textTransform: 'uppercase', display: 'block' }}>Cohort</span>
-                <span style={{ color: 'var(--text-secondary)' }}>{selectedClass.cohort_name || 'General Cohort'}</span>
+                <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', textTransform: 'uppercase', display: 'block' }}>{t('admin.liveClasses.cohort')}</span>
+                <span style={{ color: 'var(--text-secondary)' }}>{selectedClass.cohort_name || t('admin.liveClasses.generalCohort')}</span>
               </div>
 
               <div>
-                <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', textTransform: 'uppercase', display: 'block' }}>Time</span>
+                <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', textTransform: 'uppercase', display: 'block' }}>{t('admin.liveClasses.time')}</span>
                 <span style={{ color: 'var(--text-secondary)' }}>
                   {selectedClass.scheduled_date} ({selectedClass.start_time?.slice(0, 5)} - {selectedClass.end_time?.slice(0, 5)})
                 </span>
               </div>
 
               <div>
-                <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', textTransform: 'uppercase', display: 'block' }}>Status</span>
+                <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', textTransform: 'uppercase', display: 'block' }}>{t('admin.liveClasses.scheduledBy')}</span>
+                <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>
+                  {selectedClass.created_by_name || 'System Administrator'}
+                </span>
+                {selectedClass.created_by_role && (
+                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block' }}>
+                    Role: {selectedClass.created_by_role === 'TRAINING_ADMIN' ? t('admin.liveClasses.roleTrainingAdmin') : selectedClass.created_by_role}
+                  </span>
+                )}
+              </div>
+
+              <div>
+                <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', textTransform: 'uppercase', display: 'block' }}>{t('admin.liveClasses.status')}</span>
                 <Badge variant={selectedClass.status === 'IN_PROGRESS' ? 'success' : 'info'}>
-                  {selectedClass.status}
+                  {selectedClass.status === 'IN_PROGRESS'
+                    ? t('admin.liveClasses.inProgress')
+                    : selectedClass.status === 'COMPLETED'
+                    ? t('admin.liveClasses.completed')
+                    : t('admin.liveClasses.scheduled')}
                 </Badge>
               </div>
 
@@ -1223,7 +1286,7 @@ export const AdminLiveClassesPage: React.FC = () => {
                     rel="noreferrer"
                     style={{ color: 'var(--primary-light)', display: 'inline-flex', alignItems: 'center', gap: '4px', textDecoration: 'none' }}
                   >
-                    <span>Open Google Meet</span>
+                    <span>{t('admin.liveClasses.openGoogleMeet')}</span>
                     <ExternalLink size={12} />
                   </a>
                 </div>
@@ -1235,7 +1298,7 @@ export const AdminLiveClassesPage: React.FC = () => {
                     onClick={() => handleClassAction(selectedClass.id, 'START')}
                     className="btn btn-secondary btn-sm"
                   >
-                    Start Class
+                    {t('admin.liveClasses.startClass')}
                   </button>
                 )}
                 {selectedClass.status === 'IN_PROGRESS' && (
@@ -1243,7 +1306,7 @@ export const AdminLiveClassesPage: React.FC = () => {
                     onClick={() => handleClassAction(selectedClass.id, 'END')}
                     className="btn btn-secondary btn-sm"
                   >
-                    End Class
+                    {t('admin.liveClasses.endClass')}
                   </button>
                 )}
                 {selectedClass.status !== 'COMPLETED' && selectedClass.status !== 'CANCELLED' && (
@@ -1251,7 +1314,7 @@ export const AdminLiveClassesPage: React.FC = () => {
                     onClick={() => handleClassAction(selectedClass.id, 'CANCEL')}
                     className="btn btn-secondary btn-sm"
                   >
-                    Cancel Class
+                    {t('admin.liveClasses.cancelClass')}
                   </button>
                 )}
                 <button
@@ -1259,7 +1322,7 @@ export const AdminLiveClassesPage: React.FC = () => {
                   onClick={() => setSelectedClass(null)}
                   className="btn btn-secondary btn-sm"
                 >
-                  Close
+                  {t('admin.liveClasses.close')}
                 </button>
               </div>
             </div>
