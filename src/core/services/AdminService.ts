@@ -21,6 +21,8 @@ export interface AdminUserItem {
   station_quota?: number | null;
   has_national_id?: boolean;
   assigned_tutor_name?: string | null;
+  assigned_tutor_id?: string | null;
+  assigned_tutor_phone?: string | null;
   national_id?: string | null;
   national_id_encrypted?: string | null;
   terms_of_service_accepted?: boolean;
@@ -73,6 +75,23 @@ export interface PartnerTeacherItem {
   is_active: boolean;
 }
 
+export interface CurriculumItem {
+  id: string;
+  title: string;
+  title_kinyarwanda?: string;
+  code?: string;
+  description?: string;
+  description_kinyarwanda?: string;
+  thumbnail?: string | null;
+  sort_order?: number;
+  is_published: boolean;
+  published_at?: string | null;
+  course_count: number;
+  published_course_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface CohortItem {
   id: string;
   name: string;
@@ -108,6 +127,85 @@ export interface LiveClassAdminItem {
   attendee_count?: number;
   created_by_name?: string;
   created_by_role?: string;
+}
+
+export interface QuizQuestionItem {
+  id?: string;
+  sort_order?: number;
+  original_question?: string | null;
+  points: number;
+  question_text: string;
+  question_text_kinyarwanda?: string;
+  option_a: string;
+  option_b: string;
+  option_c?: string;
+  option_d?: string;
+  option_a_kinyarwanda?: string;
+  option_b_kinyarwanda?: string;
+  option_c_kinyarwanda?: string;
+  option_d_kinyarwanda?: string;
+  correct_option: 'A' | 'B' | 'C' | 'D';
+  explanation?: string;
+  explanation_kinyarwanda?: string;
+  domain?: string;
+  difficulty?: 'EASY' | 'MEDIUM' | 'HARD';
+}
+
+export interface QuizItem {
+  id: string;
+  course: string;
+  course_title: string;
+  module?: string | null;
+  module_title?: string | null;
+  title: string;
+  title_kinyarwanda?: string;
+  description?: string;
+  description_kinyarwanda?: string;
+  open_date?: string | null;
+  deadline?: string | null;
+  time_limit_minutes: number;
+  total_score: number;
+  calculated_total_points?: number;
+  passing_score: number;
+  rubric?: string;
+  rubric_kinyarwanda?: string;
+  max_attempts: number;
+  shuffle_questions: boolean;
+  is_published: boolean;
+  status: 'DRAFT' | 'SCHEDULED' | 'OPEN' | 'CLOSED';
+  question_count: number;
+  created_by?: string | null;
+  created_by_detail?: {
+    id: string;
+    phone_number: string;
+    first_name: string;
+    last_name: string;
+    full_name: string;
+    role: string;
+  } | null;
+  items?: QuizQuestionItem[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface QuizPayload {
+  course: string;
+  module?: string | null;
+  title: string;
+  title_kinyarwanda?: string;
+  description?: string;
+  description_kinyarwanda?: string;
+  open_date?: string | null;
+  deadline?: string | null;
+  time_limit_minutes?: number;
+  total_score?: number;
+  passing_score?: number;
+  rubric?: string;
+  rubric_kinyarwanda?: string;
+  max_attempts?: number;
+  shuffle_questions?: boolean;
+  is_published?: boolean;
+  items?: QuizQuestionItem[];
 }
 
 export interface SMSLogItem {
@@ -365,41 +463,117 @@ export class AdminService {
     return await this.http.post<AdminUserItem>(ApiEndpoints.ADMIN.USER_STATUS(userId), { status, reason });
   }
 
+  public async assignTutorToStudent(userId: string, tutorId: string | null): Promise<AdminUserItem> {
+    logger.info('Assigning tutor to student', { userId, tutorId });
+    return await this.http.post<AdminUserItem>(ApiEndpoints.ADMIN.USER_TUTOR(userId), { tutor_id: tutorId });
+  }
+
   // -------------------------------------------------------------------------
-  // 2. LMS Studio (Courses, Road Signs, Questions)
+  // 2. LMS Studio (Curricula, Courses, Road Signs, Questions)
   // -------------------------------------------------------------------------
-  public async getCourses(): Promise<any[]> {
-    logger.debug('Fetching courses for System Admin studio');
-    const res = await this.http.get<any>(ApiEndpoints.ADMIN.COURSES);
+  public async getCurricula(): Promise<CurriculumItem[]> {
+    logger.debug('Fetching curricula');
+    const res = await this.http.get<any>(ApiEndpoints.ADMIN.CURRICULA);
+    if (Array.isArray(res)) return res;
+    if (res && Array.isArray(res.results)) return res.results;
+    return [];
+  }
+
+  public async createCurriculum(payload: {
+    title: string;
+    title_kinyarwanda?: string;
+    code?: string;
+    description?: string;
+    description_kinyarwanda?: string;
+    sort_order?: number;
+  }): Promise<CurriculumItem> {
+    logger.info(`Creating curriculum: ${payload.title}`);
+    return this.http.post(ApiEndpoints.ADMIN.CURRICULUM_CREATE, payload);
+  }
+
+  public async updateCurriculum(
+    id: string,
+    payload: Partial<{
+      title: string;
+      title_kinyarwanda: string;
+      code: string;
+      description: string;
+      description_kinyarwanda: string;
+      sort_order: number;
+    }>
+  ): Promise<CurriculumItem> {
+    logger.info(`Updating curriculum ${id}`);
+    return this.http.patch(ApiEndpoints.ADMIN.CURRICULUM_UPDATE(id), payload);
+  }
+
+  public async deleteCurriculum(id: string): Promise<void> {
+    return this.http.delete(ApiEndpoints.ADMIN.CURRICULUM_DELETE(id));
+  }
+
+  public async publishCurriculum(id: string): Promise<any> {
+    return this.http.post(ApiEndpoints.ADMIN.CURRICULUM_PUBLISH(id), {});
+  }
+
+  public async unpublishCurriculum(id: string): Promise<any> {
+    return this.http.post(ApiEndpoints.ADMIN.CURRICULUM_UNPUBLISH(id), {});
+  }
+
+  public async getCurriculumCourses(id: string): Promise<any[]> {
+    const res = await this.http.get<any>(ApiEndpoints.ADMIN.CURRICULUM_COURSES(id));
+    if (Array.isArray(res)) return res;
+    if (res && Array.isArray(res.results)) return res.results;
+    return [];
+  }
+
+  public async getCourses(curriculumId?: string): Promise<any[]> {
+    logger.debug('Fetching courses for LMS studio');
+    const url = curriculumId
+      ? `${ApiEndpoints.ADMIN.COURSES}?curriculum=${encodeURIComponent(curriculumId)}`
+      : ApiEndpoints.ADMIN.COURSES;
+    const res = await this.http.get<any>(url);
     if (Array.isArray(res)) return res;
     if (res && Array.isArray(res.results)) return res.results;
     return [];
   }
 
   public async createCourse(payload: {
+    curriculum?: string;
     title: string;
     title_rw?: string;
-    code: string;
+    title_kinyarwanda?: string;
+    code?: string;
     description?: string;
+    description_kinyarwanda?: string;
+    estimated_hours?: number;
+    sort_order?: number;
     is_published?: boolean;
   }): Promise<any> {
     logger.info(`Creating course: ${payload.title}`);
-    return this.http.post(ApiEndpoints.ADMIN.COURSE_CREATE, payload);
+    return this.http.post(ApiEndpoints.ADMIN.COURSE_CREATE, {
+      ...payload,
+      title_kinyarwanda: payload.title_kinyarwanda || payload.title_rw,
+    });
   }
 
   public async updateCourse(
     id: string,
     payload: {
+      curriculum?: string;
       title?: string;
       title_rw?: string;
+      title_kinyarwanda?: string;
       code?: string;
       description?: string;
+      description_kinyarwanda?: string;
       estimated_hours?: number;
       sort_order?: number;
     }
   ): Promise<any> {
     logger.info(`Updating course ${id}: ${payload.title || ''}`);
-    return this.http.patch(ApiEndpoints.ADMIN.COURSE_UPDATE(id), payload);
+    return this.http.patch(ApiEndpoints.ADMIN.COURSE_UPDATE(id), {
+      ...payload,
+      title_kinyarwanda: payload.title_kinyarwanda || payload.title_rw,
+    });
   }
 
   public async publishCourse(id: string): Promise<any> {
@@ -482,10 +656,11 @@ export class AdminService {
     return this.http.post(ApiEndpoints.ADMIN.ROAD_SIGN_CREATE, payload);
   }
 
-  public async getQuestions(params?: { category?: string }): Promise<any[]> {
+  public async getQuestions(params?: { category?: string; page_size?: number }): Promise<any[]> {
     const query = new URLSearchParams();
     if (params?.category) query.set('category', params.category);
-    const url = `${ApiEndpoints.ADMIN.QUESTIONS}${query.toString() ? `?${query.toString()}` : ''}`;
+    query.set('page_size', String(params?.page_size || 500));
+    const url = `${ApiEndpoints.ADMIN.QUESTIONS}?${query.toString()}`;
     const res = await this.http.get<any>(url);
     return Array.isArray(res) ? res : res?.results || [];
   }
@@ -493,6 +668,53 @@ export class AdminService {
   public async createQuestion(payload: any): Promise<any> {
     return this.http.post(ApiEndpoints.ADMIN.QUESTION_CREATE, payload);
   }
+
+  // -------------------------------------------------------------------------
+  // 2.2 LMS Quizzes (Quiz Bank Engine)
+  // -------------------------------------------------------------------------
+  public async getQuizzes(params?: {
+    course?: string;
+    module?: string;
+    status?: string;
+    search?: string;
+  }): Promise<QuizItem[]> {
+    const query = new URLSearchParams();
+    if (params?.course) query.set('course', params.course);
+    if (params?.module) query.set('module', params.module);
+    if (params?.status) query.set('status', params.status);
+    if (params?.search) query.set('search', params.search);
+    const url = `${ApiEndpoints.LMS.QUIZZES}${query.toString() ? `?${query.toString()}` : ''}`;
+    const res = await this.http.get<any>(url);
+    if (Array.isArray(res)) return res;
+    if (res?.data && Array.isArray(res.data)) return res.data;
+    if (res?.results && Array.isArray(res.results)) return res.results;
+    return [];
+  }
+
+  public async getQuizDetail(id: string): Promise<QuizItem> {
+    const res = await this.http.get<any>(ApiEndpoints.LMS.QUIZ_DETAIL(id));
+    return res?.data || res;
+  }
+
+  public async createQuiz(payload: QuizPayload): Promise<QuizItem> {
+    const res = await this.http.post<any>(ApiEndpoints.LMS.QUIZZES, payload);
+    return res?.data || res;
+  }
+
+  public async updateQuiz(id: string, payload: Partial<QuizPayload>): Promise<QuizItem> {
+    const res = await this.http.patch<any>(ApiEndpoints.LMS.QUIZ_DETAIL(id), payload);
+    return res?.data || res;
+  }
+
+  public async deleteQuiz(id: string): Promise<void> {
+    await this.http.delete(ApiEndpoints.LMS.QUIZ_DETAIL(id));
+  }
+
+  public async togglePublishQuiz(id: string): Promise<QuizItem> {
+    const res = await this.http.post<any>(ApiEndpoints.LMS.QUIZ_PUBLISH(id), {});
+    return res?.data || res;
+  }
+
 
   // -------------------------------------------------------------------------
   // 3. Irembo Booking Concierge Operations

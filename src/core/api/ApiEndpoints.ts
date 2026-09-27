@@ -42,6 +42,9 @@ export const ApiEndpoints = {
     PROGRESS_QUIZ: `${API_BASE_URL}/lms/progress/quiz/`,
     PROGRESS_SUMMARY: `${API_BASE_URL}/lms/progress/summary/`,
     BOOKMARKS: `${API_BASE_URL}/lms/bookmarks/`,
+    QUIZZES: `${API_BASE_URL}/lms/quizzes/`,
+    QUIZ_DETAIL: (id: string) => `${API_BASE_URL}/lms/quizzes/${id}/`,
+    QUIZ_PUBLISH: (id: string) => `${API_BASE_URL}/lms/quizzes/${id}/publish/`,
   },
 
   // Live Classes & Google Meet Hub
@@ -71,8 +74,17 @@ export const ApiEndpoints = {
     USER_DETAIL: (id: string) => `${API_BASE_URL}/auth/users/${id}/`,
     USER_ROLE: (id: string) => `${API_BASE_URL}/auth/users/${id}/role/`,
     USER_STATUS: (id: string) => `${API_BASE_URL}/auth/users/${id}/status/`,
+    USER_TUTOR: (id: string) => `${API_BASE_URL}/auth/users/${id}/tutor/`,
 
     // LMS Studio
+    CURRICULA: `${API_BASE_URL}/lms/curricula/`,
+    CURRICULUM_CREATE: `${API_BASE_URL}/lms/curricula/create/`,
+    CURRICULUM_DETAIL: (id: string) => `${API_BASE_URL}/lms/curricula/${id}/`,
+    CURRICULUM_UPDATE: (id: string) => `${API_BASE_URL}/lms/curricula/${id}/edit/`,
+    CURRICULUM_DELETE: (id: string) => `${API_BASE_URL}/lms/curricula/${id}/delete/`,
+    CURRICULUM_PUBLISH: (id: string) => `${API_BASE_URL}/lms/curricula/${id}/publish/`,
+    CURRICULUM_UNPUBLISH: (id: string) => `${API_BASE_URL}/lms/curricula/${id}/unpublish/`,
+    CURRICULUM_COURSES: (id: string) => `${API_BASE_URL}/lms/curricula/${id}/courses/`,
     COURSES: `${API_BASE_URL}/lms/courses/`,
     COURSE_CREATE: `${API_BASE_URL}/lms/courses/create/`,
     COURSE_UPDATE: (id: string) => `${API_BASE_URL}/lms/courses/${id}/edit/`,
@@ -100,6 +112,12 @@ export const ApiEndpoints = {
     ROAD_SIGN_UPDATE: (id: string) => `${API_BASE_URL}/lms/road-signs/${id}/edit/`,
     QUESTIONS: `${API_BASE_URL}/lms/questions/`,
     QUESTION_CREATE: `${API_BASE_URL}/lms/questions/create/`,
+    QUIZZES: `${API_BASE_URL}/lms/quizzes/`,
+    QUIZ_CREATE: `${API_BASE_URL}/lms/quizzes/`,
+    QUIZ_DETAIL: (id: string) => `${API_BASE_URL}/lms/quizzes/${id}/`,
+    QUIZ_UPDATE: (id: string) => `${API_BASE_URL}/lms/quizzes/${id}/`,
+    QUIZ_DELETE: (id: string) => `${API_BASE_URL}/lms/quizzes/${id}/`,
+    QUIZ_PUBLISH: (id: string) => `${API_BASE_URL}/lms/quizzes/${id}/publish/`,
 
     // Live Classes & Cohort Dispatch
     COHORTS: `${API_BASE_URL}/live-classes/cohorts/`,

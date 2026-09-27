@@ -29,6 +29,7 @@ import { Badge } from '../../components/common/Badge';
 import { Spinner } from '../../components/common/Spinner';
 import { useToast } from '../../context/ToastContext';
 import { useTranslation } from '../../context/I18nContext';
+import { useAuth } from '../../context/AuthContext';
 import { CertificateLandscapeDocument } from '../../components/common/CertificateLandscapeDocument';
 
 const DOMAIN_LABELS_KINYARWANDA: Record<string, string> = {
@@ -52,6 +53,11 @@ const DIFFICULTY_LABELS_KINYARWANDA: Record<string, string> = {
 };
 
 export const AdminExaminationsPage: React.FC = () => {
+  const { user } = useAuth();
+  const isTrainingAdmin = user?.isTrainingAdmin() ?? false;
+  const isBoardReviewer = user?.isBoardReviewer() ?? false;
+  const isSystemAdmin = user?.isSystemAdmin() ?? false;
+
   const { t, language } = useTranslation();
 
   const getDomainLabel = (domain: string) => {
@@ -974,21 +980,30 @@ export const AdminExaminationsPage: React.FC = () => {
                           {/* Actions */}
                           <td style={{ padding: '12px 16px', textAlign: 'right' }}>
                             <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                              {/* Inspect Button */}
+                              {/* Inspect / Review Button */}
                               <button
                                 onClick={() => handleInspect(session)}
                                 style={{
                                   padding: '5px 12px',
                                   borderRadius: '6px',
                                   border: '1px solid var(--border-subtle)',
-                                  background: 'rgba(255,255,255,0.04)',
-                                  color: 'var(--text-primary)',
+                                  background: (session.status === 'TRAINING_REVIEW' && (isTrainingAdmin || isSystemAdmin))
+                                    ? 'rgba(217, 119, 6, 0.12)'
+                                    : 'rgba(255,255,255,0.04)',
+                                  color: (session.status === 'TRAINING_REVIEW' && (isTrainingAdmin || isSystemAdmin))
+                                    ? '#f59e0b'
+                                    : 'var(--text-primary)',
+                                  borderColor: (session.status === 'TRAINING_REVIEW' && (isTrainingAdmin || isSystemAdmin))
+                                    ? 'rgba(217, 119, 6, 0.4)'
+                                    : 'var(--border-subtle)',
                                   fontSize: '0.78rem',
-                                  fontWeight: 500,
+                                  fontWeight: 600,
                                   cursor: 'pointer',
                                 }}
                               >
-                                Inspect
+                                {session.status === 'TRAINING_REVIEW' && (isTrainingAdmin || isSystemAdmin)
+                                  ? (t('admin.examinations.reviewAndCertify') || 'Review & Certify')
+                                  : 'Inspect'}
                               </button>
 
                               {/* Publish Button */}
@@ -2277,45 +2292,62 @@ export const AdminExaminationsPage: React.FC = () => {
                 </div>
 
                 {/* Prior Review Stages Notes (Board Reviewer & Training Admin) */}
-                {inspectDetail.board_notes && (
+                {(inspectDetail.board_notes || inspectDetail.board_decision || inspectDetail.status === 'TRAINING_REVIEW' || inspectDetail.status === 'SYSTEM_REVIEW' || inspectDetail.status === 'APPROVED' || inspectDetail.status === 'PUBLISHED') && (
                   <div
                     style={{
-                      padding: '10px 14px',
-                      borderRadius: '6px',
+                      padding: '12px 16px',
+                      borderRadius: '8px',
                       background: 'rgba(59, 130, 246, 0.08)',
                       border: '1px solid rgba(59, 130, 246, 0.25)',
-                      marginBottom: '12px',
+                      marginBottom: '14px',
                     }}
                   >
-                    <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#60a5fa', textTransform: 'uppercase', marginBottom: '2px' }}>
-                      Board Reviewer Evaluation (Stage 1)
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                      <div style={{ fontSize: '0.74rem', fontWeight: 700, color: '#60a5fa', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        Board Reviewer Evaluation (Stage 1)
+                      </div>
+                      <Badge variant={inspectDetail.board_decision === 'REJECT' ? 'danger' : 'info'}>
+                        {inspectDetail.board_decision ? `Decision: ${inspectDetail.board_decision}` : 'Reviewed & Approved'}
+                      </Badge>
                     </div>
-                    <div style={{ fontSize: '0.82rem', color: 'var(--text-primary)' }}>{inspectDetail.board_notes}</div>
-                    {inspectDetail.board_reviewer?.full_name && (
-                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                        Evaluated by: {inspectDetail.board_reviewer.full_name}
+                    <div style={{ fontSize: '0.84rem', color: 'var(--text-primary)', marginTop: '4px' }}>
+                      {inspectDetail.board_notes || 'Exam questions and integrity checked by Board Reviewer. Forwarded to Training Admin.'}
+                    </div>
+                    {((inspectDetail as any).board_reviewer_name || inspectDetail.board_reviewer?.full_name) && (
+                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '6px' }}>
+                        Evaluated by: {(inspectDetail as any).board_reviewer_name || inspectDetail.board_reviewer?.full_name}
+                        {inspectDetail.board_reviewed_at ? ` &bull; ${new Date(inspectDetail.board_reviewed_at).toLocaleString()}` : ''}
                       </div>
                     )}
                   </div>
                 )}
 
-                {inspectDetail.training_notes && (
+                {/* Training Admin Pedagogical Review Status (Stage 2) */}
+                {(inspectDetail.training_notes || inspectDetail.training_decision || inspectDetail.status === 'SYSTEM_REVIEW' || inspectDetail.status === 'APPROVED' || inspectDetail.status === 'PUBLISHED') && (
                   <div
                     style={{
-                      padding: '10px 14px',
-                      borderRadius: '6px',
+                      padding: '12px 16px',
+                      borderRadius: '8px',
                       background: 'rgba(245, 158, 11, 0.08)',
                       border: '1px solid rgba(245, 158, 11, 0.25)',
-                      marginBottom: '12px',
+                      marginBottom: '14px',
                     }}
                   >
-                    <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#f59e0b', textTransform: 'uppercase', marginBottom: '2px' }}>
-                      Training Admin Pedagogical Review (Stage 2)
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                      <div style={{ fontSize: '0.74rem', fontWeight: 700, color: '#f59e0b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        Training Admin Pedagogical Review (Stage 2)
+                      </div>
+                      <Badge variant={inspectDetail.training_decision === 'REJECT' ? 'danger' : 'warning'}>
+                        {inspectDetail.training_decision ? `Decision: ${inspectDetail.training_decision}` : 'Certified'}
+                      </Badge>
                     </div>
-                    <div style={{ fontSize: '0.82rem', color: 'var(--text-primary)' }}>{inspectDetail.training_notes}</div>
-                    {inspectDetail.training_admin?.full_name && (
-                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                        Evaluated by: {inspectDetail.training_admin.full_name}
+                    <div style={{ fontSize: '0.84rem', color: 'var(--text-primary)', marginTop: '4px' }}>
+                      {inspectDetail.training_notes || 'Pedagogical curriculum alignment and score verified.'}
+                    </div>
+                    {((inspectDetail as any).training_admin_name || inspectDetail.training_admin?.full_name) && (
+                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '6px' }}>
+                        Evaluated by: {(inspectDetail as any).training_admin_name || inspectDetail.training_admin?.full_name}
+                        {inspectDetail.training_reviewed_at ? ` &bull; ${new Date(inspectDetail.training_reviewed_at).toLocaleString()}` : ''}
                       </div>
                     )}
                   </div>
@@ -2324,7 +2356,7 @@ export const AdminExaminationsPage: React.FC = () => {
                 {/* Decision Action Area */}
                 <div
                   style={{
-                    padding: '14px 16px',
+                    padding: '16px 18px',
                     borderRadius: '8px',
                     background: 'rgba(0,0,0,0.2)',
                     border: '1px solid var(--border-subtle)',
@@ -2344,6 +2376,22 @@ export const AdminExaminationsPage: React.FC = () => {
                       <Badge variant="neutral">Approval Locked</Badge>
                     )}
                   </div>
+
+                  {inspectDetail.status === 'TRAINING_REVIEW' && (
+                    <div
+                      style={{
+                        fontSize: '0.78rem',
+                        color: 'var(--text-secondary)',
+                        background: 'rgba(217, 119, 6, 0.08)',
+                        border: '1px solid rgba(217, 119, 6, 0.25)',
+                        borderRadius: '6px',
+                        padding: '8px 12px',
+                        marginBottom: '10px',
+                      }}
+                    >
+                      {t('admin.examinations.boardApprovedNotice') || 'Board Reviewer approved this exam. Ready for Pedagogical Certification.'}
+                    </div>
+                  )}
 
                   <input
                     type="text"
@@ -2369,7 +2417,8 @@ export const AdminExaminationsPage: React.FC = () => {
                       <>
                         <button
                           onClick={() => handleStageAction('TRAINING_DECISION', 'REJECT')}
-                          disabled={isExecutingAction}
+                          disabled={isExecutingAction || (!isTrainingAdmin && !isSystemAdmin)}
+                          title={(!isTrainingAdmin && !isSystemAdmin) ? 'Only Training Admin or System Admin may submit review' : ''}
                           style={{
                             padding: '6px 14px',
                             borderRadius: '6px',
@@ -2378,14 +2427,16 @@ export const AdminExaminationsPage: React.FC = () => {
                             color: '#ef4444',
                             fontWeight: 500,
                             fontSize: '0.8rem',
-                            cursor: 'pointer',
+                            cursor: (!isTrainingAdmin && !isSystemAdmin) ? 'not-allowed' : 'pointer',
+                            opacity: (!isTrainingAdmin && !isSystemAdmin) ? 0.5 : 1,
                           }}
                         >
                           {t('admin.examinations.rejectSession')}
                         </button>
                         <button
                           onClick={() => handleStageAction('TRAINING_DECISION', 'APPROVE')}
-                          disabled={isExecutingAction}
+                          disabled={isExecutingAction || (!isTrainingAdmin && !isSystemAdmin)}
+                          title={(!isTrainingAdmin && !isSystemAdmin) ? 'Only Training Admin or System Admin may submit review' : ''}
                           style={{
                             padding: '6px 16px',
                             borderRadius: '6px',
@@ -2394,7 +2445,8 @@ export const AdminExaminationsPage: React.FC = () => {
                             color: '#ffffff',
                             fontWeight: 600,
                             fontSize: '0.8rem',
-                            cursor: 'pointer',
+                            cursor: (!isTrainingAdmin && !isSystemAdmin) ? 'not-allowed' : 'pointer',
+                            opacity: (!isTrainingAdmin && !isSystemAdmin) ? 0.5 : 1,
                           }}
                         >
                           {t('admin.examinations.approveForward')}
@@ -2404,7 +2456,8 @@ export const AdminExaminationsPage: React.FC = () => {
                       <>
                         <button
                           onClick={() => handleStageAction('BOARD_DECISION', 'REJECT')}
-                          disabled={isExecutingAction}
+                          disabled={isExecutingAction || (!isBoardReviewer && !isSystemAdmin)}
+                          title={(!isBoardReviewer && !isSystemAdmin) ? 'Only Board Reviewers or System Admin may submit board review' : ''}
                           style={{
                             padding: '6px 14px',
                             borderRadius: '6px',
@@ -2413,14 +2466,16 @@ export const AdminExaminationsPage: React.FC = () => {
                             color: '#ef4444',
                             fontWeight: 500,
                             fontSize: '0.8rem',
-                            cursor: 'pointer',
+                            cursor: (!isBoardReviewer && !isSystemAdmin) ? 'not-allowed' : 'pointer',
+                            opacity: (!isBoardReviewer && !isSystemAdmin) ? 0.5 : 1,
                           }}
                         >
                           Reject
                         </button>
                         <button
                           onClick={() => handleStageAction('BOARD_DECISION', 'APPROVE')}
-                          disabled={isExecutingAction}
+                          disabled={isExecutingAction || (!isBoardReviewer && !isSystemAdmin)}
+                          title={(!isBoardReviewer && !isSystemAdmin) ? 'Only Board Reviewers or System Admin may submit board review' : ''}
                           style={{
                             padding: '6px 16px',
                             borderRadius: '6px',
@@ -2429,7 +2484,8 @@ export const AdminExaminationsPage: React.FC = () => {
                             color: '#ffffff',
                             fontWeight: 600,
                             fontSize: '0.8rem',
-                            cursor: 'pointer',
+                            cursor: (!isBoardReviewer && !isSystemAdmin) ? 'not-allowed' : 'pointer',
+                            opacity: (!isBoardReviewer && !isSystemAdmin) ? 0.5 : 1,
                           }}
                         >
                           Approve & Forward to Training Admin
@@ -2439,7 +2495,7 @@ export const AdminExaminationsPage: React.FC = () => {
                       <>
                         <button
                           onClick={() => handleStageAction('REJECT', 'REJECT')}
-                          disabled={isExecutingAction || inspectDetail.status === 'PUBLISHED'}
+                          disabled={isExecutingAction || inspectDetail.status === 'PUBLISHED' || (!isTrainingAdmin && !isBoardReviewer && !isSystemAdmin)}
                           style={{
                             padding: '6px 14px',
                             borderRadius: '6px',
@@ -2456,16 +2512,18 @@ export const AdminExaminationsPage: React.FC = () => {
 
                         <button
                           onClick={() => handleStageAction('SYSTEM_APPROVE', 'APPROVE')}
-                          disabled={!inspectDetail.can_system_approve || isExecutingAction}
+                          disabled={!inspectDetail.can_system_approve || isExecutingAction || !isSystemAdmin}
+                          title={!isSystemAdmin ? 'Only System Administrators may perform final certification approval' : ''}
                           style={{
                             padding: '6px 16px',
                             borderRadius: '6px',
                             border: 'none',
-                            background: inspectDetail.can_system_approve ? 'var(--primary)' : 'rgba(255,255,255,0.05)',
-                            color: inspectDetail.can_system_approve ? '#ffffff' : 'var(--text-muted)',
+                            background: inspectDetail.can_system_approve && isSystemAdmin ? 'var(--primary)' : 'rgba(255,255,255,0.05)',
+                            color: inspectDetail.can_system_approve && isSystemAdmin ? '#ffffff' : 'var(--text-muted)',
                             fontWeight: 600,
                             fontSize: '0.8rem',
-                            cursor: inspectDetail.can_system_approve ? 'pointer' : 'not-allowed',
+                            cursor: inspectDetail.can_system_approve && isSystemAdmin ? 'pointer' : 'not-allowed',
+                            opacity: !isSystemAdmin ? 0.6 : 1,
                           }}
                         >
                           Approve & Issue Certificate

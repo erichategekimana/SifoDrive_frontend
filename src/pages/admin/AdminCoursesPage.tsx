@@ -28,16 +28,34 @@ import {
   ExternalLink,
   Power,
   PowerOff,
+  UserPlus,
+  UserCheck,
+  Award,
+  Calendar,
+  Clock,
+  FileCheck,
+  ListChecks,
+  Sparkles,
+  CheckCircle2,
+  Sliders,
 } from 'lucide-react';
 import { AdminService } from '../../core/services/AdminService';
-import type { CohortItem, AdminUserItem, LiveClassAdminItem } from '../../core/services/AdminService';
+import type {
+  CohortItem,
+  AdminUserItem,
+  LiveClassAdminItem,
+  CurriculumItem,
+  QuizItem,
+  QuizQuestionItem,
+  QuizPayload,
+} from '../../core/services/AdminService';
 import { Badge } from '../../components/common/Badge';
 import { Spinner } from '../../components/common/Spinner';
 import { useToast } from '../../context/ToastContext';
 import { useAuth } from '../../context/AuthContext';
 import { useTranslation } from '../../context/I18nContext';
 
-type LMSStudioSection = 'courses' | 'cohorts' | 'learners' | 'quizzes' | 'tutors';
+type LMSStudioSection = 'curricula' | 'cohorts' | 'learners' | 'quizzes' | 'tutors';
 
 export const AdminCoursesPage: React.FC = () => {
   const { user } = useAuth();
@@ -45,10 +63,12 @@ export const AdminCoursesPage: React.FC = () => {
   const isTrainingAdmin = user?.isTrainingAdmin();
   const isSystemAdmin = user?.isSystemAdmin();
 
-  const [activeSection, setActiveSection] = useState<LMSStudioSection>('courses');
+  const [activeSection, setActiveSection] = useState<LMSStudioSection>('curricula');
+  const [selectedCurriculum, setSelectedCurriculum] = useState<CurriculumItem | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   // Data states
+  const [curricula, setCurricula] = useState<CurriculumItem[]>([]);
   const [courses, setCourses] = useState<any[]>([]);
   const [cohorts, setCohorts] = useState<CohortItem[]>([]);
   const [tutors, setTutors] = useState<AdminUserItem[]>([]);
@@ -56,19 +76,94 @@ export const AdminCoursesPage: React.FC = () => {
   const [guests, setGuests] = useState<AdminUserItem[]>([]);
   const [questions, setQuestions] = useState<any[]>([]);
   const [liveClasses, setLiveClasses] = useState<LiveClassAdminItem[]>([]);
+  const [quizzes, setQuizzes] = useState<QuizItem[]>([]);
+  const [quizCourseFilter, setQuizCourseFilter] = useState<string>('ALL');
+  const [quizStatusFilter, setQuizStatusFilter] = useState<string>('ALL');
+
+  // Quiz Builder Modal States
+  const [isQuizModalOpen, setIsQuizModalOpen] = useState<boolean>(false);
+  const [isEditQuizMode, setIsEditQuizMode] = useState<boolean>(false);
+  const [editingQuizId, setEditingQuizId] = useState<string>('');
+  const [quizActiveTab, setQuizActiveTab] = useState<'settings' | 'questions' | 'rubric'>('settings');
+
+  // Quiz Form fields
+  const [quizCourseId, setQuizCourseId] = useState<string>('');
+  const [quizModuleId, setQuizModuleId] = useState<string>('');
+  const [quizTitle, setQuizTitle] = useState<string>('');
+  const [quizTitleRw, setQuizTitleRw] = useState<string>('');
+  const [quizDescription, setQuizDescription] = useState<string>('');
+  const [quizDescriptionRw, setQuizDescriptionRw] = useState<string>('');
+  const [quizOpenDate, setQuizOpenDate] = useState<string>('');
+  const [quizDeadline, setQuizDeadline] = useState<string>('');
+  const [quizTimeLimit, setQuizTimeLimit] = useState<number>(30);
+  const [quizTotalScore, setQuizTotalScore] = useState<number>(100);
+  const [quizPassingScore, setQuizPassingScore] = useState<number>(70);
+  const [quizMaxAttempts, setQuizMaxAttempts] = useState<number>(1);
+  const [quizShuffle, setQuizShuffle] = useState<boolean>(false);
+  const [quizRubric, setQuizRubric] = useState<string>('');
+  const [quizRubricRw, setQuizRubricRw] = useState<string>('');
+  const [quizItems, setQuizItems] = useState<QuizQuestionItem[]>([]);
+  const calculatedTotalScore = useMemo(() => {
+    return quizItems.reduce((acc, q) => acc + (Math.max(1, Number(q.points) || 1)), 0);
+  }, [quizItems]);
+  const [quizAvailableModules, setQuizAvailableModules] = useState<any[]>([]);
+
+  // Bank Picker Modal States (within Quiz Builder)
+  const [isBankPickerModalOpen, setIsBankPickerModalOpen] = useState<boolean>(false);
+  const [bankPickerSearch, setBankPickerSearch] = useState<string>('');
+  const [bankPickerDomain, setBankPickerDomain] = useState<string>('ALL');
+  const [selectedBankQuestionIds, setSelectedBankQuestionIds] = useState<string[]>([]);
+  const [isLoadingBankQuestions, setIsLoadingBankQuestions] = useState<boolean>(false);
+
+  // Scratch Question Form State (within Quiz Builder)
+  const [isAddingScratchQuestion, setIsAddingScratchQuestion] = useState<boolean>(false);
+  const [scratchQuestionText, setScratchQuestionText] = useState<string>('');
+  const [scratchQuestionTextRw, setScratchQuestionTextRw] = useState<string>('');
+  const [scratchOptionA, setScratchOptionA] = useState<string>('');
+  const [scratchOptionB, setScratchOptionB] = useState<string>('');
+  const [scratchOptionC, setScratchOptionC] = useState<string>('');
+  const [scratchOptionD, setScratchOptionD] = useState<string>('');
+  const [scratchOptionARw, setScratchOptionARw] = useState<string>('');
+  const [scratchOptionBRw, setScratchOptionBRw] = useState<string>('');
+  const [scratchOptionCRw, setScratchOptionCRw] = useState<string>('');
+  const [scratchOptionDRw, setScratchOptionDRw] = useState<string>('');
+  const [scratchCorrectOption, setScratchCorrectOption] = useState<'A' | 'B' | 'C' | 'D'>('A');
+  const [scratchPoints, setScratchPoints] = useState<number>(1);
+  const [scratchExplanation, setScratchExplanation] = useState<string>('');
+  const [scratchExplanationRw, setScratchExplanationRw] = useState<string>('');
+  const [scratchDomain, setScratchDomain] = useState<string>('PRIORITY');
+  const [scratchDifficulty, setScratchDifficulty] = useState<'EASY' | 'MEDIUM' | 'HARD'>('MEDIUM');
+
+  // Inspection Modal (Oversight View)
+  const [inspectingQuiz, setInspectingQuiz] = useState<QuizItem | null>(null);
+  const [isSavingQuiz, setIsSavingQuiz] = useState<boolean>(false);
 
   // Search & Filters
+  const [curriculumSearch, setCurriculumSearch] = useState<string>('');
   const [courseSearch, setCourseSearch] = useState<string>('');
   const [cohortSearch, setCohortSearch] = useState<string>('');
   const [learnerSearch, setLearnerSearch] = useState<string>('');
   const [learnerRoleFilter, setLearnerRoleFilter] = useState<'ALL' | 'STUDENT' | 'GUEST'>('ALL');
-  const [quizDomainFilter, setQuizDomainFilter] = useState<string>('ALL');
+  const [learnerCohortFilter, setLearnerCohortFilter] = useState<string>('ALL');
+  const [learnerTutorFilter, setLearnerTutorFilter] = useState<string>('ALL');
+  const [learnerStatusFilter, setLearnerStatusFilter] = useState<string>('ALL');
   const [quizSearch, setQuizSearch] = useState<string>('');
+
+  // Curriculum Modals
+  const [isCreateCurriculumModalOpen, setIsCreateCurriculumModalOpen] = useState<boolean>(false);
+  const [isEditCurriculumModalOpen, setIsEditCurriculumModalOpen] = useState<boolean>(false);
+  const [editingCurriculumId, setEditingCurriculumId] = useState<string>('');
+  const [currCode, setCurrCode] = useState<string>('');
+  const [currTitle, setCurrTitle] = useState<string>('');
+  const [currTitleRw, setCurrTitleRw] = useState<string>('');
+  const [currDescription, setCurrDescription] = useState<string>('');
+  const [currDescriptionRw, setCurrDescriptionRw] = useState<string>('');
 
   // Course Modals
   const [isCreateCourseModalOpen, setIsCreateCourseModalOpen] = useState<boolean>(false);
   const [isEditCourseModalOpen, setIsEditCourseModalOpen] = useState<boolean>(false);
   const [editingCourseId, setEditingCourseId] = useState<string>('');
+  const [courseCurriculumId, setCourseCurriculumId] = useState<string>('');
   const [courseCode, setCourseCode] = useState<string>('');
   const [courseTitle, setCourseTitle] = useState<string>('');
   const [courseTitleRw, setCourseTitleRw] = useState<string>('');
@@ -95,6 +190,25 @@ export const AdminCoursesPage: React.FC = () => {
   const [isChangeCohortModalOpen, setIsChangeCohortModalOpen] = useState<boolean>(false);
   const [selectedLearner, setSelectedLearner] = useState<AdminUserItem | null>(null);
   const [targetCohortId, setTargetCohortId] = useState<string>('');
+
+  // Assign Tutor to Student Modal
+  const [isStudentTutorModalOpen, setIsStudentTutorModalOpen] = useState<boolean>(false);
+  const [targetStudentTutorId, setTargetStudentTutorId] = useState<string>('');
+
+  // Enroll / Add Student Modal
+  const [isEnrollStudentModalOpen, setIsEnrollStudentModalOpen] = useState<boolean>(false);
+  const [newStudentFirstName, setNewStudentFirstName] = useState<string>('');
+  const [newStudentLastName, setNewStudentLastName] = useState<string>('');
+  const [newStudentPhone, setNewStudentPhone] = useState<string>('+250');
+  const [newStudentEmail, setNewStudentEmail] = useState<string>('');
+  const [newStudentPassword, setNewStudentPassword] = useState<string>('Student@123');
+  const [newStudentRole, setNewStudentRole] = useState<'STUDENT' | 'GUEST'>('STUDENT');
+  const [newStudentCohortId, setNewStudentCohortId] = useState<string>('');
+  const [newStudentTutorId, setNewStudentTutorId] = useState<string>('');
+
+  // View Student Details Modal
+  const [isStudentDetailsModalOpen, setIsStudentDetailsModalOpen] = useState<boolean>(false);
+  const [studentDetailsUser, setStudentDetailsUser] = useState<AdminUserItem | null>(null);
 
   // Live Class Modal
   const [isScheduleClassModalOpen, setIsScheduleClassModalOpen] = useState<boolean>(false);
@@ -145,6 +259,7 @@ export const AdminCoursesPage: React.FC = () => {
     setIsLoading(true);
     try {
       const [
+        curriculaRes,
         coursesRes,
         cohortsRes,
         tutorsRes,
@@ -152,7 +267,9 @@ export const AdminCoursesPage: React.FC = () => {
         guestsRes,
         questionsRes,
         classesRes,
+        quizzesRes,
       ] = await Promise.allSettled([
+        adminService.getCurricula(),
         adminService.getCourses(),
         adminService.getCohorts(),
         adminService.getUsers({ role: 'TUTOR' }),
@@ -160,8 +277,10 @@ export const AdminCoursesPage: React.FC = () => {
         adminService.getUsers({ role: 'GUEST' }),
         adminService.getQuestions(),
         adminService.getLiveClasses(),
+        adminService.getQuizzes(),
       ]);
 
+      if (curriculaRes.status === 'fulfilled') setCurricula(curriculaRes.value);
       if (coursesRes.status === 'fulfilled') setCourses(coursesRes.value);
       if (cohortsRes.status === 'fulfilled') setCohorts(cohortsRes.value);
       if (tutorsRes.status === 'fulfilled') setTutors(tutorsRes.value.results || []);
@@ -169,6 +288,7 @@ export const AdminCoursesPage: React.FC = () => {
       if (guestsRes.status === 'fulfilled') setGuests(guestsRes.value.results || []);
       if (questionsRes.status === 'fulfilled') setQuestions(questionsRes.value);
       if (classesRes.status === 'fulfilled') setLiveClasses(classesRes.value);
+      if (quizzesRes.status === 'fulfilled') setQuizzes(quizzesRes.value);
     } catch (err) {
       console.error('Failed to load LMS data:', err);
     } finally {
@@ -181,12 +301,113 @@ export const AdminCoursesPage: React.FC = () => {
   }, []);
 
   // -------------------------------------------------------------------------
+  // 0. Curriculum Handlers
+  // -------------------------------------------------------------------------
+  const handleOpenCreateCurriculum = () => {
+    setCurrCode('');
+    setCurrTitle('');
+    setCurrTitleRw('');
+    setCurrDescription('');
+    setCurrDescriptionRw('');
+    setIsCreateCurriculumModalOpen(true);
+  };
+
+  const handleCreateCurriculum = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currTitle.trim()) {
+      warning('Curriculum Title is required.');
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      await adminService.createCurriculum({
+        code: currCode.trim().toUpperCase() || undefined,
+        title: currTitle.trim(),
+        title_kinyarwanda: currTitleRw.trim() || undefined,
+        description: currDescription.trim() || undefined,
+        description_kinyarwanda: currDescriptionRw.trim() || undefined,
+      });
+      success(`Curriculum "${currTitle}" created.`);
+      setIsCreateCurriculumModalOpen(false);
+      loadAllData();
+    } catch (err: any) {
+      toastError(err?.message || 'Failed to create curriculum.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleOpenEditCurriculum = (curr: CurriculumItem) => {
+    setEditingCurriculumId(curr.id);
+    setCurrCode(curr.code || '');
+    setCurrTitle(curr.title || '');
+    setCurrTitleRw(curr.title_kinyarwanda || '');
+    setCurrDescription(curr.description || '');
+    setCurrDescriptionRw(curr.description_kinyarwanda || '');
+    setIsEditCurriculumModalOpen(true);
+  };
+
+  const handleUpdateCurriculum = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currTitle.trim()) {
+      warning('Curriculum Title is required.');
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      await adminService.updateCurriculum(editingCurriculumId, {
+        code: currCode.trim().toUpperCase() || undefined,
+        title: currTitle.trim(),
+        title_kinyarwanda: currTitleRw.trim() || undefined,
+        description: currDescription.trim() || undefined,
+        description_kinyarwanda: currDescriptionRw.trim() || undefined,
+      });
+      success(`Curriculum "${currTitle}" updated.`);
+      setIsEditCurriculumModalOpen(false);
+      loadAllData();
+    } catch (err: any) {
+      toastError(err?.message || 'Failed to update curriculum.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteCurriculum = async (currId: string, title: string) => {
+    if (!window.confirm(`Are you sure you want to delete curriculum "${title}"?`)) return;
+    try {
+      await adminService.deleteCurriculum(currId);
+      success(`Curriculum "${title}" deleted.`);
+      if (selectedCurriculum?.id === currId) {
+        setSelectedCurriculum(null);
+      }
+      loadAllData();
+    } catch (err: any) {
+      toastError(err?.message || 'Failed to delete curriculum.');
+    }
+  };
+
+  const handleTogglePublishCurriculum = async (curr: CurriculumItem) => {
+    try {
+      if (curr.is_published) {
+        await adminService.unpublishCurriculum(curr.id);
+        warning(`Curriculum "${curr.title}" unpublished and moved to draft.`);
+      } else {
+        await adminService.publishCurriculum(curr.id);
+        success(`Curriculum "${curr.title}" published.`);
+      }
+      loadAllData();
+    } catch (err: any) {
+      toastError(err?.message || 'Failed to update curriculum status.');
+    }
+  };
+
+  // -------------------------------------------------------------------------
   // 1. Course Handlers
   // -------------------------------------------------------------------------
   const handleTogglePublish = async (course: any) => {
     const modCount = course.module_count ?? course.modules_count ?? 0;
     if (!course.is_published && modCount === 0) {
-      warning('Cannot publish an empty course. Training admin must add curriculum modules before publishing.');
+      warning('Cannot publish an empty course. Training admin must add course modules before publishing.');
       return;
     }
 
@@ -215,14 +436,26 @@ export const AdminCoursesPage: React.FC = () => {
     }
   };
 
+  const handleOpenCreateCourse = (targetCurriculumId?: string) => {
+    setCourseTitle('');
+    setCourseTitleRw('');
+    setCourseCode('');
+    setCourseDescription('');
+    setCourseHours(10);
+    setCourseSortOrder(courses.length + 1);
+    setCourseCurriculumId(targetCurriculumId || selectedCurriculum?.id || (curricula[0]?.id || ''));
+    setIsCreateCourseModalOpen(true);
+  };
+
   const handleOpenEditCourse = (c: any) => {
     setEditingCourseId(c.id);
     setCourseTitle(c.title || '');
-    setCourseTitleRw(c.title_rw || '');
+    setCourseTitleRw(c.title_rw || c.title_kinyarwanda || '');
     setCourseCode(c.code || (c.id ? c.id.slice(0, 8).toUpperCase() : ''));
     setCourseDescription(c.description || '');
     setCourseHours(c.estimated_hours || 10);
     setCourseSortOrder(c.sort_order || 1);
+    setCourseCurriculumId(c.curriculum || '');
     setIsEditCourseModalOpen(true);
   };
 
@@ -235,10 +468,13 @@ export const AdminCoursesPage: React.FC = () => {
     setIsSubmitting(true);
     try {
       await adminService.createCourse({
+        curriculum: courseCurriculumId || undefined,
         title: courseTitle.trim(),
         title_rw: courseTitleRw.trim() || undefined,
-        code: courseCode.trim().toUpperCase() || undefined as any,
+        code: courseCode.trim().toUpperCase() || undefined,
         description: courseDescription.trim() || undefined,
+        estimated_hours: Number(courseHours) || 10,
+        sort_order: Number(courseSortOrder) || 1,
         is_published: false,
       });
       success(`Created draft course "${courseTitle}".`);
@@ -266,6 +502,7 @@ export const AdminCoursesPage: React.FC = () => {
     setIsSubmitting(true);
     try {
       await adminService.updateCourse(editingCourseId, {
+        curriculum: courseCurriculumId || undefined,
         title: courseTitle.trim(),
         title_rw: courseTitleRw.trim() || undefined,
         code: courseCode.trim().toUpperCase() || undefined,
@@ -422,21 +659,135 @@ export const AdminCoursesPage: React.FC = () => {
 
   const handleSaveStudentCohort = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedLearner || !targetCohortId) {
-      warning('Please select a target cohort.');
+    if (!selectedLearner) return;
+    setIsSubmitting(true);
+    try {
+      if (targetCohortId) {
+        if (selectedLearner.cohort_id && selectedLearner.cohort_id !== targetCohortId) {
+          await adminService.assignStudentsToCohort(selectedLearner.cohort_id, [selectedLearner.id], 'unenroll');
+        }
+        await adminService.assignStudentsToCohort(targetCohortId, [selectedLearner.id], 'enroll');
+        success(`Assigned ${selectedLearner.full_name || selectedLearner.phone_number} to cohort.`);
+      } else if (selectedLearner.cohort_id) {
+        await adminService.assignStudentsToCohort(selectedLearner.cohort_id, [selectedLearner.id], 'unenroll');
+        success(`Removed ${selectedLearner.full_name || selectedLearner.phone_number} from cohort.`);
+      }
+      setIsChangeCohortModalOpen(false);
+      loadAllData();
+    } catch (err: any) {
+      toastError(err?.message || 'Failed to update cohort assignment.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleOpenStudentTutorModal = (learner: AdminUserItem) => {
+    setSelectedLearner(learner);
+    setTargetStudentTutorId(learner.assigned_tutor_id || '');
+    setIsStudentTutorModalOpen(true);
+  };
+
+  const handleSaveStudentTutor = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedLearner) return;
+    setIsSubmitting(true);
+    try {
+      await adminService.assignTutorToStudent(selectedLearner.id, targetStudentTutorId || null);
+      success(`Updated tutor for ${selectedLearner.full_name || selectedLearner.phone_number}.`);
+      setIsStudentTutorModalOpen(false);
+      loadAllData();
+    } catch (err: any) {
+      toastError(err?.message || 'Failed to update tutor assignment.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleOpenEnrollStudentModal = () => {
+    setNewStudentFirstName('');
+    setNewStudentLastName('');
+    setNewStudentPhone('+250');
+    setNewStudentEmail('');
+    setNewStudentPassword('Student@123');
+    setNewStudentRole('STUDENT');
+    setNewStudentCohortId('');
+    setNewStudentTutorId('');
+    setIsEnrollStudentModalOpen(true);
+  };
+
+  const handleEnrollStudentSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newStudentFirstName.trim() || !newStudentLastName.trim() || !newStudentPhone.trim() || !newStudentPassword) {
+      warning('Please fill in first name, last name, phone, and password.');
       return;
     }
     setIsSubmitting(true);
     try {
-      await adminService.assignStudentsToCohort(targetCohortId, [selectedLearner.id], 'enroll');
-      success(`Assigned ${selectedLearner.full_name || selectedLearner.phone_number} to cohort.`);
-      setIsChangeCohortModalOpen(false);
+      const created = await adminService.createUser({
+        first_name: newStudentFirstName.trim(),
+        last_name: newStudentLastName.trim(),
+        phone_number: newStudentPhone.trim(),
+        email: newStudentEmail.trim() || undefined,
+        password: newStudentPassword,
+        role: newStudentRole,
+      });
+
+      if (newStudentCohortId && created.id) {
+        try {
+          await adminService.assignStudentsToCohort(newStudentCohortId, [created.id], 'enroll');
+        } catch (cErr) {
+          console.warn('Initial cohort assignment error:', cErr);
+        }
+      }
+
+      if (newStudentTutorId && created.id) {
+        try {
+          await adminService.assignTutorToStudent(created.id, newStudentTutorId);
+        } catch (tErr) {
+          console.warn('Initial tutor assignment error:', tErr);
+        }
+      }
+
+      success(`Successfully enrolled ${created.full_name || created.first_name} (${created.role}).`);
+      setIsEnrollStudentModalOpen(false);
       loadAllData();
     } catch (err: any) {
-      toastError(err?.message || 'Failed to assign learner to cohort.');
+      toastError(err?.message || 'Failed to enroll student.');
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleToggleStudentStatus = async (learner: AdminUserItem) => {
+    const nextStatus = learner.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE';
+    setIsSubmitting(true);
+    try {
+      await adminService.updateUserStatus(learner.id, nextStatus, 'Updated via LMS Studio');
+      success(`Updated status for ${learner.full_name || learner.phone_number} to ${nextStatus}.`);
+      loadAllData();
+    } catch (err: any) {
+      toastError(err?.message || 'Failed to update account status.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handlePromoteGuestToStudent = async (learner: AdminUserItem) => {
+    setIsSubmitting(true);
+    try {
+      await adminService.updateUserRole(learner.id, 'STUDENT');
+      success(`Promoted ${learner.full_name || learner.phone_number} to Student.`);
+      loadAllData();
+    } catch (err: any) {
+      toastError(err?.message || 'Failed to promote to student.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleOpenStudentDetails = (learner: AdminUserItem) => {
+    setStudentDetailsUser(learner);
+    setIsStudentDetailsModalOpen(true);
   };
 
   // -------------------------------------------------------------------------
@@ -478,6 +829,10 @@ export const AdminCoursesPage: React.FC = () => {
   // -------------------------------------------------------------------------
   const handleOpenCurriculumBuilder = async (course: any) => {
     setSelectedCourseForCurriculum(course);
+    if (!selectedCurriculum && course.curriculum) {
+      const parentCurr = curricula.find((c) => String(c.id) === String(course.curriculum));
+      if (parentCurr) setSelectedCurriculum(parentCurr);
+    }
     setIsModulesLoading(true);
     setSelectedModule(null);
     setModuleLessons([]);
@@ -745,17 +1100,35 @@ export const AdminCoursesPage: React.FC = () => {
   };
 
   // Filtered lists
+  const filteredCurricula = useMemo(() => {
+    return curricula.filter((curr) => {
+      if (!curriculumSearch) return true;
+      const q = curriculumSearch.toLowerCase();
+      return (
+        curr.title?.toLowerCase().includes(q) ||
+        curr.title_kinyarwanda?.toLowerCase().includes(q) ||
+        curr.code?.toLowerCase().includes(q) ||
+        curr.description?.toLowerCase().includes(q)
+      );
+    });
+  }, [curricula, curriculumSearch]);
+
   const filteredCourses = useMemo(() => {
     return courses.filter((c) => {
+      if (selectedCurriculum && String(c.curriculum) !== String(selectedCurriculum.id)) {
+        return false;
+      }
       if (!courseSearch) return true;
       const q = courseSearch.toLowerCase();
       return (
         c.title?.toLowerCase().includes(q) ||
+        c.title_rw?.toLowerCase().includes(q) ||
+        c.title_kinyarwanda?.toLowerCase().includes(q) ||
         c.code?.toLowerCase().includes(q) ||
         c.description?.toLowerCase().includes(q)
       );
     });
-  }, [courses, courseSearch]);
+  }, [courses, courseSearch, selectedCurriculum]);
 
   const filteredCohorts = useMemo(() => {
     return cohorts.filter((c) => {
@@ -789,6 +1162,9 @@ export const AdminCoursesPage: React.FC = () => {
       combined.push(...guests);
     }
     return combined.filter((u) => {
+      if (learnerStatusFilter !== 'ALL' && u.status !== learnerStatusFilter) return false;
+      if (learnerCohortFilter !== 'ALL' && u.cohort_id !== learnerCohortFilter) return false;
+      if (learnerTutorFilter !== 'ALL' && u.assigned_tutor_id !== learnerTutorFilter) return false;
       if (!learnerSearch) return true;
       const q = learnerSearch.toLowerCase();
       return (
@@ -798,20 +1174,291 @@ export const AdminCoursesPage: React.FC = () => {
         u.student_id?.toLowerCase().includes(q)
       );
     });
-  }, [students, guests, learnerRoleFilter, learnerSearch]);
+  }, [students, guests, learnerRoleFilter, learnerStatusFilter, learnerCohortFilter, learnerTutorFilter, learnerSearch]);
 
-  const filteredQuestions = useMemo(() => {
-    return questions.filter((q) => {
-      if (quizDomainFilter !== 'ALL' && q.domain !== quizDomainFilter) return false;
+  const fetchBankQuestions = async () => {
+    setIsLoadingBankQuestions(true);
+    try {
+      const qList = await adminService.getQuestions();
+      setQuestions(qList);
+    } catch (e: any) {
+      console.error('Failed to load question bank:', e);
+    } finally {
+      setIsLoadingBankQuestions(false);
+    }
+  };
+
+
+
+  const filteredQuizzes = useMemo(() => {
+    return quizzes.filter((quiz) => {
+      if (quizCourseFilter !== 'ALL' && quiz.course !== quizCourseFilter) return false;
+      if (quizStatusFilter !== 'ALL' && quiz.status !== quizStatusFilter) return false;
       if (!quizSearch) return true;
       const search = quizSearch.toLowerCase();
       return (
+        quiz.title?.toLowerCase().includes(search) ||
+        quiz.title_kinyarwanda?.toLowerCase().includes(search) ||
+        quiz.course_title?.toLowerCase().includes(search) ||
+        quiz.module_title?.toLowerCase().includes(search) ||
+        quiz.description?.toLowerCase().includes(search)
+      );
+    });
+  }, [quizzes, quizCourseFilter, quizStatusFilter, quizSearch]);
+
+  const filteredBankPickerQuestions = useMemo(() => {
+    return questions.filter((q) => {
+      if (bankPickerDomain !== 'ALL' && q.domain !== bankPickerDomain) return false;
+      if (!bankPickerSearch) return true;
+      const search = bankPickerSearch.toLowerCase();
+      return (
         q.question_text?.toLowerCase().includes(search) ||
         q.question_text_rw?.toLowerCase().includes(search) ||
+        q.question_text_kinyarwanda?.toLowerCase().includes(search) ||
         String(q.question_number || '').includes(search)
       );
     });
-  }, [questions, quizDomainFilter, quizSearch]);
+  }, [questions, bankPickerDomain, bankPickerSearch]);
+
+  const handleOpenCreateQuiz = () => {
+    setIsEditQuizMode(false);
+    setEditingQuizId('');
+    setQuizActiveTab('settings');
+    const defaultCourseId = courses[0]?.id || '';
+    setQuizCourseId(defaultCourseId);
+    setQuizModuleId('');
+    setQuizTitle('');
+    setQuizTitleRw('');
+    setQuizDescription('');
+    setQuizDescriptionRw('');
+    setQuizOpenDate('');
+    setQuizDeadline('');
+    setQuizTimeLimit(30);
+    setQuizTotalScore(100);
+    setQuizPassingScore(70);
+    setQuizMaxAttempts(1);
+    setQuizShuffle(false);
+    setQuizRubric('Each question carries equal weight unless specified. Answer all questions within the allocated time limit. Passing threshold is 70%.');
+    setQuizRubricRw('Buri kibazo gifite agaciro kangana. Subiza ibibazo byose mu gihe cyagenwe. Amanota yo gutsinda ni 70%.');
+    setQuizItems([]);
+    if (defaultCourseId) {
+      adminService.getCourseModules(defaultCourseId).then(setQuizAvailableModules).catch(() => setQuizAvailableModules([]));
+    }
+    if (questions.length === 0) {
+      fetchBankQuestions();
+    }
+    setIsQuizModalOpen(true);
+  };
+
+  const handleOpenEditQuiz = async (quiz: QuizItem) => {
+    try {
+      setIsLoading(true);
+      const detail = await adminService.getQuizDetail(quiz.id);
+      setIsEditQuizMode(true);
+      setEditingQuizId(detail.id);
+      setQuizActiveTab('settings');
+      setQuizCourseId(detail.course);
+      setQuizModuleId(detail.module || '');
+      setQuizTitle(detail.title || '');
+      setQuizTitleRw(detail.title_kinyarwanda || '');
+      setQuizDescription(detail.description || '');
+      setQuizDescriptionRw(detail.description_kinyarwanda || '');
+      setQuizOpenDate(detail.open_date ? detail.open_date.slice(0, 16) : '');
+      setQuizDeadline(detail.deadline ? detail.deadline.slice(0, 16) : '');
+      setQuizTimeLimit(detail.time_limit_minutes || 0);
+      setQuizTotalScore(detail.total_score || 100);
+      setQuizPassingScore(detail.passing_score || 70);
+      setQuizMaxAttempts(detail.max_attempts || 1);
+      setQuizShuffle(detail.shuffle_questions || false);
+      setQuizRubric(detail.rubric || '');
+      setQuizRubricRw(detail.rubric_kinyarwanda || '');
+      setQuizItems(detail.items || []);
+
+      if (detail.course) {
+        adminService.getCourseModules(detail.course).then(setQuizAvailableModules).catch(() => setQuizAvailableModules([]));
+      }
+      setIsQuizModalOpen(true);
+    } catch (err: any) {
+      toastError(err?.message || 'Failed to load quiz details for editing.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCourseChangeInQuiz = async (cId: string) => {
+    setQuizCourseId(cId);
+    setQuizModuleId('');
+    if (cId) {
+      try {
+        const mods = await adminService.getCourseModules(cId);
+        setQuizAvailableModules(mods);
+      } catch {
+        setQuizAvailableModules([]);
+      }
+    } else {
+      setQuizAvailableModules([]);
+    }
+  };
+
+  const handleSaveQuiz = async () => {
+    if (!quizTitle.trim()) {
+      warning('Please enter a quiz title.');
+      return;
+    }
+    if (!quizCourseId) {
+      warning('Please select a course for this quiz.');
+      return;
+    }
+    if (quizItems.length === 0) {
+      warning('A quiz must have at least 1 question. Author or pull questions from the bank.');
+      return;
+    }
+
+    if (isSystemAdmin && !isTrainingAdmin) {
+      const scratchCount = quizItems.filter(item => !item.original_question).length;
+      if (scratchCount > 0) {
+        warning('System Admin can only create/update quizzes by pulling and customizing items from the Question Bank. Scratch authoring is reserved for Training Admin.');
+        return;
+      }
+    }
+
+    setIsSavingQuiz(true);
+    try {
+      const payload: QuizPayload = {
+        course: quizCourseId,
+        module: quizModuleId || null,
+        title: quizTitle.trim(),
+        title_kinyarwanda: quizTitleRw.trim(),
+        description: quizDescription.trim(),
+        description_kinyarwanda: quizDescriptionRw.trim(),
+        open_date: quizOpenDate ? new Date(quizOpenDate).toISOString() : null,
+        deadline: quizDeadline ? new Date(quizDeadline).toISOString() : null,
+        time_limit_minutes: Number(quizTimeLimit) || 0,
+        total_score: quizItems.length > 0 ? calculatedTotalScore : (Number(quizTotalScore) || 100),
+        passing_score: Number(quizPassingScore) || 70,
+        max_attempts: Number(quizMaxAttempts) || 1,
+        shuffle_questions: quizShuffle,
+        rubric: quizRubric.trim(),
+        rubric_kinyarwanda: quizRubricRw.trim(),
+        items: quizItems.map((item, idx) => ({
+          ...item,
+          sort_order: idx + 1,
+        })),
+      };
+
+      if (isEditQuizMode && editingQuizId) {
+        const updated = await adminService.updateQuiz(editingQuizId, payload);
+        success(`Quiz "${updated.title}" updated successfully.`);
+      } else {
+        const created = await adminService.createQuiz(payload);
+        success(`Quiz "${created.title}" created successfully with ${created.question_count} questions.`);
+      }
+
+      setIsQuizModalOpen(false);
+      const updatedList = await adminService.getQuizzes();
+      setQuizzes(updatedList);
+    } catch (err: any) {
+      toastError(err?.message || 'Failed to save quiz.');
+    } finally {
+      setIsSavingQuiz(false);
+    }
+  };
+
+  const handleDeleteQuiz = async (quiz: QuizItem) => {
+    if (!window.confirm(`Are you sure you want to delete quiz "${quiz.title}"? This action cannot be undone.`)) {
+      return;
+    }
+    try {
+      await adminService.deleteQuiz(quiz.id);
+      success(`Quiz "${quiz.title}" deleted.`);
+      setQuizzes(prev => prev.filter(q => q.id !== quiz.id));
+    } catch (err: any) {
+      toastError(err?.message || 'Failed to delete quiz.');
+    }
+  };
+
+  const handleTogglePublishQuiz = async (quiz: QuizItem) => {
+    try {
+      const res = await adminService.togglePublishQuiz(quiz.id);
+      success(`Quiz ${res.is_published ? 'published' : 'unpublished'}.`);
+      setQuizzes(prev => prev.map(q => q.id === quiz.id ? { ...q, is_published: res.is_published, status: res.status } : q));
+    } catch (err: any) {
+      toastError(err?.message || 'Failed to toggle publish state.');
+    }
+  };
+
+  const handleAddBankQuestionsToQuiz = (bankQuestions: any[]) => {
+    const newItems: QuizQuestionItem[] = bankQuestions.map(bq => ({
+      original_question: bq.id,
+      points: 1,
+      question_text: bq.question_text || bq.question_text_rw || bq.question_text_kinyarwanda || '',
+      question_text_kinyarwanda: bq.question_text_kinyarwanda || bq.question_text_rw || '',
+      option_a: bq.option_a || bq.option_a_rw || '',
+      option_b: bq.option_b || bq.option_b_rw || '',
+      option_c: bq.option_c || bq.option_c_rw || '',
+      option_d: bq.option_d || bq.option_d_rw || '',
+      option_a_kinyarwanda: bq.option_a_kinyarwanda || bq.option_a_rw || '',
+      option_b_kinyarwanda: bq.option_b_kinyarwanda || bq.option_b_rw || '',
+      option_c_kinyarwanda: bq.option_c_kinyarwanda || bq.option_c_rw || '',
+      option_d_kinyarwanda: bq.option_d_kinyarwanda || bq.option_d_rw || '',
+      correct_option: bq.correct_option || 'A',
+      explanation: bq.explanation || bq.explanation_kinyarwanda || bq.explanation_rw || '',
+      explanation_kinyarwanda: bq.explanation_kinyarwanda || bq.explanation_rw || '',
+      domain: bq.domain || 'PRIORITY',
+      difficulty: bq.difficulty || 'MEDIUM',
+    }));
+    setQuizItems(prev => [...prev, ...newItems]);
+    setIsBankPickerModalOpen(false);
+    setSelectedBankQuestionIds([]);
+    success(`Added ${newItems.length} question(s) from Question Bank.`);
+  };
+
+  const handleAddScratchQuestion = () => {
+    if (!scratchQuestionText.trim()) {
+      warning('Please enter question text.');
+      return;
+    }
+    if (!scratchOptionA.trim() || !scratchOptionB.trim()) {
+      warning('At least Options A and B must be provided.');
+      return;
+    }
+    const newItem: QuizQuestionItem = {
+      original_question: null,
+      points: Number(scratchPoints) || 1,
+      question_text: scratchQuestionText.trim(),
+      question_text_kinyarwanda: scratchQuestionTextRw.trim(),
+      option_a: scratchOptionA.trim(),
+      option_b: scratchOptionB.trim(),
+      option_c: scratchOptionC.trim(),
+      option_d: scratchOptionD.trim(),
+      option_a_kinyarwanda: scratchOptionARw.trim(),
+      option_b_kinyarwanda: scratchOptionBRw.trim(),
+      option_c_kinyarwanda: scratchOptionCRw.trim(),
+      option_d_kinyarwanda: scratchOptionDRw.trim(),
+      correct_option: scratchCorrectOption,
+      explanation: scratchExplanation.trim(),
+      explanation_kinyarwanda: scratchExplanationRw.trim(),
+      domain: scratchDomain,
+      difficulty: scratchDifficulty,
+    };
+    setQuizItems(prev => [...prev, newItem]);
+    setScratchQuestionText('');
+    setScratchQuestionTextRw('');
+    setScratchOptionA('');
+    setScratchOptionB('');
+    setScratchOptionC('');
+    setScratchOptionD('');
+    setScratchOptionARw('');
+    setScratchOptionBRw('');
+    setScratchOptionCRw('');
+    setScratchOptionDRw('');
+    setScratchCorrectOption('A');
+    setScratchPoints(1);
+    setScratchExplanation('');
+    setScratchExplanationRw('');
+    setIsAddingScratchQuestion(false);
+    success('Question authored and added to quiz.');
+  };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -852,16 +1499,24 @@ export const AdminCoursesPage: React.FC = () => {
         }}
       >
         <button
-          onClick={() => setActiveSection('courses')}
-          className={`btn btn-sm ${activeSection === 'courses' ? 'btn-primary' : 'btn-secondary'}`}
+          onClick={() => {
+            setSelectedCourseForCurriculum(null);
+            setSelectedCurriculum(null);
+            setActiveSection('curricula');
+          }}
+          className={`btn btn-sm ${activeSection === 'curricula' ? 'btn-primary' : 'btn-secondary'}`}
           style={{ display: 'flex', alignItems: 'center', gap: '8px', borderRadius: 'var(--radius-lg)' }}
         >
-          <BookOpen size={15} />
-          <span>{t('admin.courses.tabCourses')} ({courses.length})</span>
+          <Layers size={15} />
+          <span>{t('admin.courses.tabCurricula')} ({curricula.length})</span>
         </button>
 
         <button
-          onClick={() => setActiveSection('cohorts')}
+          onClick={() => {
+            setSelectedCourseForCurriculum(null);
+            setSelectedCurriculum(null);
+            setActiveSection('cohorts');
+          }}
           className={`btn btn-sm ${activeSection === 'cohorts' ? 'btn-primary' : 'btn-secondary'}`}
           style={{ display: 'flex', alignItems: 'center', gap: '8px', borderRadius: 'var(--radius-lg)' }}
         >
@@ -870,7 +1525,11 @@ export const AdminCoursesPage: React.FC = () => {
         </button>
 
         <button
-          onClick={() => setActiveSection('learners')}
+          onClick={() => {
+            setSelectedCourseForCurriculum(null);
+            setSelectedCurriculum(null);
+            setActiveSection('learners');
+          }}
           className={`btn btn-sm ${activeSection === 'learners' ? 'btn-primary' : 'btn-secondary'}`}
           style={{ display: 'flex', alignItems: 'center', gap: '8px', borderRadius: 'var(--radius-lg)' }}
         >
@@ -879,16 +1538,24 @@ export const AdminCoursesPage: React.FC = () => {
         </button>
 
         <button
-          onClick={() => setActiveSection('quizzes')}
+          onClick={() => {
+            setSelectedCourseForCurriculum(null);
+            setSelectedCurriculum(null);
+            setActiveSection('quizzes');
+          }}
           className={`btn btn-sm ${activeSection === 'quizzes' ? 'btn-primary' : 'btn-secondary'}`}
           style={{ display: 'flex', alignItems: 'center', gap: '8px', borderRadius: 'var(--radius-lg)' }}
         >
           <HelpCircle size={15} />
-          <span>{t('admin.courses.tabQuizzes')} ({questions.length})</span>
+          <span>{t('admin.courses.tabQuizzes')} ({quizzes.length})</span>
         </button>
 
         <button
-          onClick={() => setActiveSection('tutors')}
+          onClick={() => {
+            setSelectedCourseForCurriculum(null);
+            setSelectedCurriculum(null);
+            setActiveSection('tutors');
+          }}
           className={`btn btn-sm ${activeSection === 'tutors' ? 'btn-primary' : 'btn-secondary'}`}
           style={{ display: 'flex', alignItems: 'center', gap: '8px', borderRadius: 'var(--radius-lg)' }}
         >
@@ -904,34 +1571,11 @@ export const AdminCoursesPage: React.FC = () => {
       ) : (
         <>
           {/* ========================================================================= */}
-          {/* SECTION 1: CURRICULUM COURSES                                             */}
+          {/* SECTION: CURRICULA & COURSES (HIERARCHICAL)                               */}
           {/* ========================================================================= */}
-          {activeSection === 'courses' && (
+          {activeSection === 'curricula' && (
             selectedCourseForCurriculum ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                {/* System Admin Read-Only Inspector Alert */}
-                {isSystemAdmin && (
-                  <div
-                    style={{
-                      background: 'rgba(59, 130, 246, 0.1)',
-                      border: '1px solid rgba(59, 130, 246, 0.3)',
-                      padding: '12px 18px',
-                      borderRadius: 'var(--radius-xl)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '12px',
-                      fontSize: '0.86rem',
-                      color: '#93c5fd',
-                    }}
-                  >
-                    <Eye size={20} color="#60a5fa" style={{ flexShrink: 0 }} />
-                    <div>
-                      <strong style={{ color: '#ffffff' }}>Executive Curriculum Inspector (Read-Only): </strong>
-                      You have full oversight over curriculum modules, lessons, audio/video lectures, and road signs prepared by the Training Admin. System Admin initializes courses and manages publishing, but does not author module materials.
-                    </div>
-                  </div>
-                )}
-
                 {/* Top Banner / Breadcrumb */}
                 <div
                   style={{
@@ -1402,44 +2046,81 @@ export const AdminCoursesPage: React.FC = () => {
                   </div>
                 </div>
               </div>
-            ) : (
-              <div className="glass-panel" style={{ borderRadius: 'var(--radius-2xl)', overflow: 'hidden' }}>
-                {/* Training Admin Role Guidance Banner */}
-                {isTrainingAdmin && (
-                  <div
-                    style={{
-                      margin: '18px 24px 0',
-                      padding: '12px 18px',
-                      borderRadius: 'var(--radius-xl)',
-                      background: 'rgba(245, 158, 11, 0.08)',
-                      border: '1px solid rgba(245, 158, 11, 0.25)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '12px',
-                      fontSize: '0.84rem',
-                      color: '#fef3c7',
-                    }}
-                  >
-                    <AlertCircle size={18} color="#f59e0b" style={{ flexShrink: 0 }} />
-                    <div>
-                      <strong style={{ color: '#f59e0b' }}>{t('admin.courses.roleNoticeTitle')}: </strong>
-                      {t('admin.courses.roleNoticeDesc')}
-                    </div>
-                  </div>
-                )}
-
+            ) : selectedCurriculum ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                {/* Curriculum Header & Breadcrumb */}
                 <div
                   style={{
-                    padding: '18px 24px',
-                    borderBottom: '1px solid var(--border-subtle)',
+                    padding: '16px 22px',
+                    borderRadius: 'var(--radius-lg)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
                     flexWrap: 'wrap',
                     gap: '12px',
+                    background: 'var(--bg-surface)',
+                    border: '1px solid var(--border-subtle)',
                   }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                    <button
+                      onClick={() => {
+                        setSelectedCurriculum(null);
+                        setCourseSearch('');
+                      }}
+                      className="btn btn-secondary btn-sm"
+                      style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px' }}
+                    >
+                      <ArrowLeft size={15} />
+                      <span>{t('admin.courses.backToCurricula')}</span>
+                    </button>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                        <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                          {language === 'rw' && selectedCurriculum.title_kinyarwanda
+                            ? selectedCurriculum.title_kinyarwanda
+                            : selectedCurriculum.title}
+                        </h2>
+                        {selectedCurriculum.is_published ? (
+                          <Badge variant="success">{t('admin.courses.publishedBadge')}</Badge>
+                        ) : (
+                          <Badge variant="warning">{t('admin.courses.draftBadgeUpper')}</Badge>
+                        )}
+                        <span style={{ fontSize: '0.75rem', color: '#818cf8', fontFamily: 'monospace', background: 'rgba(99, 102, 241, 0.1)', padding: '2px 8px', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(99, 102, 241, 0.2)' }}>
+                          {selectedCurriculum.code || 'RW-CURR'}
+                        </span>
+                      </div>
+                      <p style={{ margin: '4px 0 0', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+                        {(language === 'rw' && selectedCurriculum.description_kinyarwanda ? selectedCurriculum.description_kinyarwanda : selectedCurriculum.description) || t('admin.courses.coursesUnderCurriculum')}
+                      </p>
+                    </div>
+                  </div>
+
+                  {isSystemAdmin && (
+                    <button
+                      onClick={() => handleOpenCreateCourse(selectedCurriculum.id)}
+                      className="btn btn-primary btn-sm"
+                      style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                    >
+                      <Plus size={15} />
+                      <span>{t('admin.courses.createCourse')}</span>
+                    </button>
+                  )}
+                </div>
+
+                {/* Courses under this Curriculum */}
+                <div className="glass-panel" style={{ borderRadius: 'var(--radius-2xl)', overflow: 'hidden' }}>
+                  <div
+                    style={{
+                      padding: '18px 24px',
+                      borderBottom: '1px solid var(--border-subtle)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      flexWrap: 'wrap',
+                      gap: '12px',
+                    }}
+                  >
                     <div style={{ position: 'relative', width: '280px' }}>
                       <Search size={15} style={{ position: 'absolute', left: '12px', top: '10px', color: 'var(--text-muted)' }} />
                       <input
@@ -1460,24 +2141,210 @@ export const AdminCoursesPage: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Create Course is strictly for System Admin */}
+                  {filteredCourses.length === 0 ? (
+                    <div style={{ padding: '48px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                      {t('admin.courses.noCoursesInCurriculum')}
+                    </div>
+                  ) : (
+                    <div style={{ overflowX: 'auto' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
+                        <thead>
+                          <tr style={{ background: 'var(--bg-surface-elevated)', textAlign: 'left' }}>
+                            <th style={{ padding: '14px 16px', color: 'var(--text-muted)', fontWeight: 600 }}>
+                              {t('admin.courses.codeCol')}
+                            </th>
+                            <th style={{ padding: '14px 16px', color: 'var(--text-muted)', fontWeight: 600 }}>
+                              {t('admin.courses.titleCol')}
+                            </th>
+                            <th style={{ padding: '14px 16px', color: 'var(--text-muted)', fontWeight: 600 }}>
+                              {t('admin.courses.descCol')}
+                            </th>
+                            <th style={{ padding: '14px 16px', color: 'var(--text-muted)', fontWeight: 600 }}>
+                              {t('admin.courses.statusCol')}
+                            </th>
+                            <th style={{ padding: '14px 16px', color: 'var(--text-muted)', fontWeight: 600 }}>
+                              {t('admin.courses.modulesCol')}
+                            </th>
+                            <th style={{ padding: '14px 16px', color: 'var(--text-muted)', fontWeight: 600 }}>
+                              {t('admin.courses.actionsCol')}
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredCourses.map((c) => {
+                            const modCount = c.module_count ?? c.modules_count ?? 0;
+                            const isEmpty = modCount === 0;
+                            const displayCode = c.code || (c.id ? c.id.slice(0, 8).toUpperCase() : 'RW-LMS');
+
+                            return (
+                              <tr key={c.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                                <td style={{ padding: '14px 16px', fontWeight: 800, color: 'var(--primary-light)', fontFamily: 'monospace' }}>
+                                  {displayCode}
+                                </td>
+                                <td style={{ padding: '14px 16px', fontWeight: 700, color: '#ffffff' }}>
+                                  <div>{language === 'rw' && (c.title_rw || c.title_kinyarwanda) ? (c.title_rw || c.title_kinyarwanda) : c.title}</div>
+                                  {c.estimated_hours ? (
+                                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 400, marginTop: '2px' }}>
+                                      ~{c.estimated_hours} {t('admin.courses.hrsStudyTime')}
+                                    </div>
+                                  ) : null}
+                                </td>
+                                <td style={{ padding: '14px 16px', color: 'var(--text-secondary)', maxWidth: '240px' }}>
+                                  <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                    {c.title_rw || c.description || '—'}
+                                  </div>
+                                </td>
+                                <td style={{ padding: '14px 16px' }}>
+                                  {c.is_published ? (
+                                    <Badge variant="success">{t('admin.courses.publishedBadge')}</Badge>
+                                  ) : isEmpty ? (
+                                    <Badge variant="warning">{t('admin.courses.draftEmpty')}</Badge>
+                                  ) : (
+                                    <Badge variant="neutral">
+                                      {t('admin.courses.draftWithMods', { count: modCount })}
+                                    </Badge>
+                                  )}
+                                </td>
+                                <td style={{ padding: '14px 16px' }}>
+                                  {isEmpty ? (
+                                    <span style={{ color: 'var(--warning)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '0.8rem' }}>
+                                      <AlertCircle size={14} />
+                                      {t('admin.courses.awaitingContent')}
+                                    </span>
+                                  ) : (
+                                    <span style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>
+                                      {modCount} {modCount === 1 ? t('admin.courses.lessonWord') : t('admin.courses.modulesTitle')}
+                                    </span>
+                                  )}
+                                </td>
+                                <td style={{ padding: '14px 16px' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    {/* Modules & Lessons button */}
+                                    <button
+                                      onClick={() => handleOpenCurriculumBuilder(c)}
+                                      className="btn btn-primary btn-sm"
+                                      style={{ fontSize: '0.75rem', padding: '5px 10px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                      title={t('admin.courses.modulesBtnTitle')}
+                                    >
+                                      <BookOpen size={13} />
+                                      <span>{t('admin.courses.modulesBtn')}</span>
+                                    </button>
+
+                                    {/* Course Publishing, Edit, and Delete are strictly for System Admin */}
+                                    {isSystemAdmin && (
+                                      <>
+                                        {c.is_published ? (
+                                          <button
+                                            onClick={() => handleTogglePublish(c)}
+                                            className="btn btn-secondary btn-sm"
+                                            style={{ fontSize: '0.75rem', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                            title={t('admin.courses.unpublish')}
+                                          >
+                                            <EyeOff size={13} />
+                                            <span>{t('admin.courses.unpublish')}</span>
+                                          </button>
+                                        ) : (
+                                          <button
+                                            onClick={() => handleTogglePublish(c)}
+                                            className="btn btn-secondary btn-sm"
+                                            style={{
+                                              fontSize: '0.75rem',
+                                              padding: '4px 8px',
+                                              display: 'flex',
+                                              alignItems: 'center',
+                                              gap: '4px',
+                                              opacity: isEmpty ? 0.75 : 1,
+                                              borderColor: isEmpty ? 'rgba(234, 179, 8, 0.4)' : undefined,
+                                              color: isEmpty ? 'var(--warning)' : undefined,
+                                            }}
+                                            title={isEmpty ? 'Cannot publish empty course. Training admin must add modules first.' : 'Publish course'}
+                                          >
+                                            {isEmpty ? <Lock size={13} /> : <Eye size={13} />}
+                                            <span>{t('admin.courses.publish')}</span>
+                                          </button>
+                                        )}
+
+                                        <button
+                                          onClick={() => handleOpenEditCourse(c)}
+                                          className="btn btn-secondary btn-sm"
+                                          style={{ fontSize: '0.75rem', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--primary-light)' }}
+                                          title={t('admin.courses.editCourse')}
+                                        >
+                                          <Pencil size={13} />
+                                          <span>{t('admin.courses.editCourse')}</span>
+                                        </button>
+
+                                        <button
+                                          onClick={() => handleDeleteCourse(c.id, c.title)}
+                                          className="btn btn-secondary btn-sm"
+                                          style={{ fontSize: '0.75rem', padding: '4px 8px', color: 'var(--danger)' }}
+                                          title={t('admin.courses.deleteCourse')}
+                                        >
+                                          <Trash2 size={13} />
+                                        </button>
+                                      </>
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              /* LEVEL 1: CURRICULA LIST */
+              <div className="glass-panel" style={{ borderRadius: 'var(--radius-2xl)', overflow: 'hidden' }}>
+                <div
+                  style={{
+                    padding: '18px 24px',
+                    borderBottom: '1px solid var(--border-subtle)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '12px',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ position: 'relative', width: '280px' }}>
+                      <Search size={15} style={{ position: 'absolute', left: '12px', top: '10px', color: 'var(--text-muted)' }} />
+                      <input
+                        type="text"
+                        placeholder={t('admin.courses.searchCurriculaPlaceholder')}
+                        value={curriculumSearch}
+                        onChange={(e) => setCurriculumSearch(e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '8px 12px 8px 36px',
+                          borderRadius: 'var(--radius-md)',
+                          background: 'var(--bg-surface-elevated)',
+                          border: '1px solid var(--border-subtle)',
+                          color: '#ffffff',
+                          fontSize: '0.84rem',
+                        }}
+                      />
+                    </div>
+                  </div>
+
                   {isSystemAdmin && (
                     <button
-                      onClick={() => setIsCreateCourseModalOpen(true)}
+                      onClick={handleOpenCreateCurriculum}
                       className="btn btn-primary btn-sm"
                       style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
                     >
                       <Plus size={15} />
-                      <span>{t('admin.courses.createCourse')}</span>
+                      <span>{t('admin.courses.createCurriculum')}</span>
                     </button>
                   )}
                 </div>
 
-                {filteredCourses.length === 0 ? (
+                {filteredCurricula.length === 0 ? (
                   <div style={{ padding: '48px', textAlign: 'center', color: 'var(--text-secondary)' }}>
-                    {isTrainingAdmin
-                      ? t('admin.courses.noCoursesFoundTraining')
-                      : t('admin.courses.noCoursesFoundSystem')}
+                    {t('admin.courses.noCurriculaFound')}
                   </div>
                 ) : (
                   <div style={{ overflowX: 'auto' }}>
@@ -1497,7 +2364,7 @@ export const AdminCoursesPage: React.FC = () => {
                             {t('admin.courses.statusCol')}
                           </th>
                           <th style={{ padding: '14px 16px', color: 'var(--text-muted)', fontWeight: 600 }}>
-                            {t('admin.courses.modulesCol')}
+                            {t('admin.courses.coursesCount')}
                           </th>
                           <th style={{ padding: '14px 16px', color: 'var(--text-muted)', fontWeight: 600 }}>
                             {t('admin.courses.actionsCol')}
@@ -1505,118 +2372,120 @@ export const AdminCoursesPage: React.FC = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {filteredCourses.map((c) => {
-                          const modCount = c.module_count ?? c.modules_count ?? 0;
-                          const isEmpty = modCount === 0;
-                          const displayCode = c.code || (c.id ? c.id.slice(0, 8).toUpperCase() : 'RW-LMS');
-
+                        {filteredCurricula.map((curr) => {
+                          const courseCount = curr.course_count || 0;
                           return (
-                            <tr key={c.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                            <tr
+                              key={curr.id}
+                              style={{ borderBottom: '1px solid var(--border-subtle)', cursor: 'pointer' }}
+                              onClick={(e) => {
+                                if ((e.target as HTMLElement).closest('button')) return;
+                                setSelectedCurriculum(curr);
+                              }}
+                            >
                               <td style={{ padding: '14px 16px', fontWeight: 800, color: 'var(--primary-light)', fontFamily: 'monospace' }}>
-                                {displayCode}
+                                {curr.code || 'RW-CURR'}
                               </td>
                               <td style={{ padding: '14px 16px', fontWeight: 700, color: '#ffffff' }}>
-                                <div>{language === 'rw' && c.title_rw ? c.title_rw : c.title}</div>
-                                {c.estimated_hours ? (
-                                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 400, marginTop: '2px' }}>
-                                    ~{c.estimated_hours} {t('admin.courses.hrsStudyTime')}
+                                <div>{language === 'rw' && curr.title_kinyarwanda ? curr.title_kinyarwanda : curr.title}</div>
+                                {curr.title_kinyarwanda && language !== 'rw' && (
+                                  <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', fontWeight: 400, marginTop: '2px' }}>
+                                    {curr.title_kinyarwanda}
                                   </div>
-                                ) : null}
+                                )}
                               </td>
-                              <td style={{ padding: '14px 16px', color: 'var(--text-secondary)', maxWidth: '240px' }}>
+                              <td style={{ padding: '14px 16px', color: 'var(--text-secondary)', maxWidth: '260px' }}>
                                 <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                  {c.title_rw || c.description || '—'}
+                                  {(language === 'rw' && curr.description_kinyarwanda ? curr.description_kinyarwanda : curr.description) || '—'}
                                 </div>
                               </td>
                               <td style={{ padding: '14px 16px' }}>
-                                {c.is_published ? (
+                                {curr.is_published ? (
                                   <Badge variant="success">{t('admin.courses.publishedBadge')}</Badge>
-                                ) : isEmpty ? (
-                                  <Badge variant="warning">{t('admin.courses.draftEmpty')}</Badge>
                                 ) : (
-                                  <Badge variant="neutral">
-                                    {t('admin.courses.draftWithMods', { count: modCount })}
-                                  </Badge>
+                                  <Badge variant="warning">{t('admin.courses.draftBadgeUpper')}</Badge>
                                 )}
                               </td>
                               <td style={{ padding: '14px 16px' }}>
-                                {isEmpty ? (
-                                  <span style={{ color: 'var(--warning)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '0.8rem' }}>
-                                    <AlertCircle size={14} />
-                                    {t('admin.courses.awaitingContent')}
-                                  </span>
-                                ) : (
-                                  <span style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>
-                                    {modCount} {modCount === 1 ? t('admin.courses.lessonWord') : t('admin.courses.modulesTitle')}
-                                  </span>
-                                )}
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedCurriculum(curr);
+                                  }}
+                                  className="btn btn-secondary btn-sm"
+                                  style={{
+                                    fontSize: '0.78rem',
+                                    padding: '4px 10px',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                  }}
+                                  title={t('admin.courses.viewCourses')}
+                                >
+                                  <BookOpen size={13} color="var(--primary-light)" />
+                                  <span style={{ fontWeight: 700 }}>{courseCount}</span>
+                                  <span>{courseCount === 1 ? t('admin.courses.tabCourses') : t('admin.courses.coursesCount')}</span>
+                                </button>
                               </td>
                               <td style={{ padding: '14px 16px' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                  {/* Curriculum Studio button */}
                                   <button
-                                    onClick={() => handleOpenCurriculumBuilder(c)}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedCurriculum(curr);
+                                    }}
                                     className="btn btn-primary btn-sm"
-                                    style={{ fontSize: '0.75rem', padding: '5px 10px', display: 'flex', alignItems: 'center', gap: '4px' }}
-                                    title={t('admin.courses.curriculumBtnTitle')}
+                                    style={{ fontSize: '0.75rem', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                    title={t('admin.courses.viewCourses')}
                                   >
                                     <BookOpen size={13} />
-                                    <span>{t('admin.courses.curriculumBtn')}</span>
+                                    <span>{t('admin.courses.viewCourses')}</span>
                                   </button>
 
-                                  {/* Course Publishing, Edit, and Delete are strictly for System Admin */}
-                                  {isSystemAdmin && (
+                                  {isSystemAdmin ? (
                                     <>
-                                      {c.is_published ? (
-                                        <button
-                                          onClick={() => handleTogglePublish(c)}
-                                          className="btn btn-secondary btn-sm"
-                                          style={{ fontSize: '0.75rem', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: '4px' }}
-                                          title={t('admin.courses.unpublish')}
-                                        >
-                                          <EyeOff size={13} />
-                                          <span>{t('admin.courses.unpublish')}</span>
-                                        </button>
-                                      ) : (
-                                        <button
-                                          onClick={() => handleTogglePublish(c)}
-                                          className="btn btn-secondary btn-sm"
-                                          style={{
-                                            fontSize: '0.75rem',
-                                            padding: '4px 8px',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '4px',
-                                            opacity: isEmpty ? 0.75 : 1,
-                                            borderColor: isEmpty ? 'rgba(234, 179, 8, 0.4)' : undefined,
-                                            color: isEmpty ? 'var(--warning)' : undefined,
-                                          }}
-                                          title={isEmpty ? 'Cannot publish empty course. Training admin must add modules first.' : 'Publish course'}
-                                        >
-                                          {isEmpty ? <Lock size={13} /> : <Eye size={13} />}
-                                          <span>{t('admin.courses.publish')}</span>
-                                        </button>
-                                      )}
-
                                       <button
-                                        onClick={() => handleOpenEditCourse(c)}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleTogglePublishCurriculum(curr);
+                                        }}
                                         className="btn btn-secondary btn-sm"
-                                        style={{ fontSize: '0.75rem', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--primary-light)' }}
-                                        title={t('admin.courses.editCourse')}
+                                        style={{ fontSize: '0.75rem', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                        title={curr.is_published ? t('admin.courses.unpublishCurriculum') : t('admin.courses.publishCurriculum')}
                                       >
-                                        <Pencil size={13} />
-                                        <span>{t('admin.courses.editCourse')}</span>
+                                        {curr.is_published ? <EyeOff size={13} /> : <Eye size={13} />}
+                                        <span>{curr.is_published ? t('admin.courses.unpublish') : t('admin.courses.publish')}</span>
                                       </button>
 
                                       <button
-                                        onClick={() => handleDeleteCourse(c.id, c.title)}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleOpenEditCurriculum(curr);
+                                        }}
+                                        className="btn btn-secondary btn-sm"
+                                        style={{ fontSize: '0.75rem', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--primary-light)' }}
+                                        title={t('admin.courses.editCurriculum')}
+                                      >
+                                        <Pencil size={13} />
+                                        <span>{t('admin.courses.edit')}</span>
+                                      </button>
+
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleDeleteCurriculum(curr.id, curr.title);
+                                        }}
                                         className="btn btn-secondary btn-sm"
                                         style={{ fontSize: '0.75rem', padding: '4px 8px', color: 'var(--danger)' }}
-                                        title={t('admin.courses.deleteCourse')}
+                                        title={t('admin.courses.deleteCurriculum')}
                                       >
                                         <Trash2 size={13} />
                                       </button>
                                     </>
+                                  ) : (
+                                    <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>
+                                      {curr.is_published ? 'Published' : 'Draft'}
+                                    </span>
                                   )}
                                 </div>
                               </td>
@@ -1838,17 +2707,18 @@ export const AdminCoursesPage: React.FC = () => {
             <div className="glass-panel" style={{ borderRadius: 'var(--radius-2xl)', overflow: 'hidden' }}>
               <div
                 style={{
-                  padding: '18px 24px',
+                  padding: '20px 24px',
                   borderBottom: '1px solid var(--border-subtle)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
                   flexWrap: 'wrap',
-                  gap: '12px',
+                  gap: '16px',
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                  <div style={{ position: 'relative', width: '280px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                  {/* Search */}
+                  <div style={{ position: 'relative', width: '260px' }}>
                     <Search size={15} style={{ position: 'absolute', left: '12px', top: '10px', color: 'var(--text-muted)' }} />
                     <input
                       type="text"
@@ -1867,7 +2737,8 @@ export const AdminCoursesPage: React.FC = () => {
                     />
                   </div>
 
-                  <div style={{ display: 'flex', gap: '6px' }}>
+                  {/* Role Buttons */}
+                  <div style={{ display: 'flex', gap: '4px' }}>
                     <button
                       onClick={() => setLearnerRoleFilter('ALL')}
                       className={`btn btn-sm ${learnerRoleFilter === 'ALL' ? 'btn-primary' : 'btn-secondary'}`}
@@ -1890,7 +2761,78 @@ export const AdminCoursesPage: React.FC = () => {
                       Guests ({guests.length})
                     </button>
                   </div>
+
+                  {/* Filter by Cohort */}
+                  <select
+                    value={learnerCohortFilter}
+                    onChange={(e) => setLearnerCohortFilter(e.target.value)}
+                    style={{
+                      padding: '7px 12px',
+                      borderRadius: 'var(--radius-md)',
+                      background: 'var(--bg-surface-elevated)',
+                      border: '1px solid var(--border-subtle)',
+                      color: '#ffffff',
+                      fontSize: '0.80rem',
+                    }}
+                  >
+                    <option value="ALL">All Cohorts</option>
+                    {cohorts.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name} ({c.code || 'COHORT'})
+                      </option>
+                    ))}
+                  </select>
+
+                  {/* Filter by Tutor */}
+                  <select
+                    value={learnerTutorFilter}
+                    onChange={(e) => setLearnerTutorFilter(e.target.value)}
+                    style={{
+                      padding: '7px 12px',
+                      borderRadius: 'var(--radius-md)',
+                      background: 'var(--bg-surface-elevated)',
+                      border: '1px solid var(--border-subtle)',
+                      color: '#ffffff',
+                      fontSize: '0.80rem',
+                    }}
+                  >
+                    <option value="ALL">All Tutors</option>
+                    {tutors.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.full_name || t.phone_number}
+                      </option>
+                    ))}
+                  </select>
+
+                  {/* Filter by Status */}
+                  <select
+                    value={learnerStatusFilter}
+                    onChange={(e) => setLearnerStatusFilter(e.target.value)}
+                    style={{
+                      padding: '7px 12px',
+                      borderRadius: 'var(--radius-md)',
+                      background: 'var(--bg-surface-elevated)',
+                      border: '1px solid var(--border-subtle)',
+                      color: '#ffffff',
+                      fontSize: '0.80rem',
+                    }}
+                  >
+                    <option value="ALL">All Statuses</option>
+                    <option value="ACTIVE">Active</option>
+                    <option value="SUSPENDED">Suspended</option>
+                    <option value="DEACTIVATED">Deactivated</option>
+                  </select>
                 </div>
+
+                {/* Enroll Student Action */}
+                <button
+                  onClick={handleOpenEnrollStudentModal}
+                  className="btn btn-primary btn-sm"
+                  style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: 'var(--radius-lg)' }}
+                >
+                  <UserPlus size={16} />
+                  <span>{t('admin.courses.enrollStudent') || 'Enroll Student'}</span>
+                </button>
               </div>
 
               {allLearners.length === 0 ? (
@@ -1902,55 +2844,224 @@ export const AdminCoursesPage: React.FC = () => {
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
                     <thead>
                       <tr style={{ background: 'var(--bg-surface-elevated)', textAlign: 'left' }}>
-                        <th style={{ padding: '14px 16px', color: 'var(--text-muted)', fontWeight: 600 }}>Learner</th>
-                        <th style={{ padding: '14px 16px', color: 'var(--text-muted)', fontWeight: 600 }}>Phone</th>
+                        <th style={{ padding: '14px 16px', color: 'var(--text-muted)', fontWeight: 600 }}>{t('admin.courses.learnerCol') || 'Learner / Student'}</th>
+                        <th style={{ padding: '14px 16px', color: 'var(--text-muted)', fontWeight: 600 }}>{t('admin.courses.phoneCol') || 'Phone'}</th>
                         <th style={{ padding: '14px 16px', color: 'var(--text-muted)', fontWeight: 600 }}>Role</th>
-                        <th style={{ padding: '14px 16px', color: 'var(--text-muted)', fontWeight: 600 }}>Assigned Cohort</th>
-                        <th style={{ padding: '14px 16px', color: 'var(--text-muted)', fontWeight: 600 }}>Registered</th>
-                        <th style={{ padding: '14px 16px', color: 'var(--text-muted)', fontWeight: 600 }}>Actions</th>
+                        <th style={{ padding: '14px 16px', color: 'var(--text-muted)', fontWeight: 600 }}>{t('admin.courses.statusCol') || 'Status'}</th>
+                        <th style={{ padding: '14px 16px', color: 'var(--text-muted)', fontWeight: 600 }}>{t('admin.courses.cohortCol') || 'Assigned Cohort'}</th>
+                        <th style={{ padding: '14px 16px', color: 'var(--text-muted)', fontWeight: 600 }}>{t('admin.courses.tutorCol') || 'Assigned Tutor'}</th>
+                        <th style={{ padding: '14px 16px', color: 'var(--text-muted)', fontWeight: 600 }}>{t('admin.courses.registeredCol') || 'Registered'}</th>
+                        <th style={{ padding: '14px 16px', color: 'var(--text-muted)', fontWeight: 600, textAlign: 'right' }}>Actions</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {allLearners.map((lrn) => (
-                        <tr key={lrn.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                          <td style={{ padding: '14px 16px', fontWeight: 700, color: '#ffffff' }}>
-                            <div>{lrn.full_name || 'Anonymous User'}</div>
-                            {lrn.student_id && (
-                              <div style={{ fontSize: '0.72rem', color: 'var(--primary-light)', fontFamily: 'monospace' }}>
-                                {lrn.student_id}
+                      {allLearners.map((lrn) => {
+                        const initials = (lrn.full_name || lrn.phone_number)
+                          .split(' ')
+                          .map((n) => n[0])
+                          .slice(0, 2)
+                          .join('')
+                          .toUpperCase();
+
+                        return (
+                          <tr key={lrn.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                            {/* Learner Info */}
+                            <td style={{ padding: '14px 16px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <div
+                                  style={{
+                                    width: '36px',
+                                    height: '36px',
+                                    borderRadius: '50%',
+                                    background: lrn.role === 'STUDENT' ? 'rgba(56, 189, 248, 0.15)' : 'rgba(168, 85, 247, 0.15)',
+                                    color: lrn.role === 'STUDENT' ? '#38bdf8' : '#a855f7',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    fontWeight: 700,
+                                    fontSize: '0.82rem',
+                                    flexShrink: 0,
+                                  }}
+                                >
+                                  {initials || 'U'}
+                                </div>
+                                <div>
+                                  <div style={{ fontWeight: 700, color: '#ffffff', fontSize: '0.90rem' }}>
+                                    {lrn.full_name || 'Anonymous User'}
+                                  </div>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px' }}>
+                                    {lrn.student_id ? (
+                                      <span
+                                        style={{
+                                          fontSize: '0.70rem',
+                                          color: 'var(--primary-light)',
+                                          background: 'rgba(56, 189, 248, 0.12)',
+                                          padding: '1px 6px',
+                                          borderRadius: 'var(--radius-sm)',
+                                          fontFamily: 'monospace',
+                                          fontWeight: 600,
+                                        }}
+                                      >
+                                        {lrn.student_id}
+                                      </span>
+                                    ) : (
+                                      <span style={{ fontSize: '0.70rem', color: 'var(--text-muted)' }}>No Student ID</span>
+                                    )}
+                                    {lrn.email && (
+                                      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                                        {lrn.email}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
                               </div>
-                            )}
-                          </td>
-                          <td style={{ padding: '14px 16px', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>
-                            {lrn.phone_number}
-                          </td>
-                          <td style={{ padding: '14px 16px' }}>
-                            <Badge variant={lrn.role === 'STUDENT' ? 'info' : 'neutral'}>
-                              {lrn.role}
-                            </Badge>
-                          </td>
-                          <td style={{ padding: '14px 16px' }}>
-                            {lrn.cohort_name ? (
-                              <span style={{ fontWeight: 600, color: '#38bdf8' }}>{lrn.cohort_name}</span>
-                            ) : (
-                              <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>Unassigned</span>
-                            )}
-                          </td>
-                          <td style={{ padding: '14px 16px', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
-                            {lrn.created_at ? lrn.created_at.slice(0, 10) : '—'}
-                          </td>
-                          <td style={{ padding: '14px 16px' }}>
-                            <button
-                              onClick={() => handleOpenChangeCohort(lrn)}
-                              className="btn btn-secondary btn-sm"
-                              style={{ fontSize: '0.75rem', padding: '4px 10px', display: 'flex', alignItems: 'center', gap: '6px' }}
-                            >
-                              <ArrowRightLeft size={13} />
-                              <span>{lrn.cohort_name ? 'Change Cohort' : 'Assign Cohort'}</span>
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
+                            </td>
+
+                            {/* Phone */}
+                            <td style={{ padding: '14px 16px', color: 'var(--text-secondary)', fontFamily: 'monospace', fontSize: '0.84rem' }}>
+                              {lrn.phone_number}
+                            </td>
+
+                            {/* Role */}
+                            <td style={{ padding: '14px 16px' }}>
+                              <Badge variant={lrn.role === 'STUDENT' ? 'info' : 'neutral'}>
+                                {lrn.role}
+                              </Badge>
+                            </td>
+
+                            {/* Status */}
+                            <td style={{ padding: '14px 16px' }}>
+                              <span
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '5px',
+                                  fontSize: '0.74rem',
+                                  fontWeight: 700,
+                                  padding: '3px 8px',
+                                  borderRadius: '999px',
+                                  background:
+                                    lrn.status === 'ACTIVE'
+                                      ? 'rgba(34, 197, 94, 0.15)'
+                                      : lrn.status === 'SUSPENDED'
+                                      ? 'rgba(245, 158, 11, 0.15)'
+                                      : 'rgba(239, 68, 68, 0.15)',
+                                  color:
+                                    lrn.status === 'ACTIVE'
+                                      ? '#22c55e'
+                                      : lrn.status === 'SUSPENDED'
+                                      ? '#f59e0b'
+                                      : '#ef4444',
+                                }}
+                              >
+                                <span
+                                  style={{
+                                    width: '6px',
+                                    height: '6px',
+                                    borderRadius: '50%',
+                                    background:
+                                      lrn.status === 'ACTIVE'
+                                        ? '#22c55e'
+                                        : lrn.status === 'SUSPENDED'
+                                        ? '#f59e0b'
+                                        : '#ef4444',
+                                  }}
+                                />
+                                {lrn.status || 'ACTIVE'}
+                              </span>
+                            </td>
+
+                            {/* Assigned Cohort */}
+                            <td style={{ padding: '14px 16px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                {lrn.cohort_name ? (
+                                  <span style={{ fontWeight: 600, color: '#38bdf8', fontSize: '0.84rem' }}>
+                                    {lrn.cohort_name}
+                                  </span>
+                                ) : (
+                                  <span style={{ color: 'var(--text-muted)', fontSize: '0.80rem' }}>Unassigned</span>
+                                )}
+                                <button
+                                  onClick={() => handleOpenChangeCohort(lrn)}
+                                  className="btn btn-secondary btn-sm"
+                                  title={lrn.cohort_name ? 'Change Cohort' : 'Assign Cohort'}
+                                  style={{ fontSize: '0.72rem', padding: '3px 8px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                >
+                                  <ArrowRightLeft size={11} />
+                                  <span>{lrn.cohort_name ? 'Change' : 'Assign'}</span>
+                                </button>
+                              </div>
+                            </td>
+
+                            {/* Assigned Tutor */}
+                            <td style={{ padding: '14px 16px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                {lrn.assigned_tutor_name ? (
+                                  <span style={{ fontWeight: 600, color: '#a78bfa', fontSize: '0.84rem' }}>
+                                    {lrn.assigned_tutor_name}
+                                  </span>
+                                ) : (
+                                  <span style={{ color: 'var(--text-muted)', fontSize: '0.80rem' }}>No Tutor</span>
+                                )}
+                                <button
+                                  onClick={() => handleOpenStudentTutorModal(lrn)}
+                                  className="btn btn-secondary btn-sm"
+                                  title={lrn.assigned_tutor_name ? 'Change Tutor' : 'Assign Tutor'}
+                                  style={{ fontSize: '0.72rem', padding: '3px 8px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                >
+                                  <UserCheck size={11} />
+                                  <span>{lrn.assigned_tutor_name ? 'Change' : 'Assign'}</span>
+                                </button>
+                              </div>
+                            </td>
+
+                            {/* Registered */}
+                            <td style={{ padding: '14px 16px', color: 'var(--text-muted)', fontSize: '0.80rem' }}>
+                              {lrn.created_at ? lrn.created_at.slice(0, 10) : '—'}
+                            </td>
+
+                            {/* Actions */}
+                            <td style={{ padding: '14px 16px', textAlign: 'right' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
+                                {/* View Details */}
+                                <button
+                                  onClick={() => handleOpenStudentDetails(lrn)}
+                                  className="btn btn-secondary btn-sm"
+                                  title="View Student Profile"
+                                  style={{ padding: '6px 9px' }}
+                                >
+                                  <Eye size={13} />
+                                </button>
+
+                                {/* Promote Guest */}
+                                {lrn.role === 'GUEST' && (
+                                  <button
+                                    onClick={() => handlePromoteGuestToStudent(lrn)}
+                                    className="btn btn-secondary btn-sm"
+                                    title="Promote to Student"
+                                    style={{ padding: '6px 9px', color: '#38bdf8' }}
+                                  >
+                                    <Award size={13} />
+                                  </button>
+                                )}
+
+                                {/* Status Toggle */}
+                                <button
+                                  onClick={() => handleToggleStudentStatus(lrn)}
+                                  className="btn btn-secondary btn-sm"
+                                  title={lrn.status === 'ACTIVE' ? 'Suspend Account' : 'Activate Account'}
+                                  style={{
+                                    padding: '6px 9px',
+                                    color: lrn.status === 'ACTIVE' ? 'var(--text-muted)' : '#22c55e',
+                                  }}
+                                >
+                                  {lrn.status === 'ACTIVE' ? <PowerOff size={13} /> : <Power size={13} />}
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -1961,110 +3072,475 @@ export const AdminCoursesPage: React.FC = () => {
           {/* ========================================================================= */}
           {/* SECTION 4: PRACTICE QUIZZES & QUESTION BANK                               */}
           {/* ========================================================================= */}
+          {/* ========================================================================= */}
+          {/* SECTION 4: QUIZ BANK & COURSE ASSESSMENTS                                 */}
+          {/* ========================================================================= */}
           {activeSection === 'quizzes' && (
-            <div className="glass-panel" style={{ borderRadius: 'var(--radius-2xl)', overflow: 'hidden' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              {/* Header Bar */}
               <div
+                className="glass-panel"
                 style={{
-                  padding: '18px 24px',
-                  borderBottom: '1px solid var(--border-subtle)',
+                  borderRadius: 'var(--radius-xl)',
+                  padding: '20px 24px',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
                   flexWrap: 'wrap',
-                  gap: '12px',
+                  gap: '16px',
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                  <div style={{ position: 'relative', width: '280px' }}>
-                    <Search size={15} style={{ position: 'absolute', left: '12px', top: '10px', color: 'var(--text-muted)' }} />
-                    <input
-                      type="text"
-                      placeholder="Search questions (Kinyarwanda or EN)..."
-                      value={quizSearch}
-                      onChange={(e) => setQuizSearch(e.target.value)}
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#ffffff', margin: 0 }}>
+                      {t('admin.courses.tabQuizBank')}
+                    </h2>
+                    <span
                       style={{
-                        width: '100%',
-                        padding: '8px 12px 8px 36px',
-                        borderRadius: 'var(--radius-md)',
-                        background: 'var(--bg-surface-elevated)',
+                        fontSize: '0.75rem',
+                        fontWeight: 600,
+                        padding: '2px 8px',
+                        borderRadius: '4px',
+                        background: 'rgba(255, 255, 255, 0.05)',
+                        color: 'var(--text-secondary)',
                         border: '1px solid var(--border-subtle)',
-                        color: '#ffffff',
-                        fontSize: '0.84rem',
                       }}
-                    />
+                    >
+                      {quizzes.length} Quizzes
+                    </span>
                   </div>
+                </div>
 
-                  <select
-                    value={quizDomainFilter}
-                    onChange={(e) => setQuizDomainFilter(e.target.value)}
-                    style={{
-                      padding: '8px 12px',
-                      borderRadius: 'var(--radius-md)',
-                      background: 'var(--bg-surface-elevated)',
-                      border: '1px solid var(--border-subtle)',
-                      color: '#ffffff',
-                      fontSize: '0.84rem',
-                    }}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                  {/* Create Quiz Button */}
+                  <button
+                    type="button"
+                    onClick={handleOpenCreateQuiz}
+                    className="btn btn-primary"
+                    style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '9px 18px', borderRadius: 'var(--radius-lg)', fontWeight: 700 }}
                   >
-                    <option value="ALL">All Domains</option>
-                    <option value="PRIORITY">Priority Rules & Intersections</option>
-                    <option value="SIGNAGE">Traffic Signage & Markings</option>
-                    <option value="SPEED">Speed Limits & Overtaking</option>
-                    <option value="LEGAL">Legal Framework & Penalties</option>
-                    <option value="SAFETY">Vehicle Safety & First Aid</option>
-                    <option value="PARKING">Parking & Stopping Rules</option>
-                  </select>
+                    <Plus size={16} />
+                    <span>{t('admin.courses.createQuiz')}</span>
+                  </button>
                 </div>
               </div>
 
-              {filteredQuestions.length === 0 ? (
-                <div style={{ padding: '48px', textAlign: 'center', color: 'var(--text-secondary)' }}>
-                  No quiz questions found matching the selected filter.
-                </div>
-              ) : (
-                <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
-                    <thead>
-                      <tr style={{ background: 'var(--bg-surface-elevated)', textAlign: 'left' }}>
-                        <th style={{ padding: '14px 16px', color: 'var(--text-muted)', fontWeight: 600, width: '70px' }}>#</th>
-                        <th style={{ padding: '14px 16px', color: 'var(--text-muted)', fontWeight: 600 }}>Question Prompt</th>
-                        <th style={{ padding: '14px 16px', color: 'var(--text-muted)', fontWeight: 600 }}>Correct Option</th>
-                        <th style={{ padding: '14px 16px', color: 'var(--text-muted)', fontWeight: 600 }}>Domain</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredQuestions.slice(0, 50).map((q, idx) => (
-                        <tr key={q.id || idx} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                          <td style={{ padding: '14px 16px', fontWeight: 800, color: 'var(--primary-light)', fontFamily: 'monospace' }}>
-                            {q.question_number || idx + 1}
-                          </td>
-                          <td style={{ padding: '14px 16px', color: '#ffffff' }}>
-                            <div style={{ fontWeight: 600 }}>{q.question_text_rw || q.question_text}</div>
-                            {q.explanation_rw && (
-                              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                                Ibisobanuro: {q.explanation_rw}
-                              </div>
-                            )}
-                          </td>
-                          <td style={{ padding: '14px 16px' }}>
-                            <Badge variant="success">Option {q.correct_option || 'A'}</Badge>
-                          </td>
-                          <td style={{ padding: '14px 16px' }}>
-                            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                              {q.domain || 'PRIORITY'}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  {filteredQuestions.length > 50 && (
-                    <div style={{ padding: '12px 16px', textAlign: 'center', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                      Showing top 50 of {filteredQuestions.length} practice questions.
+              {/* Course Quizzes Directory */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  {/* Status Metrics Strip - Canvas minimalist clean design */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
+                    <div className="glass-panel" style={{ padding: '14px 18px', borderRadius: 'var(--radius-xl)', display: 'flex', alignItems: 'center', gap: '12px', border: '1px solid var(--border-subtle)' }}>
+                      <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: 'rgba(255, 255, 255, 0.04)', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border-subtle)' }}>
+                        <ListChecks size={18} />
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#ffffff' }}>{quizzes.length}</div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Total Quizzes</div>
+                      </div>
                     </div>
-                  )}
+                    <div className="glass-panel" style={{ padding: '14px 18px', borderRadius: 'var(--radius-xl)', display: 'flex', alignItems: 'center', gap: '12px', border: '1px solid var(--border-subtle)' }}>
+                      <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: 'rgba(255, 255, 255, 0.04)', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border-subtle)' }}>
+                        <CheckCircle2 size={18} />
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#ffffff' }}>
+                          {quizzes.filter(q => q.status === 'OPEN').length}
+                        </div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Active & Open</div>
+                      </div>
+                    </div>
+                    <div className="glass-panel" style={{ padding: '14px 18px', borderRadius: 'var(--radius-xl)', display: 'flex', alignItems: 'center', gap: '12px', border: '1px solid var(--border-subtle)' }}>
+                      <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: 'rgba(255, 255, 255, 0.04)', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border-subtle)' }}>
+                        <Clock size={18} />
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#ffffff' }}>
+                          {quizzes.filter(q => q.status === 'SCHEDULED').length}
+                        </div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Scheduled</div>
+                      </div>
+                    </div>
+                    <div className="glass-panel" style={{ padding: '14px 18px', borderRadius: 'var(--radius-xl)', display: 'flex', alignItems: 'center', gap: '12px', border: '1px solid var(--border-subtle)' }}>
+                      <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: 'rgba(255, 255, 255, 0.04)', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border-subtle)' }}>
+                        <FileCheck size={18} />
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#ffffff' }}>
+                          {quizzes.filter(q => q.status === 'DRAFT').length}
+                        </div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Draft Mode</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Filter bar */}
+                  <div
+                    className="glass-panel"
+                    style={{
+                      borderRadius: 'var(--radius-xl)',
+                      padding: '14px 20px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      flexWrap: 'wrap',
+                      gap: '12px',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                      <div style={{ position: 'relative', width: '280px' }}>
+                        <Search size={15} style={{ position: 'absolute', left: '12px', top: '10px', color: 'var(--text-muted)' }} />
+                        <input
+                          type="text"
+                          placeholder="Search quizzes, courses, modules..."
+                          value={quizSearch}
+                          onChange={(e) => setQuizSearch(e.target.value)}
+                          style={{
+                            width: '100%',
+                            padding: '8px 12px 8px 36px',
+                            borderRadius: 'var(--radius-md)',
+                            background: 'var(--bg-surface-elevated)',
+                            border: '1px solid var(--border-subtle)',
+                            color: '#ffffff',
+                            fontSize: '0.84rem',
+                          }}
+                        />
+                      </div>
+
+                      <select
+                        value={quizCourseFilter}
+                        onChange={(e) => setQuizCourseFilter(e.target.value)}
+                        style={{
+                          padding: '8px 12px',
+                          borderRadius: 'var(--radius-md)',
+                          background: 'var(--bg-surface-elevated)',
+                          border: '1px solid var(--border-subtle)',
+                          color: '#ffffff',
+                          fontSize: '0.84rem',
+                        }}
+                      >
+                        <option value="ALL">All Courses ({courses.length})</option>
+                        {courses.map(c => (
+                          <option key={c.id} value={c.id}>{c.title}</option>
+                        ))}
+                      </select>
+
+                      <select
+                        value={quizStatusFilter}
+                        onChange={(e) => setQuizStatusFilter(e.target.value)}
+                        style={{
+                          padding: '8px 12px',
+                          borderRadius: 'var(--radius-md)',
+                          background: 'var(--bg-surface-elevated)',
+                          border: '1px solid var(--border-subtle)',
+                          color: '#ffffff',
+                          fontSize: '0.84rem',
+                        }}
+                      >
+                        <option value="ALL">All Statuses</option>
+                        <option value="OPEN">Open (Live Now)</option>
+                        <option value="SCHEDULED">Scheduled (Future Open Date)</option>
+                        <option value="CLOSED">Closed (Deadline Passed)</option>
+                        <option value="DRAFT">Draft</option>
+                      </select>
+                    </div>
+
+                    <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                      Showing {filteredQuizzes.length} of {quizzes.length} quizzes
+                    </div>
+                  </div>
+
+                  {/* Quizzes Table */}
+                  <div className="glass-panel" style={{ borderRadius: 'var(--radius-xl)', overflow: 'hidden' }}>
+                    {filteredQuizzes.length === 0 ? (
+                      <div style={{ padding: '60px 24px', textAlign: 'center' }}>
+                        <div
+                          style={{
+                            width: '64px',
+                            height: '64px',
+                            borderRadius: '50%',
+                            background: 'rgba(59, 130, 246, 0.1)',
+                            color: '#60a5fa',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            margin: '0 auto 16px auto',
+                          }}
+                        >
+                          <ListChecks size={28} />
+                        </div>
+                        <h4 style={{ margin: '0 0 8px 0', fontSize: '1.1rem', fontWeight: 800, color: '#ffffff' }}>
+                          No quizzes found
+                        </h4>
+                        <p style={{ margin: '0 0 20px 0', fontSize: '0.85rem', color: 'var(--text-secondary)', maxWidth: '420px', marginLeft: 'auto', marginRight: 'auto' }}>
+                          {quizSearch || quizCourseFilter !== 'ALL' || quizStatusFilter !== 'ALL'
+                            ? 'No quizzes matched your filter criteria. Try resetting the filters.'
+                            : t('admin.courses.noQuizzesFound')}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={handleOpenCreateQuiz}
+                          className="btn btn-primary"
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+                        >
+                          <Plus size={16} />
+                          <span>{t('admin.courses.createQuiz')}</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
+                          <thead>
+                            <tr style={{ background: 'var(--bg-surface-elevated)', textAlign: 'left', borderBottom: '1px solid var(--border-subtle)' }}>
+                              <th style={{ padding: '14px 18px', color: 'var(--text-muted)', fontWeight: 600 }}>Quiz & Course Scope</th>
+                              <th style={{ padding: '14px 18px', color: 'var(--text-muted)', fontWeight: 600 }}>Status</th>
+                              <th style={{ padding: '14px 18px', color: 'var(--text-muted)', fontWeight: 600 }}>Availability Window</th>
+                              <th style={{ padding: '14px 18px', color: 'var(--text-muted)', fontWeight: 600 }}>Assessment Rules</th>
+                              <th style={{ padding: '14px 18px', color: 'var(--text-muted)', fontWeight: 600 }}>Questions</th>
+                              <th style={{ padding: '14px 18px', color: 'var(--text-muted)', fontWeight: 600 }}>Author / Oversight</th>
+                              <th style={{ padding: '14px 18px', color: 'var(--text-muted)', fontWeight: 600, textAlign: 'right' }}>Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {filteredQuizzes.map((quiz) => {
+                              const statusColors: Record<string, { bg: string; text: string; border: string }> = {
+                                OPEN: { bg: 'rgba(255, 255, 255, 0.08)', text: '#ffffff', border: 'var(--border-subtle)' },
+                                SCHEDULED: { bg: 'rgba(255, 255, 255, 0.04)', text: 'var(--text-secondary)', border: 'var(--border-subtle)' },
+                                CLOSED: { bg: 'rgba(255, 255, 255, 0.03)', text: 'var(--text-muted)', border: 'var(--border-subtle)' },
+                                DRAFT: { bg: 'rgba(255, 255, 255, 0.03)', text: 'var(--text-muted)', border: 'var(--border-subtle)' },
+                              };
+                              const col = statusColors[quiz.status] || statusColors.DRAFT;
+
+                              return (
+                                <tr
+                                  key={quiz.id}
+                                  style={{
+                                    borderBottom: '1px solid var(--border-subtle)',
+                                    transition: 'background 0.2s',
+                                  }}
+                                  onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.02)'; }}
+                                  onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                                >
+                                  {/* Title & Scope */}
+                                  <td style={{ padding: '16px 18px' }}>
+                                    <div style={{ fontWeight: 800, color: '#ffffff', fontSize: '0.95rem' }}>
+                                      {quiz.title}
+                                    </div>
+                                    {quiz.title_kinyarwanda && (
+                                      <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                                        {quiz.title_kinyarwanda}
+                                      </div>
+                                    )}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px', flexWrap: 'wrap' }}>
+                                      <span
+                                        style={{
+                                          fontSize: '0.72rem',
+                                          padding: '2px 8px',
+                                          borderRadius: '4px',
+                                          background: 'rgba(255, 255, 255, 0.04)',
+                                          color: 'var(--text-secondary)',
+                                          border: '1px solid var(--border-subtle)',
+                                          fontWeight: 500,
+                                        }}
+                                      >
+                                        Course: {quiz.course_title}
+                                      </span>
+                                      {quiz.module_title && (
+                                        <span
+                                          style={{
+                                            fontSize: '0.72rem',
+                                            padding: '2px 8px',
+                                            borderRadius: '4px',
+                                            background: 'rgba(255, 255, 255, 0.04)',
+                                            color: 'var(--text-secondary)',
+                                            border: '1px solid var(--border-subtle)',
+                                            fontWeight: 500,
+                                          }}
+                                        >
+                                          Module: {quiz.module_title}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </td>
+
+                                  {/* Status */}
+                                  <td style={{ padding: '16px 18px' }}>
+                                    <span
+                                      style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '6px',
+                                        fontSize: '0.72rem',
+                                        fontWeight: 600,
+                                        padding: '3px 8px',
+                                        borderRadius: '4px',
+                                        background: col.bg,
+                                        color: col.text,
+                                        border: `1px solid ${col.border}`,
+                                        textTransform: 'uppercase',
+                                        letterSpacing: '0.04em',
+                                      }}
+                                    >
+                                      <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: col.text }} />
+                                      {quiz.status}
+                                    </span>
+                                  </td>
+
+                                  {/* Availability Window */}
+                                  <td style={{ padding: '16px 18px' }}>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', fontSize: '0.78rem' }}>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: quiz.open_date ? '#ffffff' : 'var(--text-muted)' }}>
+                                        <Calendar size={13} style={{ color: 'var(--text-muted)' }} />
+                                        <span>Open: {quiz.open_date ? new Date(quiz.open_date).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Immediately'}</span>
+                                      </div>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: quiz.deadline ? 'var(--text-secondary)' : 'var(--text-muted)' }}>
+                                        <Clock size={13} style={{ color: 'var(--text-muted)' }} />
+                                        <span>Due: {quiz.deadline ? new Date(quiz.deadline).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'No deadline'}</span>
+                                      </div>
+                                    </div>
+                                  </td>
+
+                                  {/* Rules */}
+                                  <td style={{ padding: '16px 18px' }}>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '0.8rem' }}>
+                                      <div style={{ fontWeight: 700, color: '#ffffff' }}>
+                                        {quiz.total_score} Pts • Pass {quiz.passing_score}%
+                                      </div>
+                                      <div style={{ color: 'var(--text-muted)', fontSize: '0.74rem' }}>
+                                        {quiz.time_limit_minutes > 0 ? `${quiz.time_limit_minutes} min limit` : 'No time limit'} • {quiz.max_attempts > 0 ? `${quiz.max_attempts} attempt(s)` : 'Unlimited attempts'}
+                                      </div>
+                                    </div>
+                                  </td>
+
+                                  {/* Question count */}
+                                  <td style={{ padding: '16px 18px' }}>
+                                    <span
+                                      style={{
+                                        fontWeight: 600,
+                                        fontSize: '0.82rem',
+                                        color: '#ffffff',
+                                        background: 'rgba(255, 255, 255, 0.04)',
+                                        padding: '3px 8px',
+                                        borderRadius: '4px',
+                                        border: '1px solid var(--border-subtle)',
+                                      }}
+                                    >
+                                      {quiz.question_count} Qs
+                                    </span>
+                                  </td>
+
+                                  {/* Author / Oversight */}
+                                  <td style={{ padding: '16px 18px' }}>
+                                    {quiz.created_by_detail ? (
+                                      <div style={{ fontSize: '0.78rem' }}>
+                                        <div style={{ fontWeight: 700, color: '#ffffff' }}>
+                                          {quiz.created_by_detail.full_name}
+                                        </div>
+                                        <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>
+                                          {quiz.created_by_detail.role.replace('_', ' ')} • {quiz.created_by_detail.phone_number}
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>System Staff</span>
+                                    )}
+                                  </td>
+
+                                  {/* Actions */}
+                                  <td style={{ padding: '16px 18px', textAlign: 'right' }}>
+                                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                                      {/* Inspect */}
+                                      <button
+                                        type="button"
+                                        title="Inspect Quiz & Rubric"
+                                        onClick={() => setInspectingQuiz(quiz)}
+                                        style={{
+                                          width: '32px',
+                                          height: '32px',
+                                          borderRadius: '8px',
+                                          border: '1px solid var(--border-subtle)',
+                                          background: 'var(--bg-surface-elevated)',
+                                          color: 'var(--text-secondary)',
+                                          cursor: 'pointer',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          justifyContent: 'center',
+                                        }}
+                                      >
+                                        <Eye size={15} />
+                                      </button>
+
+                                      {/* Edit */}
+                                      <button
+                                        type="button"
+                                        title="Edit Quiz"
+                                        onClick={() => handleOpenEditQuiz(quiz)}
+                                        style={{
+                                          width: '32px',
+                                          height: '32px',
+                                          borderRadius: '8px',
+                                          border: '1px solid rgba(59, 130, 246, 0.3)',
+                                          background: 'rgba(59, 130, 246, 0.1)',
+                                          color: '#60a5fa',
+                                          cursor: 'pointer',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          justifyContent: 'center',
+                                        }}
+                                      >
+                                        <Pencil size={14} />
+                                      </button>
+
+                                      {/* Publish / Unpublish */}
+                                      <button
+                                        type="button"
+                                        title={quiz.is_published ? 'Unpublish Quiz' : 'Publish Quiz'}
+                                        onClick={() => handleTogglePublishQuiz(quiz)}
+                                        style={{
+                                          width: '32px',
+                                          height: '32px',
+                                          borderRadius: '8px',
+                                          border: quiz.is_published ? '1px solid rgba(34, 197, 94, 0.3)' : '1px solid var(--border-subtle)',
+                                          background: quiz.is_published ? 'rgba(34, 197, 94, 0.15)' : 'var(--bg-surface-elevated)',
+                                          color: quiz.is_published ? '#4ade80' : 'var(--text-muted)',
+                                          cursor: 'pointer',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          justifyContent: 'center',
+                                        }}
+                                      >
+                                        {quiz.is_published ? <Power size={14} /> : <PowerOff size={14} />}
+                                      </button>
+
+                                      {/* Delete */}
+                                      <button
+                                        type="button"
+                                        title="Delete Quiz"
+                                        onClick={() => handleDeleteQuiz(quiz)}
+                                        style={{
+                                          width: '32px',
+                                          height: '32px',
+                                          borderRadius: '8px',
+                                          border: '1px solid rgba(239, 68, 68, 0.3)',
+                                          background: 'rgba(239, 68, 68, 0.1)',
+                                          color: '#f87171',
+                                          cursor: 'pointer',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          justifyContent: 'center',
+                                        }}
+                                      >
+                                        <Trash2 size={14} />
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              )}
             </div>
           )}
 
@@ -2212,6 +3688,193 @@ export const AdminCoursesPage: React.FC = () => {
       {/* MODALS                                                                    */}
       {/* ========================================================================= */}
 
+      {/* 0a. Create Curriculum Modal */}
+      {isCreateCurriculumModalOpen && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0, 0, 0, 0.7)', backdropFilter: 'blur(8px)', padding: '16px' }}>
+          <div className="glass-panel" style={{ width: '100%', maxWidth: '520px', borderRadius: 'var(--radius-2xl)', padding: '28px', border: '1px solid var(--border-medium)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <Layers size={22} color="var(--primary)" />
+                <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800, color: '#ffffff' }}>
+                  {t('admin.courses.createCurriculum')}
+                </h3>
+              </div>
+              <button onClick={() => setIsCreateCurriculumModalOpen(false)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateCurriculum} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                  {t('admin.courses.curriculumCodeLabel')}
+                </label>
+                <input
+                  type="text"
+                  placeholder="RW-CURR-CAT-B"
+                  value={currCode}
+                  onChange={(e) => setCurrCode(e.target.value)}
+                  style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', color: '#ffffff', fontFamily: 'monospace' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                  {t('admin.courses.curriculumTitleLabel')}
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Category B National Curriculum"
+                  value={currTitle}
+                  onChange={(e) => setCurrTitle(e.target.value)}
+                  style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', color: '#ffffff' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                  {t('admin.courses.curriculumTitleRwLabel')}
+                </label>
+                <input
+                  type="text"
+                  placeholder="Integanyanyigisho y'Icyiciro B"
+                  value={currTitleRw}
+                  onChange={(e) => setCurrTitleRw(e.target.value)}
+                  style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', color: '#ffffff' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                  {t('admin.courses.curriculumDescLabel')}
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="Curriculum overview and competencies..."
+                  value={currDescription}
+                  onChange={(e) => setCurrDescription(e.target.value)}
+                  style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', color: '#ffffff', resize: 'vertical' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                  {t('admin.courses.curriculumDescRwLabel')}
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="Ibisobanuro by'integanyanyigisho..."
+                  value={currDescriptionRw}
+                  onChange={(e) => setCurrDescriptionRw(e.target.value)}
+                  style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', color: '#ffffff', resize: 'vertical' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '8px' }}>
+                <button type="button" onClick={() => setIsCreateCurriculumModalOpen(false)} className="btn btn-secondary">
+                  {t('admin.dashboard.cancel')}
+                </button>
+                <button type="submit" disabled={isSubmitting} className="btn btn-primary">
+                  {isSubmitting ? '...' : t('admin.courses.createCurriculum')}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 0b. Edit Curriculum Modal */}
+      {isEditCurriculumModalOpen && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0, 0, 0, 0.7)', backdropFilter: 'blur(8px)', padding: '16px' }}>
+          <div className="glass-panel" style={{ width: '100%', maxWidth: '520px', borderRadius: 'var(--radius-2xl)', padding: '28px', border: '1px solid var(--border-medium)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <Pencil size={22} color="var(--primary)" />
+                <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800, color: '#ffffff' }}>
+                  {t('admin.courses.editCurriculum')}
+                </h3>
+              </div>
+              <button onClick={() => setIsEditCurriculumModalOpen(false)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateCurriculum} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                  {t('admin.courses.curriculumCodeLabel')}
+                </label>
+                <input
+                  type="text"
+                  value={currCode}
+                  onChange={(e) => setCurrCode(e.target.value)}
+                  style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', color: '#ffffff', fontFamily: 'monospace' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                  {t('admin.courses.curriculumTitleLabel')}
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={currTitle}
+                  onChange={(e) => setCurrTitle(e.target.value)}
+                  style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', color: '#ffffff' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                  {t('admin.courses.curriculumTitleRwLabel')}
+                </label>
+                <input
+                  type="text"
+                  value={currTitleRw}
+                  onChange={(e) => setCurrTitleRw(e.target.value)}
+                  style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', color: '#ffffff' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                  {t('admin.courses.curriculumDescLabel')}
+                </label>
+                <textarea
+                  rows={2}
+                  value={currDescription}
+                  onChange={(e) => setCurrDescription(e.target.value)}
+                  style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', color: '#ffffff', resize: 'vertical' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                  {t('admin.courses.curriculumDescRwLabel')}
+                </label>
+                <textarea
+                  rows={2}
+                  value={currDescriptionRw}
+                  onChange={(e) => setCurrDescriptionRw(e.target.value)}
+                  style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', color: '#ffffff', resize: 'vertical' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '8px' }}>
+                <button type="button" onClick={() => setIsEditCurriculumModalOpen(false)} className="btn btn-secondary">
+                  {t('admin.dashboard.cancel')}
+                </button>
+                <button type="submit" disabled={isSubmitting} className="btn btn-primary">
+                  {isSubmitting ? '...' : t('admin.courses.saveChanges')}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* 1. Create Course Modal */}
       {isCreateCourseModalOpen && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0, 0, 0, 0.7)', backdropFilter: 'blur(8px)', padding: '16px' }}>
@@ -2227,6 +3890,24 @@ export const AdminCoursesPage: React.FC = () => {
             </div>
 
             <form onSubmit={handleCreateCourse} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                  {t('admin.courses.selectCurriculum')}
+                </label>
+                <select
+                  value={courseCurriculumId}
+                  onChange={(e) => setCourseCurriculumId(e.target.value)}
+                  style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', color: '#ffffff' }}
+                >
+                  <option value="">-- {t('admin.courses.selectCurriculum')} --</option>
+                  {curricula.map((curr) => (
+                    <option key={curr.id} value={curr.id}>
+                      {curr.code ? `[${curr.code}] ` : ''}{language === 'rw' && curr.title_kinyarwanda ? curr.title_kinyarwanda : curr.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <div>
                 <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>Course Code</label>
                 <input
@@ -2246,6 +3927,17 @@ export const AdminCoursesPage: React.FC = () => {
                   placeholder="Rwandan Highway Code & Traffic Rules"
                   value={courseTitle}
                   onChange={(e) => setCourseTitle(e.target.value)}
+                  style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', color: '#ffffff' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>Title (Kinyarwanda)</label>
+                <input
+                  type="text"
+                  placeholder="Amategeko y'Umuhanda mu Rwanda"
+                  value={courseTitleRw}
+                  onChange={(e) => setCourseTitleRw(e.target.value)}
                   style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', color: '#ffffff' }}
                 />
               </div>
@@ -2286,6 +3978,24 @@ export const AdminCoursesPage: React.FC = () => {
 
             <form onSubmit={handleUpdateCourse} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                  {t('admin.courses.selectCurriculum')}
+                </label>
+                <select
+                  value={courseCurriculumId}
+                  onChange={(e) => setCourseCurriculumId(e.target.value)}
+                  style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', color: '#ffffff' }}
+                >
+                  <option value="">-- {t('admin.courses.selectCurriculum')} --</option>
+                  {curricula.map((curr) => (
+                    <option key={curr.id} value={curr.id}>
+                      {curr.code ? `[${curr.code}] ` : ''}{language === 'rw' && curr.title_kinyarwanda ? curr.title_kinyarwanda : curr.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
                 <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>Course Code</label>
                 <input
                   type="text"
@@ -2303,6 +4013,16 @@ export const AdminCoursesPage: React.FC = () => {
                   required
                   value={courseTitle}
                   onChange={(e) => setCourseTitle(e.target.value)}
+                  style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', color: '#ffffff' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>Title (Kinyarwanda)</label>
+                <input
+                  type="text"
+                  value={courseTitleRw}
+                  onChange={(e) => setCourseTitleRw(e.target.value)}
                   style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', color: '#ffffff' }}
                 />
               </div>
@@ -2635,7 +4355,6 @@ export const AdminCoursesPage: React.FC = () => {
                   Select Target Cohort
                 </label>
                 <select
-                  required
                   value={targetCohortId}
                   onChange={(e) => setTargetCohortId(e.target.value)}
                   style={{
@@ -2648,7 +4367,7 @@ export const AdminCoursesPage: React.FC = () => {
                     fontSize: '0.88rem',
                   }}
                 >
-                  <option value="">-- Choose a Cohort --</option>
+                  <option value="">-- Unassigned (Remove from Cohort) --</option>
                   {cohorts.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.name} ({c.code || 'COHORT'}) — {c.student_count || 0}/{c.max_capacity || 50} enrolled
@@ -2661,11 +4380,322 @@ export const AdminCoursesPage: React.FC = () => {
                 <button type="button" onClick={() => setIsChangeCohortModalOpen(false)} className="btn btn-secondary">
                   Cancel
                 </button>
-                <button type="submit" disabled={isSubmitting || !targetCohortId} className="btn btn-primary">
-                  {isSubmitting ? 'Assigning...' : 'Save Cohort Assignment'}
+                <button type="submit" disabled={isSubmitting} className="btn btn-primary">
+                  {isSubmitting ? 'Saving...' : 'Save Cohort Assignment'}
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* 5b. Assign Tutor to Student Modal */}
+      {isStudentTutorModalOpen && selectedLearner && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0, 0, 0, 0.7)', backdropFilter: 'blur(8px)', padding: '16px' }}>
+          <div className="glass-panel" style={{ width: '100%', maxWidth: '480px', borderRadius: 'var(--radius-2xl)', padding: '28px', border: '1px solid var(--border-medium)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: '#ffffff' }}>
+                  Assign Personal Tutor
+                </h3>
+                <p style={{ margin: '4px 0 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                  {selectedLearner.full_name || selectedLearner.phone_number} ({selectedLearner.role})
+                </p>
+              </div>
+              <button onClick={() => setIsStudentTutorModalOpen(false)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveStudentTutor} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                  Select Assigned Tutor
+                </label>
+                <select
+                  value={targetStudentTutorId}
+                  onChange={(e) => setTargetStudentTutorId(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '10px 14px',
+                    borderRadius: 'var(--radius-md)',
+                    background: 'var(--bg-surface-elevated)',
+                    border: '1px solid var(--border-subtle)',
+                    color: '#ffffff',
+                    fontSize: '0.88rem',
+                  }}
+                >
+                  <option value="">-- No Tutor (Unassign) --</option>
+                  {tutors.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.full_name || 'Tutor'} ({t.phone_number})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '8px' }}>
+                <button type="button" onClick={() => setIsStudentTutorModalOpen(false)} className="btn btn-secondary">
+                  Cancel
+                </button>
+                <button type="submit" disabled={isSubmitting} className="btn btn-primary">
+                  {isSubmitting ? 'Saving...' : 'Save Tutor Assignment'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 5c. Enroll / Add Student Modal */}
+      {isEnrollStudentModalOpen && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0, 0, 0, 0.7)', backdropFilter: 'blur(8px)', padding: '16px' }}>
+          <div className="glass-panel" style={{ width: '100%', maxWidth: '520px', borderRadius: 'var(--radius-2xl)', padding: '28px', border: '1px solid var(--border-medium)', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <UserPlus size={22} color="var(--primary)" />
+                <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800, color: '#ffffff' }}>
+                  Enroll New Student
+                </h3>
+              </div>
+              <button onClick={() => setIsEnrollStudentModalOpen(false)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleEnrollStudentSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>First Name *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Jean"
+                    value={newStudentFirstName}
+                    onChange={(e) => setNewStudentFirstName(e.target.value)}
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', color: '#ffffff', fontSize: '0.88rem' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>Last Name *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Mugabo"
+                    value={newStudentLastName}
+                    onChange={(e) => setNewStudentLastName(e.target.value)}
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', color: '#ffffff', fontSize: '0.88rem' }}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>Phone Number (+250) *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="+250788123456"
+                  value={newStudentPhone}
+                  onChange={(e) => setNewStudentPhone(e.target.value)}
+                  style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', color: '#ffffff', fontSize: '0.88rem', fontFamily: 'monospace' }}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>Email (Optional)</label>
+                  <input
+                    type="email"
+                    placeholder="student@example.rw"
+                    value={newStudentEmail}
+                    onChange={(e) => setNewStudentEmail(e.target.value)}
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', color: '#ffffff', fontSize: '0.88rem' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>Initial Password *</label>
+                  <input
+                    type="password"
+                    required
+                    placeholder="Student@123"
+                    value={newStudentPassword}
+                    onChange={(e) => setNewStudentPassword(e.target.value)}
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', color: '#ffffff', fontSize: '0.88rem' }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>Role</label>
+                  <select
+                    value={newStudentRole}
+                    onChange={(e) => setNewStudentRole(e.target.value as any)}
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', color: '#ffffff', fontSize: '0.88rem' }}
+                  >
+                    <option value="STUDENT">Student (Full LMS Access)</option>
+                    <option value="GUEST">Guest (Free Materials Only)</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>Assign Cohort (Optional)</label>
+                  <select
+                    value={newStudentCohortId}
+                    onChange={(e) => setNewStudentCohortId(e.target.value)}
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', color: '#ffffff', fontSize: '0.88rem' }}
+                  >
+                    <option value="">-- No Initial Cohort --</option>
+                    {cohorts.map((c) => (
+                      <option key={c.id} value={c.id}>{c.name} ({c.code || 'COHORT'})</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>Assign Personal Tutor (Optional)</label>
+                <select
+                  value={newStudentTutorId}
+                  onChange={(e) => setNewStudentTutorId(e.target.value)}
+                  style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', color: '#ffffff', fontSize: '0.88rem' }}
+                >
+                  <option value="">-- No Initial Tutor --</option>
+                  {tutors.map((t) => (
+                    <option key={t.id} value={t.id}>{t.full_name || 'Tutor'} ({t.phone_number})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '12px' }}>
+                <button type="button" onClick={() => setIsEnrollStudentModalOpen(false)} className="btn btn-secondary">
+                  Cancel
+                </button>
+                <button type="submit" disabled={isSubmitting} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  {isSubmitting ? <Spinner size={16} /> : <UserPlus size={16} />}
+                  <span>{isSubmitting ? 'Enrolling...' : 'Enroll Student'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 5d. View Student Details Modal */}
+      {isStudentDetailsModalOpen && studentDetailsUser && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0, 0, 0, 0.7)', backdropFilter: 'blur(8px)', padding: '16px' }}>
+          <div className="glass-panel" style={{ width: '100%', maxWidth: '560px', borderRadius: 'var(--radius-2xl)', padding: '28px', border: '1px solid var(--border-medium)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div
+                  style={{
+                    width: '44px',
+                    height: '44px',
+                    borderRadius: '50%',
+                    background: studentDetailsUser.role === 'STUDENT' ? 'rgba(56, 189, 248, 0.2)' : 'rgba(168, 85, 247, 0.2)',
+                    color: studentDetailsUser.role === 'STUDENT' ? '#38bdf8' : '#a855f7',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontWeight: 800,
+                    fontSize: '1.1rem',
+                  }}
+                >
+                  {(studentDetailsUser.full_name || studentDetailsUser.phone_number).charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, color: '#ffffff' }}>
+                    {studentDetailsUser.full_name || 'Anonymous User'}
+                  </h3>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '3px' }}>
+                    <Badge variant={studentDetailsUser.role === 'STUDENT' ? 'info' : 'neutral'}>
+                      {studentDetailsUser.role}
+                    </Badge>
+                    <Badge variant={studentDetailsUser.status === 'ACTIVE' ? 'success' : 'warning'}>
+                      {studentDetailsUser.status}
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+              <button onClick={() => setIsStudentDetailsModalOpen(false)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', fontSize: '0.88rem' }}>
+              {/* Student ID */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)' }}>
+                <span style={{ color: 'var(--text-secondary)' }}>Student ID</span>
+                <span style={{ fontFamily: 'monospace', fontWeight: 700, color: '#38bdf8' }}>
+                  {studentDetailsUser.student_id || 'Not Assigned'}
+                </span>
+              </div>
+
+              {/* Phone & Email */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div style={{ padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)' }}>
+                  <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginBottom: '3px' }}>Phone Number</div>
+                  <div style={{ fontFamily: 'monospace', fontWeight: 600, color: '#ffffff' }}>{studentDetailsUser.phone_number}</div>
+                </div>
+                <div style={{ padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)' }}>
+                  <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginBottom: '3px' }}>Email Address</div>
+                  <div style={{ fontWeight: 600, color: '#ffffff' }}>{studentDetailsUser.email || 'None on file'}</div>
+                </div>
+              </div>
+
+              {/* Cohort & Tutor */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div style={{ padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)' }}>
+                  <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginBottom: '3px' }}>Enrolled Cohort</div>
+                  <div style={{ fontWeight: 700, color: studentDetailsUser.cohort_name ? '#38bdf8' : 'var(--text-muted)' }}>
+                    {studentDetailsUser.cohort_name || 'Unassigned'}
+                  </div>
+                </div>
+                <div style={{ padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)' }}>
+                  <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginBottom: '3px' }}>Assigned Tutor</div>
+                  <div style={{ fontWeight: 700, color: studentDetailsUser.assigned_tutor_name ? '#a78bfa' : 'var(--text-muted)' }}>
+                    {studentDetailsUser.assigned_tutor_name || 'No Tutor Assigned'}
+                  </div>
+                </div>
+              </div>
+
+              {/* Registration Date */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)' }}>
+                <span style={{ color: 'var(--text-secondary)' }}>Registered On</span>
+                <span style={{ color: '#ffffff' }}>
+                  {studentDetailsUser.created_at ? new Date(studentDetailsUser.created_at).toLocaleDateString() : '—'}
+                </span>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '20px' }}>
+              <button
+                onClick={() => {
+                  setIsStudentDetailsModalOpen(false);
+                  handleOpenChangeCohort(studentDetailsUser);
+                }}
+                className="btn btn-secondary btn-sm"
+              >
+                <ArrowRightLeft size={13} />
+                <span>Change Cohort</span>
+              </button>
+              <button
+                onClick={() => {
+                  setIsStudentDetailsModalOpen(false);
+                  handleOpenStudentTutorModal(studentDetailsUser);
+                }}
+                className="btn btn-secondary btn-sm"
+              >
+                <UserCheck size={13} />
+                <span>Change Tutor</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsStudentDetailsModalOpen(false)}
+                className="btn btn-primary btn-sm"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -3151,6 +5181,1119 @@ export const AdminCoursesPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* ========================================================================= */}
+      {/* 9. Quiz Builder Modal (Multi-tab: Settings, Question Composer, Rubric)   */}
+      {/* ========================================================================= */}
+      {isQuizModalOpen && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0, 0, 0, 0.75)', backdropFilter: 'blur(8px)', padding: '16px' }}>
+          <div className="glass-panel" style={{ width: '100%', maxWidth: '860px', maxHeight: '92vh', overflowY: 'auto', borderRadius: 'var(--radius-2xl)', padding: '28px', border: '1px solid var(--border-medium)', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ width: '40px', height: '40px', borderRadius: '8px', background: 'rgba(255, 255, 255, 0.05)', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border-subtle)' }}>
+                  <ListChecks size={20} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, color: '#ffffff' }}>
+                    {isEditQuizMode ? t('admin.courses.editQuiz') : t('admin.courses.createQuiz')}
+                  </h3>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsQuizModalOpen(false)}
+                style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '6px' }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Tabs */}
+            <div style={{ display: 'flex', borderBottom: '1px solid var(--border-subtle)', gap: '8px' }}>
+              <button
+                type="button"
+                onClick={() => setQuizActiveTab('settings')}
+                style={{
+                  padding: '10px 18px',
+                  border: 'none',
+                  background: 'transparent',
+                  borderBottom: quizActiveTab === 'settings' ? '2px solid var(--primary-color)' : '2px solid transparent',
+                  color: quizActiveTab === 'settings' ? '#ffffff' : 'var(--text-secondary)',
+                  fontWeight: 700,
+                  fontSize: '0.86rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                }}
+              >
+                <Sliders size={15} />
+                <span>{t('admin.courses.tabSettings')}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setQuizActiveTab('questions')}
+                style={{
+                  padding: '10px 18px',
+                  border: 'none',
+                  background: 'transparent',
+                  borderBottom: quizActiveTab === 'questions' ? '2px solid var(--primary-color)' : '2px solid transparent',
+                  color: quizActiveTab === 'questions' ? '#ffffff' : 'var(--text-secondary)',
+                  fontWeight: 700,
+                  fontSize: '0.86rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                }}
+              >
+                <HelpCircle size={15} />
+                <span>{t('admin.courses.tabQuestions')}</span>
+                <span
+                  style={{
+                    fontSize: '0.72rem',
+                    padding: '2px 7px',
+                    borderRadius: '999px',
+                    background: 'rgba(255, 255, 255, 0.08)',
+                    color: 'var(--text-secondary)',
+                    fontWeight: 700,
+                  }}
+                >
+                  {quizItems.length}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setQuizActiveTab('rubric')}
+                style={{
+                  padding: '10px 18px',
+                  border: 'none',
+                  background: 'transparent',
+                  borderBottom: quizActiveTab === 'rubric' ? '2px solid var(--primary-color)' : '2px solid transparent',
+                  color: quizActiveTab === 'rubric' ? '#ffffff' : 'var(--text-secondary)',
+                  fontWeight: 700,
+                  fontSize: '0.86rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                }}
+              >
+                <FileCheck size={15} />
+                <span>{t('admin.courses.tabRubric')}</span>
+              </button>
+            </div>
+
+            {/* TAB 1: SETTINGS & SCHEDULE */}
+            {quizActiveTab === 'settings' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                      Target Course *
+                    </label>
+                    <select
+                      value={quizCourseId}
+                      onChange={(e) => handleCourseChangeInQuiz(e.target.value)}
+                      style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', color: '#ffffff' }}
+                    >
+                      <option value="">-- Choose Course --</option>
+                      {courses.map(c => (
+                        <option key={c.id} value={c.id}>{c.title}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                      Target Module (Optional)
+                    </label>
+                    <select
+                      value={quizModuleId}
+                      onChange={(e) => setQuizModuleId(e.target.value)}
+                      style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', color: '#ffffff' }}
+                    >
+                      <option value="">-- Course-wide (No specific module) --</option>
+                      {quizAvailableModules.map((m: any) => (
+                        <option key={m.id} value={m.id}>{m.title}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                      {t('admin.courses.quizTitle')} *
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Priority Rules & Intersection Knowledge Check"
+                      value={quizTitle}
+                      onChange={(e) => setQuizTitle(e.target.value)}
+                      style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', color: '#ffffff' }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                      {t('admin.courses.quizTitleRw')}
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Umutwe w'isuzuma mu Kinyarwanda..."
+                      value={quizTitleRw}
+                      onChange={(e) => setQuizTitleRw(e.target.value)}
+                      style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', color: '#ffffff' }}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                      {t('admin.courses.quizDescription')}
+                    </label>
+                    <textarea
+                      rows={2}
+                      placeholder="Summary and goals of this quiz assessment..."
+                      value={quizDescription}
+                      onChange={(e) => setQuizDescription(e.target.value)}
+                      style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', color: '#ffffff', resize: 'vertical' }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                      {t('admin.courses.quizDescriptionRw')}
+                    </label>
+                    <textarea
+                      rows={2}
+                      placeholder="Ibisobanuro by'isuzuma mu Kinyarwanda..."
+                      value={quizDescriptionRw}
+                      onChange={(e) => setQuizDescriptionRw(e.target.value)}
+                      style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', color: '#ffffff', resize: 'vertical' }}
+                    />
+                  </div>
+                </div>
+
+                {/* Scheduling */}
+                <div style={{ padding: '16px', borderRadius: 'var(--radius-lg)', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#ffffff', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Calendar size={15} style={{ color: '#60a5fa' }} />
+                    <span>Availability Window & Deadlines</span>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                        {t('admin.courses.openDate')}
+                      </label>
+                      <input
+                        type="datetime-local"
+                        value={quizOpenDate}
+                        onChange={(e) => setQuizOpenDate(e.target.value)}
+                        style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', color: '#ffffff' }}
+                      />
+                      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
+                        If left blank, quiz opens immediately upon publishing.
+                      </span>
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                        {t('admin.courses.deadline')}
+                      </label>
+                      <input
+                        type="datetime-local"
+                        value={quizDeadline}
+                        onChange={(e) => setQuizDeadline(e.target.value)}
+                        style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', color: '#ffffff' }}
+                      />
+                      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
+                        Optional: submissions after this timestamp are blocked.
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Quantitative Rules */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                      {t('admin.courses.timeLimit')}
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={quizTimeLimit}
+                      onChange={(e) => setQuizTimeLimit(parseInt(e.target.value) || 0)}
+                      style={{ width: '100%', padding: '9px 12px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', color: '#ffffff' }}
+                    />
+                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>0 = unlimited</span>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                      {t('admin.courses.totalScore')}
+                    </label>
+                    <input
+                      type="text"
+                      readOnly
+                      value={`${calculatedTotalScore} pts`}
+                      style={{
+                        width: '100%',
+                        padding: '9px 12px',
+                        borderRadius: 'var(--radius-md)',
+                        background: 'var(--bg-surface-elevated)',
+                        border: '1px solid var(--border-subtle)',
+                        color: '#ffffff',
+                        cursor: 'not-allowed',
+                        opacity: 0.9,
+                      }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                      {t('admin.courses.passingScore')}
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={100}
+                      value={quizPassingScore}
+                      onChange={(e) => setQuizPassingScore(parseInt(e.target.value) || 70)}
+                      style={{ width: '100%', padding: '9px 12px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', color: '#ffffff' }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                      {t('admin.courses.maxAttempts')}
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={quizMaxAttempts}
+                      onChange={(e) => setQuizMaxAttempts(parseInt(e.target.value) || 1)}
+                      style={{ width: '100%', padding: '9px 12px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', color: '#ffffff' }}
+                    />
+                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>0 = unlimited</span>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <input
+                    type="checkbox"
+                    id="quizShuffleCheckbox"
+                    checked={quizShuffle}
+                    onChange={(e) => setQuizShuffle(e.target.checked)}
+                    style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                  />
+                  <label htmlFor="quizShuffleCheckbox" style={{ fontSize: '0.84rem', color: '#ffffff', cursor: 'pointer' }}>
+                    {t('admin.courses.shuffleQuestions')}
+                  </label>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 2: QUESTION COMPOSER */}
+            {quizActiveTab === 'questions' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {/* Control bar */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', padding: '14px 18px', borderRadius: 'var(--radius-lg)', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-subtle)' }}>
+                  <div>
+                    <div style={{ fontWeight: 700, color: '#ffffff', fontSize: '0.92rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span>{quizItems.length} Question{quizItems.length === 1 ? '' : 's'} Configured</span>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 600, padding: '2px 8px', borderRadius: '4px', background: 'rgba(255, 255, 255, 0.06)', color: 'var(--text-secondary)', border: '1px solid var(--border-subtle)' }}>
+                        Total Score: {calculatedTotalScore} pts
+                      </span>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedBankQuestionIds([]);
+                        setBankPickerSearch('');
+                        setIsBankPickerModalOpen(true);
+                        if (questions.length === 0) {
+                          fetchBankQuestions();
+                        }
+                      }}
+                      className="btn btn-secondary btn-sm"
+                      style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                    >
+                      <Plus size={14} />
+                      <span>{t('admin.courses.fromBank')}</span>
+                    </button>
+
+                    {/* Scratch authoring button: only rendered for Training Admin */}
+                    {isTrainingAdmin && (
+                      <button
+                        type="button"
+                        onClick={() => setIsAddingScratchQuestion(true)}
+                        className="btn btn-primary btn-sm"
+                        style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                      >
+                        <Sparkles size={14} />
+                        <span>{t('admin.courses.scratchQuestion')}</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Question Items List */}
+                {quizItems.length === 0 ? (
+                  <div style={{ padding: '48px 24px', textAlign: 'center', borderRadius: 'var(--radius-lg)', border: '1px dashed var(--border-medium)', background: 'rgba(255,255,255,0.01)' }}>
+                    <HelpCircle size={32} style={{ color: 'var(--text-muted)', margin: '0 auto 12px auto' }} />
+                    <h5 style={{ margin: '0 0 6px 0', fontSize: '0.96rem', fontWeight: 700, color: '#ffffff' }}>
+                      No questions attached yet
+                    </h5>
+                    <p style={{ margin: '0 0 16px 0', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                      Assemble this quiz by pulling questions from the bank{isTrainingAdmin ? ' or authoring custom ones from scratch' : ''}.
+                    </p>
+                    <div style={{ display: 'flex', justifyContent: 'center', gap: '10px' }}>
+                      <button
+                        type="button"
+                        onClick={() => setIsBankPickerModalOpen(true)}
+                        className="btn btn-secondary btn-sm"
+                      >
+                        Select from Bank
+                      </button>
+                      {isTrainingAdmin && (
+                        <button
+                          type="button"
+                          onClick={() => setIsAddingScratchQuestion(true)}
+                          className="btn btn-primary btn-sm"
+                        >
+                          Author from Scratch
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '420px', overflowY: 'auto', paddingRight: '4px' }}>
+                    {quizItems.map((item, idx) => (
+                      <div
+                        key={idx}
+                        style={{
+                          padding: '16px',
+                          borderRadius: 'var(--radius-lg)',
+                          background: 'var(--bg-surface-elevated)',
+                          border: '1px solid var(--border-subtle)',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '10px',
+                        }}
+                      >
+                        {/* Item Header */}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontWeight: 700, color: 'var(--text-secondary)', fontSize: '0.82rem', fontFamily: 'monospace' }}>
+                              #{idx + 1}
+                            </span>
+                            <span
+                              style={{
+                                fontSize: '0.7rem',
+                                fontWeight: 600,
+                                padding: '2px 8px',
+                                borderRadius: '4px',
+                                background: 'rgba(255, 255, 255, 0.05)',
+                                color: 'var(--text-secondary)',
+                                border: '1px solid var(--border-subtle)',
+                              }}
+                            >
+                              {item.original_question ? 'From Bank' : 'Custom Question'}
+                            </span>
+                            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                              Domain: {item.domain || 'PRIORITY'}
+                            </span>
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(255,255,255,0.03)', padding: '4px 8px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
+                              <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Points:</label>
+                              <input
+                                type="number"
+                                min={1}
+                                max={1000}
+                                value={item.points || 1}
+                                onChange={(e) => {
+                                  const val = Math.max(1, parseInt(e.target.value) || 1);
+                                  setQuizItems(prev => prev.map((q, qIdx) => qIdx === idx ? { ...q, points: val } : q));
+                                }}
+                                style={{ width: '56px', padding: '3px 6px', borderRadius: 'var(--radius-sm)', background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', color: '#ffffff', fontWeight: 700, fontSize: '0.84rem', textAlign: 'center' }}
+                              />
+                              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600 }}>pts</span>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => setQuizItems(prev => prev.filter((_, qIdx) => qIdx !== idx))}
+                              style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px', transition: 'color 0.15s' }}
+                              onMouseEnter={(e) => { e.currentTarget.style.color = '#f87171'; }}
+                              onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-muted)'; }}
+                              title="Remove Question"
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Prompt */}
+                        <div style={{ fontSize: '0.88rem', fontWeight: 600, color: '#ffffff' }}>
+                          {item.question_text}
+                        </div>
+                        {item.question_text_kinyarwanda && (
+                          <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                            {item.question_text_kinyarwanda}
+                          </div>
+                        )}
+
+                        {/* Options preview - minimalist Canvas style */}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', fontSize: '0.78rem' }}>
+                          {['A', 'B', 'C', 'D'].map((optKey) => {
+                            const optText = (item as any)[`option_${optKey.toLowerCase()}`];
+                            if (!optText) return null;
+                            const isCorrect = item.correct_option === optKey;
+                            return (
+                              <div
+                                key={optKey}
+                                style={{
+                                  padding: '6px 10px',
+                                  borderRadius: '6px',
+                                  background: isCorrect ? 'rgba(255, 255, 255, 0.07)' : 'rgba(255, 255, 255, 0.02)',
+                                  border: isCorrect ? '1px solid var(--border-medium)' : '1px solid var(--border-subtle)',
+                                  color: isCorrect ? '#ffffff' : 'var(--text-secondary)',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '6px',
+                                  fontWeight: isCorrect ? 600 : 400,
+                                }}
+                              >
+                                <span style={{ fontWeight: 700 }}>{optKey}.</span>
+                                <span style={{ flex: 1 }}>{optText}</span>
+                                {isCorrect && <Check size={12} style={{ color: 'var(--text-secondary)' }} />}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* TAB 3: RUBRIC & SCORING GUIDELINES */}
+            {quizActiveTab === 'rubric' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                    {t('admin.courses.rubric')}
+                  </label>
+                  <textarea
+                    rows={4}
+                    placeholder="Comprehensive grading rubric, evaluation criteria, time allocation advice, and guidelines..."
+                    value={quizRubric}
+                    onChange={(e) => setQuizRubric(e.target.value)}
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', color: '#ffffff', resize: 'vertical' }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                    {t('admin.courses.rubricRw')}
+                  </label>
+                  <textarea
+                    rows={4}
+                    placeholder="Amabwiriza n'ibipimo by'amanota mu Kinyarwanda..."
+                    value={quizRubricRw}
+                    onChange={(e) => setQuizRubricRw(e.target.value)}
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', color: '#ffffff', resize: 'vertical' }}
+                  />
+                </div>
+
+                {/* Pre-flight Review Summary */}
+                <div style={{ padding: '16px', borderRadius: 'var(--radius-lg)', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-subtle)' }}>
+                  <div style={{ fontWeight: 800, color: '#ffffff', fontSize: '0.88rem', marginBottom: '10px' }}>
+                    Quiz Summary Review
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', fontSize: '0.8rem' }}>
+                    <div><span style={{ color: 'var(--text-muted)' }}>Questions:</span> <strong style={{ color: '#ffffff' }}>{quizItems.length} items</strong></div>
+                    <div><span style={{ color: 'var(--text-muted)' }}>Total Score:</span> <strong style={{ color: '#ffffff' }}>{calculatedTotalScore} pts</strong></div>
+                    <div><span style={{ color: 'var(--text-muted)' }}>Passing:</span> <strong style={{ color: '#ffffff' }}>{quizPassingScore}%</strong></div>
+                    <div><span style={{ color: 'var(--text-muted)' }}>Time Limit:</span> <strong style={{ color: '#ffffff' }}>{quizTimeLimit > 0 ? `${quizTimeLimit} mins` : 'Unlimited'}</strong></div>
+                    <div><span style={{ color: 'var(--text-muted)' }}>Open Date:</span> <strong style={{ color: '#ffffff' }}>{quizOpenDate ? new Date(quizOpenDate).toLocaleDateString() : 'Immediate'}</strong></div>
+                    <div><span style={{ color: 'var(--text-muted)' }}>Deadline:</span> <strong style={{ color: '#ffffff' }}>{quizDeadline ? new Date(quizDeadline).toLocaleDateString() : 'None'}</strong></div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Footer Buttons */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid var(--border-subtle)', paddingTop: '16px', marginTop: '10px' }}>
+              <button
+                type="button"
+                onClick={() => setIsQuizModalOpen(false)}
+                className="btn btn-secondary"
+              >
+                {t('admin.courses.cancelBtn')}
+              </button>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                {quizActiveTab !== 'settings' && (
+                  <button
+                    type="button"
+                    onClick={() => setQuizActiveTab(quizActiveTab === 'rubric' ? 'questions' : 'settings')}
+                    className="btn btn-secondary"
+                  >
+                    Previous
+                  </button>
+                )}
+
+                {quizActiveTab !== 'rubric' ? (
+                  <button
+                    type="button"
+                    onClick={() => setQuizActiveTab(quizActiveTab === 'settings' ? 'questions' : 'rubric')}
+                    className="btn btn-primary"
+                  >
+                    Next Tab
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={isSavingQuiz}
+                    onClick={handleSaveQuiz}
+                    className="btn btn-primary"
+                    style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 24px', fontWeight: 800 }}
+                  >
+                    {isSavingQuiz ? (
+                      <>
+                        <Spinner size={16} />
+                        <span>Saving...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Check size={16} />
+                        <span>{isEditQuizMode ? 'Update Quiz' : 'Finalize & Save Quiz'}</span>
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 10. Question Bank Picker Modal (Multi-select from central question pool) */}
+      {/* ========================================================================= */}
+      {isBankPickerModalOpen && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0, 0, 0, 0.75)', backdropFilter: 'blur(8px)', padding: '16px' }}>
+          <div className="glass-panel" style={{ width: '100%', maxWidth: '800px', maxHeight: '88vh', overflowY: 'auto', borderRadius: 'var(--radius-2xl)', padding: '24px', border: '1px solid var(--border-medium)', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '12px' }}>
+              <div>
+                <h4 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: '#ffffff' }}>
+                  {t('admin.courses.selectBankQuestions')}
+                </h4>
+                <p style={{ margin: '2px 0 0', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                  Choose 1, 5, 20, or any number of questions to link to this course quiz.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsBankPickerModalOpen(false)}
+                style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Filter toolbar */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              <div style={{ position: 'relative', flex: 1, minWidth: '220px' }}>
+                <Search size={14} style={{ position: 'absolute', left: '10px', top: '10px', color: 'var(--text-muted)' }} />
+                <input
+                  type="text"
+                  placeholder="Filter bank items..."
+                  value={bankPickerSearch}
+                  onChange={(e) => setBankPickerSearch(e.target.value)}
+                  style={{ width: '100%', padding: '8px 10px 8px 32px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', color: '#ffffff', fontSize: '0.82rem' }}
+                />
+              </div>
+
+              <select
+                value={bankPickerDomain}
+                onChange={(e) => setBankPickerDomain(e.target.value)}
+                style={{ padding: '8px 12px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', color: '#ffffff', fontSize: '0.82rem' }}
+              >
+                <option value="ALL">All Domains</option>
+                <option value="PRIORITY">Priority Rules</option>
+                <option value="SIGNAGE">Road Signs</option>
+                <option value="SPEED">Speed Limits</option>
+                <option value="LEGAL">Legal Framework</option>
+                <option value="SAFETY">Vehicle Safety</option>
+                <option value="PARKING">Parking & Stopping</option>
+              </select>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const allVisibleIds = filteredBankPickerQuestions.map(q => q.id);
+                  if (selectedBankQuestionIds.length === allVisibleIds.length) {
+                    setSelectedBankQuestionIds([]);
+                  } else {
+                    setSelectedBankQuestionIds(allVisibleIds);
+                  }
+                }}
+                className="btn btn-secondary btn-sm"
+              >
+                {selectedBankQuestionIds.length === filteredBankPickerQuestions.length && filteredBankPickerQuestions.length > 0
+                  ? 'Deselect All'
+                  : 'Select All Visible'}
+              </button>
+            </div>
+
+            {/* Questions list with checkboxes */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '440px', overflowY: 'auto' }}>
+              {isLoadingBankQuestions ? (
+                <div style={{ textAlign: 'center', padding: '40px 16px', color: 'var(--text-secondary)' }}>
+                  <Spinner size={24} />
+                  <p style={{ margin: '12px 0 0', fontSize: '0.85rem' }}>Loading questions from Question Bank...</p>
+                </div>
+              ) : filteredBankPickerQuestions.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '40px 16px', color: 'var(--text-secondary)' }}>
+                  <HelpCircle size={36} style={{ color: 'var(--text-muted)', marginBottom: '8px' }} />
+                  <p style={{ margin: '0 0 6px', fontSize: '0.9rem', fontWeight: 600, color: '#ffffff' }}>
+                    {questions.length === 0 ? 'No questions loaded from Question Bank' : 'No questions match the current filter or search'}
+                  </p>
+                  <p style={{ margin: '0 0 16px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                    {questions.length === 0 ? 'Click below to fetch the Question Bank questions.' : 'Try adjusting your search keywords or domain selection.'}
+                  </p>
+                  {questions.length === 0 && (
+                    <button
+                      type="button"
+                      onClick={fetchBankQuestions}
+                      className="btn btn-secondary btn-sm"
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                    >
+                      <RefreshCw size={14} />
+                      <span>Fetch Question Bank</span>
+                    </button>
+                  )}
+                </div>
+              ) : (
+                filteredBankPickerQuestions.slice(0, 300).map((q) => {
+                  const isSelected = selectedBankQuestionIds.includes(q.id);
+                  const qText = q.question_text || q.question_text_rw || q.question_text_kinyarwanda || '';
+                  const qRw = q.question_text_rw || q.question_text_kinyarwanda || '';
+                  return (
+                    <div
+                      key={q.id}
+                      onClick={() => {
+                        setSelectedBankQuestionIds(prev =>
+                          prev.includes(q.id) ? prev.filter(id => id !== q.id) : [...prev, q.id]
+                        );
+                      }}
+                      style={{
+                        padding: '12px 14px',
+                        borderRadius: 'var(--radius-md)',
+                        background: isSelected ? 'rgba(255, 255, 255, 0.08)' : 'var(--bg-surface-elevated)',
+                        border: isSelected ? '1px solid var(--border-medium)' : '1px solid var(--border-subtle)',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: '12px',
+                        transition: 'all 0.15s',
+                      }}
+                    >
+                      <div style={{ paddingTop: '2px' }}>
+                        {isSelected ? <CheckSquare size={16} color="#ffffff" /> : <Square size={16} color="var(--text-muted)" />}
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '3px', flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', fontFamily: 'monospace' }}>
+                            #{q.question_number || 'Bank'}
+                          </span>
+                          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                            {q.domain || 'PRIORITY'} • {q.difficulty || 'MEDIUM'}
+                          </span>
+                          {q.correct_option && (
+                            <span style={{ fontSize: '0.68rem', padding: '1px 6px', borderRadius: '4px', background: 'rgba(255, 255, 255, 0.06)', color: 'var(--text-secondary)', border: '1px solid var(--border-subtle)', fontWeight: 600 }}>
+                              Answer: Option {q.correct_option}
+                            </span>
+                          )}
+                        </div>
+                        <div style={{ fontSize: '0.86rem', fontWeight: 600, color: '#ffffff', lineHeight: 1.4 }}>
+                          {qText}
+                        </div>
+                        {qRw && qText !== qRw && (
+                          <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px', fontStyle: 'italic' }}>
+                            {qRw}
+                          </div>
+                        )}
+                        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '6px', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                          <span style={{ color: q.correct_option === 'A' ? '#ffffff' : 'var(--text-muted)', fontWeight: q.correct_option === 'A' ? 600 : 400 }}>A: {q.option_a || q.option_a_rw}</span>
+                          <span style={{ color: q.correct_option === 'B' ? '#ffffff' : 'var(--text-muted)', fontWeight: q.correct_option === 'B' ? 600 : 400 }}>B: {q.option_b || q.option_b_rw}</span>
+                          {(q.option_c || q.option_c_rw) && <span style={{ color: q.correct_option === 'C' ? '#ffffff' : 'var(--text-muted)', fontWeight: q.correct_option === 'C' ? 600 : 400 }}>C: {q.option_c || q.option_c_rw}</span>}
+                          {(q.option_d || q.option_d_rw) && <span style={{ color: q.correct_option === 'D' ? '#ffffff' : 'var(--text-muted)', fontWeight: q.correct_option === 'D' ? 600 : 400 }}>D: {q.option_d || q.option_d_rw}</span>}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid var(--border-subtle)', paddingTop: '12px' }}>
+              <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+                <strong>{selectedBankQuestionIds.length}</strong> question(s) selected
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => setIsBankPickerModalOpen(false)}
+                  className="btn btn-secondary btn-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={selectedBankQuestionIds.length === 0}
+                  onClick={() => {
+                    const chosen = questions.filter(q => selectedBankQuestionIds.includes(q.id));
+                    handleAddBankQuestionsToQuiz(chosen);
+                  }}
+                  className="btn btn-primary btn-sm"
+                >
+                  Add {selectedBankQuestionIds.length} to Quiz
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 11. Scratch Question Modal (Training Admin full pedagogical flexibility)  */}
+      {/* ========================================================================= */}
+      {isAddingScratchQuestion && isTrainingAdmin && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0, 0, 0, 0.75)', backdropFilter: 'blur(8px)', padding: '16px' }}>
+          <div className="glass-panel" style={{ width: '100%', maxWidth: '720px', maxHeight: '90vh', overflowY: 'auto', borderRadius: 'var(--radius-2xl)', padding: '24px', border: '1px solid var(--border-medium)', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '12px' }}>
+              <div>
+                <h4 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: '#ffffff' }}>
+                  {t('admin.courses.scratchQuestion')}
+                </h4>
+                <p style={{ margin: '2px 0 0', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                  Compose custom question prompt, options, correct answers, and feedback explanation.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAddingScratchQuestion(false)}
+                style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                  Question Prompt (English) *
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. When approaching a roundabout without priority signage, who has the right of way?"
+                  value={scratchQuestionText}
+                  onChange={(e) => setScratchQuestionText(e.target.value)}
+                  style={{ width: '100%', padding: '9px 12px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', color: '#ffffff', fontSize: '0.84rem' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                  Question Prompt (Kinyarwanda)
+                </label>
+                <input
+                  type="text"
+                  placeholder="Ikibazo mu Kinyarwanda..."
+                  value={scratchQuestionTextRw}
+                  onChange={(e) => setScratchQuestionTextRw(e.target.value)}
+                  style={{ width: '100%', padding: '9px 12px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', color: '#ffffff', fontSize: '0.84rem' }}
+                />
+              </div>
+
+              {/* Options */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                  Multiple-Choice Options & Correct Answer
+                </label>
+                {(['A', 'B', 'C', 'D'] as const).map((opt) => (
+                  <div key={opt} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', fontSize: '0.82rem', fontWeight: 600, color: scratchCorrectOption === opt ? '#ffffff' : 'var(--text-muted)', width: '60px' }}>
+                      <input
+                        type="radio"
+                        name="correctScratchOpt"
+                        checked={scratchCorrectOption === opt}
+                        onChange={() => setScratchCorrectOption(opt)}
+                      />
+                      <span>Opt {opt}</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder={`Option ${opt} (English)...`}
+                      value={
+                        opt === 'A' ? scratchOptionA :
+                        opt === 'B' ? scratchOptionB :
+                        opt === 'C' ? scratchOptionC : scratchOptionD
+                      }
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (opt === 'A') setScratchOptionA(val);
+                        else if (opt === 'B') setScratchOptionB(val);
+                        else if (opt === 'C') setScratchOptionC(val);
+                        else setScratchOptionD(val);
+                      }}
+                      style={{ flex: 1, padding: '8px 12px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: scratchCorrectOption === opt ? '1px solid var(--border-medium)' : '1px solid var(--border-subtle)', color: '#ffffff', fontSize: '0.82rem' }}
+                    />
+                    <input
+                      type="text"
+                      placeholder={`Option ${opt} (Kinyarwanda)...`}
+                      value={
+                        opt === 'A' ? scratchOptionARw :
+                        opt === 'B' ? scratchOptionBRw :
+                        opt === 'C' ? scratchOptionCRw : scratchOptionDRw
+                      }
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (opt === 'A') setScratchOptionARw(val);
+                        else if (opt === 'B') setScratchOptionBRw(val);
+                        else if (opt === 'C') setScratchOptionCRw(val);
+                        else setScratchOptionDRw(val);
+                      }}
+                      style={{ flex: 1, padding: '8px 12px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: scratchCorrectOption === opt ? '1px solid var(--border-medium)' : '1px solid var(--border-subtle)', color: '#ffffff', fontSize: '0.82rem' }}
+                    />
+                  </div>
+                ))}
+              </div>
+
+              {/* Extra details */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                    Points Weight
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={scratchPoints}
+                    onChange={(e) => setScratchPoints(parseInt(e.target.value) || 1)}
+                    style={{ width: '100%', padding: '8px 10px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', color: '#ffffff', fontSize: '0.82rem' }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                    Domain
+                  </label>
+                  <select
+                    value={scratchDomain}
+                    onChange={(e) => setScratchDomain(e.target.value)}
+                    style={{ width: '100%', padding: '8px 10px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', color: '#ffffff', fontSize: '0.82rem' }}
+                  >
+                    <option value="PRIORITY">Priority Rules</option>
+                    <option value="SIGNAGE">Road Signs</option>
+                    <option value="SPEED">Speed Limits</option>
+                    <option value="LEGAL">Legal Framework</option>
+                    <option value="SAFETY">Vehicle Safety</option>
+                    <option value="PARKING">Parking & Stopping</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                    Difficulty
+                  </label>
+                  <select
+                    value={scratchDifficulty}
+                    onChange={(e) => setScratchDifficulty(e.target.value as any)}
+                    style={{ width: '100%', padding: '8px 10px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', color: '#ffffff', fontSize: '0.82rem' }}
+                  >
+                    <option value="EASY">Easy</option>
+                    <option value="MEDIUM">Medium</option>
+                    <option value="HARD">Hard</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                  Answer Explanation & Pedagogical Feedback
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="Explain why the selected option is correct per Rwanda Highway Code..."
+                  value={scratchExplanation}
+                  onChange={(e) => setScratchExplanation(e.target.value)}
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', color: '#ffffff', fontSize: '0.82rem', resize: 'vertical' }}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', borderTop: '1px solid var(--border-subtle)', paddingTop: '12px' }}>
+              <button
+                type="button"
+                onClick={() => setIsAddingScratchQuestion(false)}
+                className="btn btn-secondary btn-sm"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleAddScratchQuestion}
+                className="btn btn-primary btn-sm"
+                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                <Plus size={14} />
+                <span>Add Question to Quiz</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 12. Quiz Inspection Modal (System Admin & Training Admin Oversight)      */}
+      {/* ========================================================================= */}
+      {inspectingQuiz && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0, 0, 0, 0.75)', backdropFilter: 'blur(8px)', padding: '16px' }}>
+          <div className="glass-panel" style={{ width: '100%', maxWidth: '780px', maxHeight: '88vh', overflowY: 'auto', borderRadius: 'var(--radius-2xl)', padding: '28px', border: '1px solid var(--border-medium)', display: 'flex', flexDirection: 'column', gap: '18px' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '16px' }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, color: '#ffffff' }}>
+                    {inspectingQuiz.title}
+                  </h3>
+                  <Badge variant="neutral">
+                    {inspectingQuiz.status}
+                  </Badge>
+                </div>
+                {inspectingQuiz.title_kinyarwanda && (
+                  <p style={{ margin: '4px 0 0', fontSize: '0.84rem', color: 'var(--text-muted)' }}>
+                    {inspectingQuiz.title_kinyarwanda}
+                  </p>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => setInspectingQuiz(null)}
+                style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Oversight metadata card */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '14px', padding: '16px', borderRadius: 'var(--radius-lg)', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-subtle)', fontSize: '0.84rem' }}>
+              <div>
+                <span style={{ color: 'var(--text-muted)' }}>Course: </span>
+                <strong style={{ color: '#ffffff' }}>{inspectingQuiz.course_title}</strong>
+              </div>
+              <div>
+                <span style={{ color: 'var(--text-muted)' }}>Module: </span>
+                <strong style={{ color: '#ffffff' }}>{inspectingQuiz.module_title || 'Course-wide'}</strong>
+              </div>
+              <div>
+                <span style={{ color: 'var(--text-muted)' }}>Created By: </span>
+                <strong style={{ color: '#ffffff' }}>
+                  {inspectingQuiz.created_by_detail ? `${inspectingQuiz.created_by_detail.full_name} (${inspectingQuiz.created_by_detail.role})` : 'System Staff'}
+                </strong>
+              </div>
+              <div>
+                <span style={{ color: 'var(--text-muted)' }}>Contact: </span>
+                <strong style={{ color: '#ffffff' }}>{inspectingQuiz.created_by_detail?.phone_number || 'N/A'}</strong>
+              </div>
+              <div>
+                <span style={{ color: 'var(--text-muted)' }}>Created At: </span>
+                <strong style={{ color: '#ffffff' }}>{new Date(inspectingQuiz.created_at).toLocaleString()}</strong>
+              </div>
+              <div>
+                <span style={{ color: 'var(--text-muted)' }}>Last Updated: </span>
+                <strong style={{ color: '#ffffff' }}>{new Date(inspectingQuiz.updated_at).toLocaleString()}</strong>
+              </div>
+              <div>
+                <span style={{ color: 'var(--text-muted)' }}>Open Date: </span>
+                <strong style={{ color: '#ffffff' }}>{inspectingQuiz.open_date ? new Date(inspectingQuiz.open_date).toLocaleString() : 'Immediate'}</strong>
+              </div>
+              <div>
+                <span style={{ color: 'var(--text-muted)' }}>Deadline: </span>
+                <strong style={{ color: '#ffffff' }}>{inspectingQuiz.deadline ? new Date(inspectingQuiz.deadline).toLocaleString() : 'No deadline'}</strong>
+              </div>
+              <div>
+                <span style={{ color: 'var(--text-muted)' }}>Score / Passing: </span>
+                <strong style={{ color: '#ffffff' }}>{inspectingQuiz.total_score} pts (Pass {inspectingQuiz.passing_score}%)</strong>
+              </div>
+              <div>
+                <span style={{ color: 'var(--text-muted)' }}>Time Limit & Retakes: </span>
+                <strong style={{ color: '#ffffff' }}>{inspectingQuiz.time_limit_minutes > 0 ? `${inspectingQuiz.time_limit_minutes} mins` : 'Unlimited'} • {inspectingQuiz.max_attempts > 0 ? `${inspectingQuiz.max_attempts} attempts` : 'Unlimited'}</strong>
+              </div>
+            </div>
+
+            {/* Rubric */}
+            <div>
+              <h5 style={{ margin: '0 0 6px 0', fontSize: '0.88rem', fontWeight: 700, color: '#ffffff' }}>
+                Grading Rubric & Student Guidelines
+              </h5>
+              <div style={{ padding: '12px 14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', fontSize: '0.84rem', color: 'var(--text-secondary)', whiteSpace: 'pre-line' }}>
+                {inspectingQuiz.rubric || 'No rubric provided.'}
+                {inspectingQuiz.rubric_kinyarwanda && (
+                  <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px dashed var(--border-subtle)', color: 'var(--text-muted)' }}>
+                    <strong>Kinyarwanda:</strong><br />
+                    {inspectingQuiz.rubric_kinyarwanda}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', borderTop: '1px solid var(--border-subtle)', paddingTop: '14px' }}>
+              <button
+                type="button"
+                onClick={() => setInspectingQuiz(null)}
+                className="btn btn-secondary"
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const q = inspectingQuiz;
+                  setInspectingQuiz(null);
+                  handleOpenEditQuiz(q);
+                }}
+                className="btn btn-primary"
+                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                <Pencil size={14} />
+                <span>Edit This Quiz</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+

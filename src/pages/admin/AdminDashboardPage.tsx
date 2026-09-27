@@ -373,7 +373,7 @@ export const AdminDashboardPage: React.FC = () => {
                             }}
                           >
                             <BookOpen size={13} />
-                            <span>{t('admin.dashboard.openCurriculum')}</span>
+                            <span>{t('admin.dashboard.courseModules')}</span>
                           </Link>
                         </div>
                       </div>
@@ -744,7 +744,7 @@ export const AdminDashboardPage: React.FC = () => {
             >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
                 <span style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  LMS Courses
+                  {t('admin.dashboard.lmsCourses')}
                 </span>
                 <BookOpen size={16} style={{ color: 'var(--text-muted)' }} />
               </div>
@@ -752,7 +752,7 @@ export const AdminDashboardPage: React.FC = () => {
                 {stats.lms_courses}
               </div>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                Curriculum courses
+                {t('admin.dashboard.curriculumCourses')}
               </div>
             </div>
           </div>
