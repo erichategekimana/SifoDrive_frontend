@@ -20,8 +20,8 @@ export const SystemAdminRoute: React.FC = () => {
     return <Navigate to="/login" replace />;
   }
 
-  // Verify administrative role (System Admin or Training Admin)
-  if (!user.isSystemAdmin() && !user.isTrainingAdmin()) {
+  // Verify administrative role (System Admin, Training Admin, or Board Reviewer)
+  if (!user.isSystemAdmin() && !user.isTrainingAdmin() && !user.isBoardReviewer()) {
     const currentUser = user;
     return (
       <div
@@ -100,6 +100,11 @@ export const SystemAdminRoute: React.FC = () => {
         </div>
       </div>
     );
+  }
+
+  // Board Reviewer is restricted exclusively to /admin/examinations
+  if (user.isBoardReviewer() && !location.pathname.startsWith('/admin/examinations')) {
+    return <Navigate to="/admin/examinations" replace />;
   }
 
   // System Admin exclusive sections (Agents, Audits, System Settings)

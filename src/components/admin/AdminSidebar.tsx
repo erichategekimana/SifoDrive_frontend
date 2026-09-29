@@ -23,8 +23,16 @@ export const AdminSidebar: React.FC = () => {
   const { user } = useAuth();
   const { t } = useTranslation();
   const isTrainingAdmin = user?.isTrainingAdmin();
+  const isBoardReviewer = user?.isBoardReviewer();
 
-  const systemAdminNavItems = [
+  interface NavItem {
+    to: string;
+    label: string;
+    icon: React.ReactNode;
+    end?: boolean;
+  }
+
+  const systemAdminNavItems: NavItem[] = [
     { to: '/admin', label: t('admin.sidebar.commandCenter'), icon: <LayoutDashboard size={18} />, end: true },
     { to: '/admin/analytics', label: t('admin.sidebar.analytics'), icon: <TrendingUp size={18} /> },
     { to: '/admin/users', label: t('admin.sidebar.users'), icon: <Users size={18} /> },
@@ -37,7 +45,7 @@ export const AdminSidebar: React.FC = () => {
     { to: '/admin/settings', label: t('admin.sidebar.settings'), icon: <Settings size={18} /> },
   ];
 
-  const trainingAdminNavItems = [
+  const trainingAdminNavItems: NavItem[] = [
     { to: '/admin', label: t('admin.sidebar.commandCenter'), icon: <LayoutDashboard size={18} />, end: true },
     { to: '/admin/courses', label: t('admin.sidebar.lmsStudio'), icon: <BookOpen size={18} /> },
     { to: '/admin/examinations', label: t('admin.sidebar.examinations'), icon: <Award size={18} /> },
@@ -46,7 +54,15 @@ export const AdminSidebar: React.FC = () => {
     { to: '/admin/analytics', label: t('admin.sidebar.analytics'), icon: <TrendingUp size={18} /> },
   ];
 
-  const navItems = isTrainingAdmin ? trainingAdminNavItems : systemAdminNavItems;
+  const boardReviewerNavItems: NavItem[] = [
+    { to: '/admin/examinations', label: t('admin.sidebar.examinations'), icon: <Award size={18} /> },
+  ];
+
+  const navItems: NavItem[] = isBoardReviewer
+    ? boardReviewerNavItems
+    : isTrainingAdmin
+    ? trainingAdminNavItems
+    : systemAdminNavItems;
 
   return (
     <aside
@@ -79,21 +95,21 @@ export const AdminSidebar: React.FC = () => {
               width: '32px',
               height: '32px',
               borderRadius: 'var(--radius-md)',
-              background: isTrainingAdmin ? '#0284c7' : '#ef4444',
+              background: isBoardReviewer ? '#0d9488' : isTrainingAdmin ? '#0284c7' : '#ef4444',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               color: '#ffffff',
             }}
           >
-            {isTrainingAdmin ? <GraduationCap size={18} /> : <Shield size={18} />}
+            {isBoardReviewer ? <Award size={18} /> : isTrainingAdmin ? <GraduationCap size={18} /> : <Shield size={18} />}
           </div>
           <div>
             <div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-              {isTrainingAdmin ? t('admin.roles.trainingAdminBadge') : t('admin.roles.systemAdminBadge')}
+              {isBoardReviewer ? 'Board Reviewer' : isTrainingAdmin ? t('admin.roles.trainingAdminBadge') : t('admin.roles.systemAdminBadge')}
             </div>
             <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
-              {isTrainingAdmin ? t('admin.roles.trainingAdminSub') : t('admin.roles.systemAdminSub')}
+              {isBoardReviewer ? 'Stage 1 Evaluation' : isTrainingAdmin ? t('admin.roles.trainingAdminSub') : t('admin.roles.systemAdminSub')}
             </div>
           </div>
         </div>

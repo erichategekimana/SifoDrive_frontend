@@ -80,15 +80,23 @@ export const AdminLayout: React.FC = () => {
                   style={{
                     padding: '2px 8px',
                     borderRadius: 'var(--radius-sm)',
-                    background: user?.isTrainingAdmin() ? 'rgba(2, 132, 199, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-                    border: user?.isTrainingAdmin() ? '1px solid rgba(2, 132, 199, 0.25)' : '1px solid rgba(239, 68, 68, 0.25)',
-                    color: user?.isTrainingAdmin() ? '#0284c7' : '#ef4444',
+                    background: user?.isBoardReviewer()
+                      ? 'rgba(13, 148, 136, 0.1)'
+                      : user?.isTrainingAdmin()
+                      ? 'rgba(2, 132, 199, 0.1)'
+                      : 'rgba(239, 68, 68, 0.1)',
+                    border: user?.isBoardReviewer()
+                      ? '1px solid rgba(13, 148, 136, 0.25)'
+                      : user?.isTrainingAdmin()
+                      ? '1px solid rgba(2, 132, 199, 0.25)'
+                      : '1px solid rgba(239, 68, 68, 0.25)',
+                    color: user?.isBoardReviewer() ? '#0d9488' : user?.isTrainingAdmin() ? '#0284c7' : '#ef4444',
                     fontSize: '0.68rem',
                     fontWeight: 700,
                     letterSpacing: '0.04em',
                   }}
                 >
-                  {user?.isTrainingAdmin() ? "INDIRERWE Y'AMASOMO" : 'ADMIN CONSOLE'}
+                  {user?.isBoardReviewer() ? 'BOARD REVIEW' : user?.isTrainingAdmin() ? "INDIRERWE Y'AMASOMO" : 'ADMIN CONSOLE'}
                 </span>
               </div>
               <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
