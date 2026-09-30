@@ -72,19 +72,24 @@ export const CertificateTemplatesView: React.FC<CertificateTemplatesViewProps> =
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'minmax(380px, 440px) 1fr', gap: '24px', alignItems: 'start' }}>
       {/* Left Column: Template Editor Form */}
-      <div className="glass-panel" style={{ padding: '24px' }}>
-        {/* System Admin Notice if user is non-System Admin */}
+      <div
+        style={{
+          background: 'var(--bg-surface)',
+          padding: '22px 24px',
+          borderRadius: 'var(--radius-xl)',
+          border: '1px solid var(--border-subtle)',
+        }}
+      >
         {!isSystemAdmin && (
           <div
             style={{
-              padding: '12px 14px',
-              borderRadius: '6px',
-              background: 'rgba(255, 255, 255, 0.03)',
+              padding: '10px 12px',
+              borderRadius: 'var(--radius-md)',
+              background: 'var(--bg-surface-elevated)',
               border: '1px solid var(--border-subtle)',
               marginBottom: '16px',
-              fontSize: '0.8rem',
+              fontSize: '0.78rem',
               color: 'var(--text-secondary)',
-              lineHeight: '1.4',
             }}
           >
             <strong style={{ color: 'var(--text-primary)' }}>Notice: </strong>
@@ -93,302 +98,276 @@ export const CertificateTemplatesView: React.FC<CertificateTemplatesViewProps> =
         )}
 
         {/* Switch Template Type */}
-        <div style={{ marginBottom: '20px' }}>
-          <label style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-            Accreditation Template Category
+        <div style={{ marginBottom: '18px' }}>
+          <label style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            Template Category
           </label>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', marginTop: '8px' }}>
             {(['STUDENT', 'GUEST', 'ENTERPRISE'] as const).map((type) => (
               <button
                 key={type}
                 onClick={() => setSelectedTemplateType(type)}
+                className="btn btn-secondary btn-sm"
                 style={{
-                  padding: '10px 8px',
-                  borderRadius: '8px',
-                  border: selectedTemplateType === type ? '2px solid #1E90FF' : '1px solid var(--border-subtle)',
-                  background: selectedTemplateType === type ? 'rgba(30, 144, 255, 0.2)' : 'rgba(0,0,0,0.2)',
-                  color: selectedTemplateType === type ? '#ffffff' : 'var(--text-secondary)',
-                  fontSize: '0.82rem',
-                  fontWeight: 700,
-                  cursor: 'pointer',
+                  padding: '8px',
+                  fontSize: '0.8rem',
+                  background: selectedTemplateType === type ? 'var(--bg-surface-elevated)' : 'var(--bg-surface)',
+                  color: selectedTemplateType === type ? 'var(--text-primary)' : 'var(--text-secondary)',
+                  borderColor: selectedTemplateType === type ? 'var(--text-muted)' : 'var(--border-subtle)',
                 }}
               >
-                {type === 'STUDENT' ? 'Student' : type === 'GUEST' ? 'Guest' : 'Enterprise B2B'}
+                {type === 'STUDENT' ? 'Student' : type === 'GUEST' ? 'Guest' : 'Enterprise'}
               </button>
             ))}
-          </div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '8px', lineHeight: '1.4' }}>
-            {selectedTemplateType === 'STUDENT' &&
-              'Enrolled Student Template: Displays Start Date, Completion Date, Cohort Name, and Theory Accreditation.'}
-            {selectedTemplateType === 'GUEST' &&
-              'Guest Trial Template: Displays Completion Date only (omits start date & cohort) for diagnostic trials.'}
-            {selectedTemplateType === 'ENTERPRISE' &&
-              'Enterprise Partner Template: Displays Partner Driving School Name prominently, physical proctoring seal, and dual dates.'}
           </div>
         </div>
 
         {/* Form Fields: Editable Text */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-          {/* Authority Header / Subtitle */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <div>
-            <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
-              Authority Header / Subtitle
+            <label style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+              Authority Header
             </label>
             <input
               type="text"
               value={activeTemplateForm.header_subtitle || ''}
-              placeholder="e.g. Republic of Rwanda • Sifo Drive Theory Accreditation"
               onChange={(e) => setActiveTemplateForm({ ...activeTemplateForm, header_subtitle: e.target.value })}
               style={{
                 width: '100%',
-                padding: '8px 12px',
-                borderRadius: '6px',
-                background: 'rgba(0,0,0,0.2)',
+                padding: '7px 10px',
+                borderRadius: 'var(--radius-md)',
+                background: 'var(--bg-surface-elevated)',
                 border: '1px solid var(--border-subtle)',
-                color: '#ffffff',
-                fontSize: '0.85rem',
+                color: 'var(--text-primary)',
+                fontSize: '0.82rem',
                 marginTop: '4px',
               }}
             />
           </div>
 
-          {/* Certificate Title */}
           <div>
-            <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+            <label style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
               Certificate Title
             </label>
             <input
               type="text"
               value={activeTemplateForm.title || ''}
-              placeholder="e.g. Certificate of Theory Competence"
               onChange={(e) => setActiveTemplateForm({ ...activeTemplateForm, title: e.target.value })}
               style={{
                 width: '100%',
-                padding: '8px 12px',
-                borderRadius: '6px',
-                background: 'rgba(0,0,0,0.2)',
+                padding: '7px 10px',
+                borderRadius: 'var(--radius-md)',
+                background: 'var(--bg-surface-elevated)',
                 border: '1px solid var(--border-subtle)',
-                color: '#ffffff',
-                fontSize: '0.85rem',
+                color: 'var(--text-primary)',
+                fontSize: '0.82rem',
                 marginTop: '4px',
               }}
             />
           </div>
 
-          {/* Conferral Lead-in Text */}
           <div>
-            <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+            <label style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
               Conferral Lead-in Text
             </label>
             <input
               type="text"
               value={activeTemplateForm.conferral_text || ''}
-              placeholder="e.g. This official credential is proudly awarded to"
               onChange={(e) => setActiveTemplateForm({ ...activeTemplateForm, conferral_text: e.target.value })}
               style={{
                 width: '100%',
-                padding: '8px 12px',
-                borderRadius: '6px',
-                background: 'rgba(0,0,0,0.2)',
+                padding: '7px 10px',
+                borderRadius: 'var(--radius-md)',
+                background: 'var(--bg-surface-elevated)',
                 border: '1px solid var(--border-subtle)',
-                color: '#ffffff',
-                fontSize: '0.85rem',
+                color: 'var(--text-primary)',
+                fontSize: '0.82rem',
                 marginTop: '4px',
               }}
             />
           </div>
 
-          {/* Course Name */}
           <div>
-            <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
-              Course / Curriculum Title
+            <label style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+              Course Title
             </label>
             <input
               type="text"
               value={activeTemplateForm.course_name || ''}
-              placeholder="e.g. Rwanda Driving Theory — Provisional License Preparation"
               onChange={(e) => setActiveTemplateForm({ ...activeTemplateForm, course_name: e.target.value })}
               style={{
                 width: '100%',
-                padding: '8px 12px',
-                borderRadius: '6px',
-                background: 'rgba(0,0,0,0.2)',
+                padding: '7px 10px',
+                borderRadius: 'var(--radius-md)',
+                background: 'var(--bg-surface-elevated)',
                 border: '1px solid var(--border-subtle)',
-                color: '#ffffff',
-                fontSize: '0.85rem',
+                color: 'var(--text-primary)',
+                fontSize: '0.82rem',
                 marginTop: '4px',
               }}
             />
           </div>
 
-          {/* Declaration Paragraph */}
           <div>
-            <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
-              Declaration Statement (Placeholders: {'{student_name}'}, {'{cohort_name}'}, {'{start_date}'}, {'{completion_date}'}, {'{score}'}, {'{total_questions}'})
+            <label style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+              Declaration Statement
             </label>
             <textarea
-              rows={4}
+              rows={3}
               value={activeTemplateForm.declaration_text || ''}
               onChange={(e) => setActiveTemplateForm({ ...activeTemplateForm, declaration_text: e.target.value })}
               style={{
                 width: '100%',
-                padding: '8px 12px',
-                borderRadius: '6px',
-                background: 'rgba(0,0,0,0.2)',
+                padding: '7px 10px',
+                borderRadius: 'var(--radius-md)',
+                background: 'var(--bg-surface-elevated)',
                 border: '1px solid var(--border-subtle)',
-                color: '#ffffff',
-                fontSize: '0.85rem',
+                color: 'var(--text-primary)',
+                fontSize: '0.82rem',
                 marginTop: '4px',
-                lineHeight: '1.5',
               }}
             />
           </div>
 
-          {/* Confirmation & Legal Notes */}
           <div>
-            <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
-              Confirmation, Regulatory & Legal Notes
+            <label style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+              Regulatory Notes
             </label>
             <textarea
-              rows={3}
+              rows={2}
               value={activeTemplateForm.confirmation_notes || ''}
               onChange={(e) => setActiveTemplateForm({ ...activeTemplateForm, confirmation_notes: e.target.value })}
               style={{
                 width: '100%',
-                padding: '8px 12px',
-                borderRadius: '6px',
-                background: 'rgba(0,0,0,0.2)',
+                padding: '7px 10px',
+                borderRadius: 'var(--radius-md)',
+                background: 'var(--bg-surface-elevated)',
                 border: '1px solid var(--border-subtle)',
-                color: '#ffffff',
-                fontSize: '0.85rem',
+                color: 'var(--text-primary)',
+                fontSize: '0.82rem',
                 marginTop: '4px',
-                lineHeight: '1.4',
               }}
             />
           </div>
 
           {/* Dual Signatures Setup */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '6px' }}>
-            {/* Training Admin Signature */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '4px' }}>
             <div
               style={{
                 padding: '12px',
-                background: 'rgba(30, 144, 255, 0.08)',
-                border: '1px solid rgba(30, 144, 255, 0.25)',
-                borderRadius: '8px',
+                background: 'var(--bg-surface-elevated)',
+                border: '1px solid var(--border-subtle)',
+                borderRadius: 'var(--radius-lg)',
               }}
             >
-              <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#1E90FF', marginBottom: '8px' }}>
-                Training Admin Endorsement
+              <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '8px' }}>
+                Training Admin Signer
               </div>
               <input
                 type="text"
-                placeholder="Signer Full Name"
+                placeholder="Full Name"
                 value={activeTemplateForm.training_admin_name || ''}
                 onChange={(e) => setActiveTemplateForm({ ...activeTemplateForm, training_admin_name: e.target.value })}
                 style={{
                   width: '100%',
-                  padding: '6px 10px',
-                  borderRadius: '6px',
-                  background: 'rgba(0,0,0,0.2)',
+                  padding: '6px 8px',
+                  borderRadius: 'var(--radius-md)',
+                  background: 'var(--bg-surface)',
                   border: '1px solid var(--border-subtle)',
-                  color: '#ffffff',
-                  fontSize: '0.82rem',
+                  color: 'var(--text-primary)',
+                  fontSize: '0.8rem',
                   marginBottom: '6px',
                 }}
               />
               <input
                 type="text"
-                placeholder="Signer Title"
+                placeholder="Title"
                 value={activeTemplateForm.training_admin_title || ''}
                 onChange={(e) => setActiveTemplateForm({ ...activeTemplateForm, training_admin_title: e.target.value })}
                 style={{
                   width: '100%',
-                  padding: '6px 10px',
-                  borderRadius: '6px',
-                  background: 'rgba(0,0,0,0.2)',
+                  padding: '6px 8px',
+                  borderRadius: 'var(--radius-md)',
+                  background: 'var(--bg-surface)',
                   border: '1px solid var(--border-subtle)',
-                  color: '#ffffff',
-                  fontSize: '0.82rem',
+                  color: 'var(--text-primary)',
+                  fontSize: '0.8rem',
                   marginBottom: '6px',
                 }}
               />
               <input
                 type="text"
-                placeholder="Digital Signature (SVG / Data URL)"
+                placeholder="Signature URL"
                 value={activeTemplateForm.training_admin_signature || ''}
                 onChange={(e) => setActiveTemplateForm({ ...activeTemplateForm, training_admin_signature: e.target.value })}
                 style={{
                   width: '100%',
-                  padding: '6px 10px',
-                  borderRadius: '6px',
-                  background: 'rgba(0,0,0,0.2)',
+                  padding: '6px 8px',
+                  borderRadius: 'var(--radius-md)',
+                  background: 'var(--bg-surface)',
                   border: '1px solid var(--border-subtle)',
-                  color: '#ffffff',
+                  color: 'var(--text-primary)',
                   fontSize: '0.75rem',
-                  fontFamily: 'monospace',
                 }}
               />
             </div>
 
-            {/* Sifo Director Signature */}
             <div
               style={{
                 padding: '12px',
-                background: 'rgba(239, 68, 68, 0.08)',
-                border: '1px solid rgba(239, 68, 68, 0.25)',
-                borderRadius: '8px',
+                background: 'var(--bg-surface-elevated)',
+                border: '1px solid var(--border-subtle)',
+                borderRadius: 'var(--radius-lg)',
               }}
             >
-              <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#EF4444', marginBottom: '8px' }}>
-                Sifo Director Endorsement
+              <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '8px' }}>
+                Director Signer
               </div>
               <input
                 type="text"
-                placeholder="Signer Full Name"
+                placeholder="Full Name"
                 value={activeTemplateForm.director_name || ''}
                 onChange={(e) => setActiveTemplateForm({ ...activeTemplateForm, director_name: e.target.value })}
                 style={{
                   width: '100%',
-                  padding: '6px 10px',
-                  borderRadius: '6px',
-                  background: 'rgba(0,0,0,0.2)',
+                  padding: '6px 8px',
+                  borderRadius: 'var(--radius-md)',
+                  background: 'var(--bg-surface)',
                   border: '1px solid var(--border-subtle)',
-                  color: '#ffffff',
-                  fontSize: '0.82rem',
+                  color: 'var(--text-primary)',
+                  fontSize: '0.8rem',
                   marginBottom: '6px',
                 }}
               />
               <input
                 type="text"
-                placeholder="Signer Title"
+                placeholder="Title"
                 value={activeTemplateForm.director_title || ''}
                 onChange={(e) => setActiveTemplateForm({ ...activeTemplateForm, director_title: e.target.value })}
                 style={{
                   width: '100%',
-                  padding: '6px 10px',
-                  borderRadius: '6px',
-                  background: 'rgba(0,0,0,0.2)',
+                  padding: '6px 8px',
+                  borderRadius: 'var(--radius-md)',
+                  background: 'var(--bg-surface)',
                   border: '1px solid var(--border-subtle)',
-                  color: '#ffffff',
-                  fontSize: '0.82rem',
+                  color: 'var(--text-primary)',
+                  fontSize: '0.8rem',
                   marginBottom: '6px',
                 }}
               />
               <input
                 type="text"
-                placeholder="Digital Signature (SVG / Data URL)"
+                placeholder="Signature URL"
                 value={activeTemplateForm.director_signature || ''}
                 onChange={(e) => setActiveTemplateForm({ ...activeTemplateForm, director_signature: e.target.value })}
                 style={{
                   width: '100%',
-                  padding: '6px 10px',
-                  borderRadius: '6px',
-                  background: 'rgba(0,0,0,0.2)',
+                  padding: '6px 8px',
+                  borderRadius: 'var(--radius-md)',
+                  background: 'var(--bg-surface)',
                   border: '1px solid var(--border-subtle)',
-                  color: '#ffffff',
+                  color: 'var(--text-primary)',
                   fontSize: '0.75rem',
-                  fontFamily: 'monospace',
                 }}
               />
             </div>
@@ -398,38 +377,33 @@ export const CertificateTemplatesView: React.FC<CertificateTemplatesViewProps> =
             <button
               onClick={handleSaveTemplate}
               disabled={isSavingTemplate}
+              className="btn btn-primary btn-sm"
               style={{
-                marginTop: '8px',
-                background: 'var(--primary)',
-                color: '#ffffff',
-                border: 'none',
-                padding: '10px 18px',
-                borderRadius: '6px',
-                fontWeight: 600,
-                fontSize: '0.88rem',
-                cursor: 'pointer',
+                marginTop: '6px',
+                padding: '8px 14px',
+                fontSize: '0.82rem',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: '8px',
+                gap: '6px',
               }}
             >
-              <Save size={16} /> {isSavingTemplate ? 'Saving Template...' : 'Save & Publish Template'}
+              <Save size={14} /> {isSavingTemplate ? 'Saving...' : 'Save Template'}
             </button>
           ) : (
             <div
               style={{
-                marginTop: '8px',
-                padding: '10px 14px',
-                borderRadius: '6px',
-                background: 'rgba(255,255,255,0.02)',
+                marginTop: '6px',
+                padding: '8px 12px',
+                borderRadius: 'var(--radius-md)',
+                background: 'var(--bg-surface-elevated)',
                 border: '1px solid var(--border-subtle)',
-                fontSize: '0.8rem',
+                fontSize: '0.78rem',
                 color: 'var(--text-muted)',
                 textAlign: 'center',
               }}
             >
-              Read-only Inspection Mode &bull; Edits restricted to System Admin
+              Read-only &bull; System Admin only
             </div>
           )}
         </div>
@@ -446,24 +420,8 @@ export const CertificateTemplatesView: React.FC<CertificateTemplatesViewProps> =
             padding: '0 4px',
           }}
         >
-          <div style={{ fontSize: '0.88rem', fontWeight: 800, color: '#f9fafb' }}>
-            Live Landscape Preview ({selectedTemplateType})
-          </div>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              fontSize: '0.74rem',
-              color: '#9ca3af',
-            }}
-          >
-            <span style={{ display: 'inline-block', width: '10px', height: '10px', borderRadius: '50%', background: '#1E90FF' }} />
-            Dodger Blue
-            <span style={{ display: 'inline-block', width: '10px', height: '10px', borderRadius: '50%', background: '#EF4444', marginLeft: '6px' }} />
-            Light Red
-            <span style={{ display: 'inline-block', width: '10px', height: '10px', borderRadius: '50%', background: '#FFFFFF', marginLeft: '6px' }} />
-            White
+          <div style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+            Certificate Preview ({selectedTemplateType})
           </div>
         </div>
 
@@ -496,3 +454,4 @@ export const CertificateTemplatesView: React.FC<CertificateTemplatesViewProps> =
     </div>
   );
 };
+

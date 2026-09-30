@@ -207,14 +207,13 @@ export const AdminLayout: React.FC = () => {
                   width: '30px',
                   height: '30px',
                   borderRadius: '50%',
-                  background: user?.isTrainingAdmin()
-                    ? 'linear-gradient(135deg, #d97706 0%, #b45309 100%)'
-                    : 'linear-gradient(135deg, var(--danger) 0%, #b91c1c 100%)',
-                  color: '#ffffff',
+                  background: 'var(--bg-surface)',
+                  border: '1px solid var(--border-subtle)',
+                  color: 'var(--text-primary)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  fontWeight: 800,
+                  fontWeight: 700,
                   fontSize: '0.8rem',
                 }}
               >
@@ -225,10 +224,10 @@ export const AdminLayout: React.FC = () => {
                   {user.fullName}
                 </span>
                 <Badge
-                  variant={user?.isTrainingAdmin() ? 'warning' : 'danger'}
+                  variant={user?.isBoardReviewer() ? 'neutral' : user?.isTrainingAdmin() ? 'warning' : 'danger'}
                   style={{ fontSize: '0.65rem', padding: '1px 6px' }}
                 >
-                  {user?.isTrainingAdmin() ? "UMUYOBOZI W'AMASOMO" : 'SYSTEM ADMIN'}
+                  {user?.isBoardReviewer() ? 'BOARD REVIEWER' : user?.isTrainingAdmin() ? "UMUYOBOZI W'AMASOMO" : 'SYSTEM ADMIN'}
                 </Badge>
               </div>
               <button

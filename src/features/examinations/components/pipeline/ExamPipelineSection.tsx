@@ -3,13 +3,17 @@ import {
   Search,
   CheckSquare,
   Square,
+  Layers,
+  ClipboardCheck,
+  ShieldCheck,
+  Award,
+  CheckCircle2,
 } from 'lucide-react';
 import {
   AdminService,
   type ExamSessionItem,
   type PaginatedResult,
 } from '../../../../core/services/AdminService';
-import { Badge } from '../../../../components/common/Badge';
 import { Spinner } from '../../../../components/common/Spinner';
 import { useToast } from '../../../../context/ToastContext';
 import { getExamStatusBadge } from '../../utils/examBadges';
@@ -37,11 +41,9 @@ export const ExamPipelineSection: React.FC<ExamPipelineSectionProps> = ({
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [cohortsList, setCohortsList] = useState<{ id: string; name: string }[]>([]);
 
-  // Multi-select state for batch publishing
   const [selectedSessionIds, setSelectedSessionIds] = useState<string[]>([]);
   const [isPublishingBatch, setIsPublishingBatch] = useState<boolean>(false);
 
-  // Inspection modal state
   const [inspectModalOpen, setInspectModalOpen] = useState<boolean>(false);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
 
@@ -98,7 +100,7 @@ export const ExamPipelineSection: React.FC<ExamPipelineSectionProps> = ({
   const handleSinglePublish = async (sessionId: string) => {
     try {
       await adminService.publishExams({ publish_type: 'SINGLE', session_id: sessionId });
-      showToast('Exam published successfully to candidate portal.', 'success');
+      showToast('Exam published to candidate portal.', 'success');
       fetchSessions();
     } catch (err: any) {
       showToast('Publish failed: ' + (err.response?.data?.error || err.message), 'error');
@@ -125,7 +127,7 @@ export const ExamPipelineSection: React.FC<ExamPipelineSectionProps> = ({
 
   const handleCohortPublish = async () => {
     if (cohortFilter === 'ALL') {
-      showToast('Select a specific cohort first.', 'error');
+      showToast('Select a cohort first.', 'error');
       return;
     }
     const cohortObj = cohortsList.find((c) => c.id === cohortFilter);
@@ -140,7 +142,7 @@ export const ExamPipelineSection: React.FC<ExamPipelineSectionProps> = ({
         publish_type: 'COHORT',
         cohort_id: cohortFilter,
       });
-      showToast(res.message || 'Cohort published successfully.', 'success');
+      showToast(res.message || 'Cohort published.', 'success');
       fetchSessions();
     } catch (err: any) {
       showToast('Cohort publish failed: ' + (err.response?.data?.error || err.message), 'error');
@@ -154,47 +156,40 @@ export const ExamPipelineSection: React.FC<ExamPipelineSectionProps> = ({
     setInspectModalOpen(true);
   };
 
-  // Helper to determine role-specific stage context
   const getStageRoleContext = (status: string) => {
     if (status === 'SUBMITTED' || status === 'BOARD_REVIEW') {
       if (isBoardReviewer) {
-        return { note: 'Action required', canAct: true, actionLabel: 'Review' };
+        return { note: 'Board Review (Active)', canAct: true, actionLabel: 'Review' };
       }
-      if (isTrainingAdmin) {
-        return { note: 'Read-only (Stage 1)', canAct: false, actionLabel: 'Inspect' };
-      }
-      return { note: 'Stage 1 in progress', canAct: false, actionLabel: 'Inspect' };
+      return { note: 'Read-only (Board Review)', canAct: false, actionLabel: 'Inspect' };
     }
 
     if (status === 'TRAINING_REVIEW') {
       if (isBoardReviewer) {
-        return { note: 'Stage 1 finalized (Locked)', canAct: false, actionLabel: 'Inspect' };
+        return { note: 'Locked (Stage 1 Done)', canAct: false, actionLabel: 'Inspect' };
       }
       if (isTrainingAdmin) {
-        return { note: 'Action required', canAct: true, actionLabel: 'Audit' };
+        return { note: 'Training Audit (Active)', canAct: true, actionLabel: 'Audit' };
       }
-      return { note: 'Stage 2 in progress', canAct: false, actionLabel: 'Inspect' };
+      return { note: 'Read-only (Training Audit)', canAct: false, actionLabel: 'Inspect' };
     }
 
     if (status === 'SYSTEM_REVIEW') {
-      if (isBoardReviewer) {
-        return { note: 'Locked', canAct: false, actionLabel: 'Inspect' };
+      if (isSystemAdmin) {
+        return { note: 'System Approval (Active)', canAct: true, actionLabel: 'Approve' };
       }
-      if (isTrainingAdmin) {
-        return { note: 'Stage 2 finalized (Locked)', canAct: false, actionLabel: 'Inspect' };
-      }
-      return { note: 'Action required', canAct: true, actionLabel: 'Approve' };
+      return { note: 'Locked (Stage 2 Done)', canAct: false, actionLabel: 'Inspect' };
     }
 
     if (status === 'APPROVED') {
       if (isSystemAdmin) {
-        return { note: 'Ready to publish', canAct: true, actionLabel: 'Publish' };
+        return { note: 'Ready to publish', canAct: true, actionLabel: 'Inspect' };
       }
       return { note: 'Awaiting publication', canAct: false, actionLabel: 'Inspect' };
     }
 
     if (status === 'PUBLISHED') {
-      return { note: 'Released', canAct: false, actionLabel: 'Inspect' };
+      return { note: 'Published', canAct: false, actionLabel: 'Inspect' };
     }
 
     if (status === 'REJECTED') {
@@ -205,75 +200,78 @@ export const ExamPipelineSection: React.FC<ExamPipelineSectionProps> = ({
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      {/* Metric Cards - Strict Monochrome */}
+    <>
+      {/* 5 Core KPI Cards - Styled identically to Command Center (SystemAdminView) */}
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))',
-          gap: '10px',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+          gap: '14px',
         }}
       >
         {[
-          { key: 'ALL', label: 'All Sessions', sub: 'Total submitted' },
-          { key: 'BOARD_REVIEW', label: 'Stage 1: Board Review', sub: 'Pending review' },
-          { key: 'TRAINING_REVIEW', label: 'Stage 2: Training Audit', sub: 'Pending audit' },
-          { key: 'SYSTEM_REVIEW', label: 'Stage 3: System Approval', sub: 'Pending approval' },
           {
-            key: 'APPROVED',
-            label: 'Approved',
-            sub: 'Certified',
-            filterFn: (s: any) => s.status === 'APPROVED' && !s.is_published,
+            key: 'ALL',
+            label: 'Total Sessions',
+            sub: 'All submitted exams',
+            icon: <Layers size={16} style={{ color: 'var(--text-muted)' }} />,
+          },
+          {
+            key: 'BOARD_REVIEW',
+            label: 'Stage 1: Board',
+            sub: 'Board reviewer queue',
+            icon: <ClipboardCheck size={16} style={{ color: 'var(--text-muted)' }} />,
+          },
+          {
+            key: 'TRAINING_REVIEW',
+            label: 'Stage 2: Training',
+            sub: 'Training admin audit',
+            icon: <ShieldCheck size={16} style={{ color: 'var(--text-muted)' }} />,
+          },
+          {
+            key: 'SYSTEM_REVIEW',
+            label: 'Stage 3: System',
+            sub: 'System admin approval',
+            icon: <Award size={16} style={{ color: 'var(--text-muted)' }} />,
           },
           {
             key: 'PUBLISHED',
             label: 'Published',
-            sub: 'Candidate portal',
-            filterFn: (s: any) => s.is_published,
+            sub: 'Completed & certified',
+            icon: <CheckCircle2 size={16} style={{ color: 'var(--text-muted)' }} />,
+            filterFn: (s: any) => s.is_published || s.status === 'APPROVED',
           },
         ].map((stage) => {
           const isActive = stageFilter === stage.key;
-          const count = stage.key === 'ALL'
-            ? sessionsData.count || sessionsData.results.length
-            : stage.filterFn
-            ? sessionsData.results.filter(stage.filterFn).length
-            : sessionsData.results.filter((s) => s.status === stage.key).length;
+          const count =
+            stage.key === 'ALL'
+              ? sessionsData.count || sessionsData.results.length
+              : stage.filterFn
+              ? sessionsData.results.filter(stage.filterFn).length
+              : sessionsData.results.filter((s) => s.status === stage.key).length;
 
           return (
             <div
               key={stage.key}
               onClick={() => setStageFilter(isActive && stage.key !== 'ALL' ? 'ALL' : stage.key)}
               style={{
-                padding: '12px 14px',
-                borderRadius: '6px',
-                border: isActive ? '1px solid #ffffff' : '1px solid #27272a',
-                background: isActive ? '#27272a' : '#121212',
+                background: 'var(--bg-surface)',
+                padding: '18px 20px',
+                borderRadius: 'var(--radius-lg)',
+                border: isActive ? '1px solid var(--text-muted)' : '1px solid var(--border-subtle)',
                 cursor: 'pointer',
-                transition: 'border-color 0.15s, background 0.15s',
               }}
             >
-              <div
-                style={{
-                  fontSize: '0.7rem',
-                  fontWeight: 600,
-                  color: isActive ? '#ffffff' : '#a1a1aa',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.04em',
-                }}
-              >
-                {stage.label}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <span style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  {stage.label}
+                </span>
+                {stage.icon}
               </div>
-              <div
-                style={{
-                  fontSize: '1.35rem',
-                  fontWeight: 700,
-                  color: '#ffffff',
-                  marginTop: '4px',
-                }}
-              >
+              <div style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
                 {count}
               </div>
-              <div style={{ fontSize: '0.7rem', color: '#71717a', marginTop: '2px' }}>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
                 {stage.sub}
               </div>
             </div>
@@ -281,88 +279,65 @@ export const ExamPipelineSection: React.FC<ExamPipelineSectionProps> = ({
         })}
       </div>
 
-      {/* Filter Bar & Controls */}
+      {/* Examination Queue Card - Styled identically to Command Center table sections */}
       <div
         style={{
-          padding: '12px 16px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '12px',
-          background: '#121212',
-          border: '1px solid #27272a',
-          borderRadius: '8px',
+          background: 'var(--bg-surface)',
+          padding: '22px 24px',
+          borderRadius: 'var(--radius-xl)',
+          border: '1px solid var(--border-subtle)',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', flex: 1 }}>
-          {/* Search Input */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              background: 'rgba(0,0,0,0.25)',
-              border: '1px solid var(--border-subtle)',
-              borderRadius: '6px',
-              padding: '6px 10px',
-              minWidth: '220px',
-            }}
-          >
-            <Search size={14} color="var(--text-muted)" style={{ marginRight: '8px' }} />
-            <input
-              type="text"
-              placeholder="Search candidate or phone..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: 'var(--text-primary)',
-                fontSize: '0.8rem',
-                outline: 'none',
-                width: '100%',
-              }}
-            />
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
+          <div>
+            <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+              Examination Queue
+            </h3>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: '3px 0 0 0' }}>
+              Submitted candidate exams and stage governance.
+            </p>
           </div>
 
-          {/* Cohort Selector */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)', fontWeight: 600 }}>Cohort:</span>
-            <select
-              value={cohortFilter}
-              onChange={(e) => setCohortFilter(e.target.value)}
+          {/* Search & Filters */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            <div
               style={{
-                background: 'rgba(0,0,0,0.3)',
+                display: 'flex',
+                alignItems: 'center',
+                background: 'var(--bg-surface-elevated)',
                 border: '1px solid var(--border-subtle)',
-                color: 'var(--text-primary)',
-                padding: '5px 8px',
-                borderRadius: '6px',
-                fontSize: '0.78rem',
-                outline: 'none',
+                borderRadius: 'var(--radius-md)',
+                padding: '5px 10px',
+                minWidth: '200px',
               }}
             >
-              <option value="ALL">All Cohorts</option>
-              {cohortsList.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </div>
+              <Search size={14} style={{ color: 'var(--text-muted)', marginRight: '6px' }} />
+              <input
+                type="text"
+                placeholder="Search candidate..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'var(--text-primary)',
+                  fontSize: '0.8rem',
+                  outline: 'none',
+                  width: '100%',
+                }}
+              />
+            </div>
 
-          {/* Stage Filter */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)', fontWeight: 600 }}>Stage:</span>
             <select
               value={stageFilter}
               onChange={(e) => setStageFilter(e.target.value)}
               style={{
-                background: 'rgba(0,0,0,0.3)',
+                background: 'var(--bg-surface-elevated)',
                 border: '1px solid var(--border-subtle)',
                 color: 'var(--text-primary)',
-                padding: '5px 8px',
-                borderRadius: '6px',
-                fontSize: '0.78rem',
+                padding: '5px 10px',
+                borderRadius: 'var(--radius-md)',
+                fontSize: '0.8rem',
                 outline: 'none',
               }}
             >
@@ -374,21 +349,38 @@ export const ExamPipelineSection: React.FC<ExamPipelineSectionProps> = ({
               <option value="PUBLISHED">Published</option>
               <option value="REJECTED">Rejected</option>
             </select>
-          </div>
 
-          {/* Track Filter */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)', fontWeight: 600 }}>Track:</span>
+            <select
+              value={cohortFilter}
+              onChange={(e) => setCohortFilter(e.target.value)}
+              style={{
+                background: 'var(--bg-surface-elevated)',
+                border: '1px solid var(--border-subtle)',
+                color: 'var(--text-primary)',
+                padding: '5px 10px',
+                borderRadius: 'var(--radius-md)',
+                fontSize: '0.8rem',
+                outline: 'none',
+              }}
+            >
+              <option value="ALL">All Cohorts</option>
+              {cohortsList.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+
             <select
               value={trackFilter}
               onChange={(e) => setTrackFilter(e.target.value)}
               style={{
-                background: 'rgba(0,0,0,0.3)',
+                background: 'var(--bg-surface-elevated)',
                 border: '1px solid var(--border-subtle)',
                 color: 'var(--text-primary)',
-                padding: '5px 8px',
-                borderRadius: '6px',
-                fontSize: '0.78rem',
+                padding: '5px 10px',
+                borderRadius: 'var(--radius-md)',
+                fontSize: '0.8rem',
                 outline: 'none',
               }}
             >
@@ -396,89 +388,46 @@ export const ExamPipelineSection: React.FC<ExamPipelineSectionProps> = ({
               <option value="B2C">Student</option>
               <option value="B2B">Enterprise</option>
             </select>
+
+            {isSystemAdmin && selectedSessionIds.length > 0 && (
+              <button
+                onClick={handleBatchPublish}
+                disabled={isPublishingBatch}
+                className="btn btn-secondary btn-sm"
+                style={{ fontSize: '0.78rem', padding: '5px 10px' }}
+              >
+                Publish Selected ({selectedSessionIds.length})
+              </button>
+            )}
+
+            {isSystemAdmin && cohortFilter !== 'ALL' && (
+              <button
+                onClick={handleCohortPublish}
+                disabled={isPublishingBatch}
+                className="btn btn-secondary btn-sm"
+                style={{ fontSize: '0.78rem', padding: '5px 10px' }}
+              >
+                Publish Cohort
+              </button>
+            )}
           </div>
         </div>
 
-        {/* Role Pill & Batch Publish */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <div
-            style={{
-              padding: '4px 10px',
-              borderRadius: '6px',
-              background: 'rgba(255, 255, 255, 0.04)',
-              border: '1px solid var(--border-subtle)',
-              fontSize: '0.74rem',
-              color: 'var(--text-muted)',
-              fontWeight: 500,
-            }}
-          >
-            Role:{' '}
-            <strong style={{ color: 'var(--text-primary)' }}>
-              {isBoardReviewer
-                ? 'Board Reviewer'
-                : isTrainingAdmin
-                ? 'Training Admin'
-                : 'System Admin'}
-            </strong>
-          </div>
-
-          {isSystemAdmin && selectedSessionIds.length > 0 && (
-            <button
-              onClick={handleBatchPublish}
-              disabled={isPublishingBatch}
-              className="btn btn-primary btn-sm"
-              style={{ padding: '5px 12px', fontSize: '0.78rem' }}
-            >
-              Publish Selected ({selectedSessionIds.length})
-            </button>
-          )}
-
-          {isSystemAdmin && (
-            <button
-              onClick={handleCohortPublish}
-              disabled={cohortFilter === 'ALL' || isPublishingBatch}
-              className="btn btn-secondary btn-sm"
-              style={{ padding: '5px 12px', fontSize: '0.78rem' }}
-              title={
-                cohortFilter === 'ALL'
-                  ? 'Select a cohort first'
-                  : 'Publish all approved exams in this cohort'
-              }
-            >
-              Publish Cohort
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Sessions Table */}
-      <div
-        style={{
-          overflow: 'hidden',
-          borderRadius: '8px',
-          border: '1px solid var(--border-subtle)',
-          background: 'rgba(0, 0, 0, 0.2)',
-        }}
-      >
         {isSessionsLoading ? (
-          <div style={{ padding: '60px 20px', textAlign: 'center' }}>
-            <Spinner size={32} />
-            <p style={{ marginTop: '12px', color: 'var(--text-muted)', fontSize: '0.82rem' }}>
-              Loading examination sessions...
-            </p>
+          <div style={{ padding: '48px 16px', textAlign: 'center' }}>
+            <Spinner size={28} />
           </div>
         ) : sessionsData.results.length === 0 ? (
-          <div style={{ padding: '48px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>
-            <p style={{ fontSize: '0.9rem', fontWeight: 600, margin: 0 }}>No examination sessions found</p>
-            <p style={{ fontSize: '0.78rem', marginTop: '4px' }}>Adjust search query or stage filter.</p>
+          <div style={{ padding: '32px 16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.88rem' }}>
+            No examination sessions in queue.
           </div>
         ) : (
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.82rem' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.86rem' }}>
               <thead>
-                <tr style={{ background: 'rgba(0,0,0,0.3)', borderBottom: '1px solid var(--border-subtle)' }}>
+                <tr style={{ borderBottom: '1px solid var(--border-subtle)', textAlign: 'left' }}>
                   {isSystemAdmin && (
-                    <th style={{ padding: '10px 14px', width: '36px' }}>
+                    <th style={{ padding: '10px 12px', width: '32px' }}>
                       <button
                         onClick={toggleSelectAll}
                         style={{
@@ -491,32 +440,17 @@ export const ExamPipelineSection: React.FC<ExamPipelineSectionProps> = ({
                           padding: 0,
                         }}
                       >
-                        {selectedSessionIds.length > 0 ? (
-                          <CheckSquare size={16} color="var(--primary)" />
-                        ) : (
-                          <Square size={16} />
-                        )}
+                        {selectedSessionIds.length > 0 ? <CheckSquare size={15} /> : <Square size={15} />}
                       </button>
                     </th>
                   )}
-                  <th style={{ padding: '10px 14px', color: 'var(--text-secondary)', fontWeight: 600 }}>
-                    Candidate
-                  </th>
-                  <th style={{ padding: '10px 14px', color: 'var(--text-secondary)', fontWeight: 600 }}>
-                    Track
-                  </th>
-                  <th style={{ padding: '10px 14px', color: 'var(--text-secondary)', fontWeight: 600 }}>
-                    Score
-                  </th>
-                  <th style={{ padding: '10px 14px', color: 'var(--text-secondary)', fontWeight: 600 }}>
-                    Pipeline Stage
-                  </th>
-                  <th style={{ padding: '10px 14px', color: 'var(--text-secondary)', fontWeight: 600 }}>
-                    Certificate
-                  </th>
-                  <th style={{ padding: '10px 14px', color: 'var(--text-secondary)', fontWeight: 600, textAlign: 'right' }}>
-                    Action
-                  </th>
+                  <th style={{ padding: '10px 12px', color: 'var(--text-muted)', fontWeight: 600 }}>Candidate</th>
+                  <th style={{ padding: '10px 12px', color: 'var(--text-muted)', fontWeight: 600 }}>Track</th>
+                  <th style={{ padding: '10px 12px', color: 'var(--text-muted)', fontWeight: 600 }}>Score</th>
+                  <th style={{ padding: '10px 12px', color: 'var(--text-muted)', fontWeight: 600 }}>Stage</th>
+                  <th style={{ padding: '10px 12px', color: 'var(--text-muted)', fontWeight: 600 }}>Access</th>
+                  <th style={{ padding: '10px 12px', color: 'var(--text-muted)', fontWeight: 600 }}>Certificate</th>
+                  <th style={{ padding: '10px 12px', color: 'var(--text-muted)', fontWeight: 600, textAlign: 'right' }}>Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -525,121 +459,79 @@ export const ExamPipelineSection: React.FC<ExamPipelineSectionProps> = ({
                   const roleContext = getStageRoleContext(session.status);
 
                   return (
-                    <tr
-                      key={session.id}
-                      style={{
-                        borderBottom: '1px solid var(--border-subtle)',
-                        background: isSelected ? 'rgba(255, 255, 255, 0.03)' : 'transparent',
-                      }}
-                    >
-                      {/* Checkbox - System Admin only */}
+                    <tr key={session.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                       {isSystemAdmin && (
-                        <td style={{ padding: '10px 14px' }}>
+                        <td style={{ padding: '10px 12px' }}>
                           <button
                             onClick={() => toggleSelectSession(session.id)}
                             disabled={!session.can_publish || session.is_published}
                             style={{
                               background: 'transparent',
                               border: 'none',
-                              color: session.can_publish && !session.is_published ? 'var(--text-muted)' : 'rgba(255,255,255,0.1)',
+                              color: session.can_publish && !session.is_published ? 'var(--text-muted)' : 'var(--border-subtle)',
                               cursor: session.can_publish && !session.is_published ? 'pointer' : 'not-allowed',
                               display: 'flex',
                               alignItems: 'center',
                               padding: 0,
                             }}
                           >
-                            {isSelected ? (
-                              <CheckSquare size={16} color="var(--primary)" />
-                            ) : (
-                              <Square size={16} />
-                            )}
+                            {isSelected ? <CheckSquare size={15} /> : <Square size={15} />}
                           </button>
                         </td>
                       )}
 
                       {/* Candidate */}
-                      <td style={{ padding: '10px 14px' }}>
-                        <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
-                          {session.student_name}
-                        </div>
-                        <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                      <td style={{ padding: '10px 12px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                        <div>{session.student_name}</div>
+                        <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 400 }}>
                           {session.student_phone} &bull; {session.cohort_name || 'Individual'}
                         </div>
                       </td>
 
                       {/* Track */}
-                      <td style={{ padding: '10px 14px' }}>
-                        <span
-                          style={{
-                            padding: '2px 6px',
-                            borderRadius: '4px',
-                            fontSize: '0.7rem',
-                            fontWeight: 600,
-                            background: 'rgba(255,255,255,0.05)',
-                            color: 'var(--text-secondary)',
-                            border: '1px solid var(--border-subtle)',
-                          }}
-                        >
-                          {session.track_type === 'GUEST' ? 'Guest' : session.track_type === 'ENTERPRISE' ? 'Enterprise' : 'Student'}
-                        </span>
+                      <td style={{ padding: '10px 12px', color: 'var(--text-secondary)' }}>
+                        {session.track_type === 'GUEST'
+                          ? 'Guest'
+                          : session.track_type === 'ENTERPRISE'
+                          ? 'Enterprise'
+                          : 'Student'}
                       </td>
 
                       {/* Score */}
-                      <td style={{ padding: '10px 14px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
-                            {session.score ?? '—'}/{session.total_questions}
+                      <td style={{ padding: '10px 12px', color: 'var(--text-primary)', fontWeight: 600 }}>
+                        {session.score ?? '—'}/{session.total_questions}
+                        {session.passed !== null && (
+                          <span style={{ fontSize: '0.75rem', fontWeight: 400, color: 'var(--text-muted)', marginLeft: '6px' }}>
+                            ({session.passed ? 'Pass' : 'Fail'})
                           </span>
-                          {session.passed !== null && (
-                            <Badge variant={session.passed ? 'success' : 'danger'}>
-                              {session.passed ? 'Pass' : 'Fail'}
-                            </Badge>
-                          )}
-                        </div>
-                      </td>
-
-                      {/* Review Stage */}
-                      <td style={{ padding: '10px 14px' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                          <div>{getExamStatusBadge(session.status)}</div>
-                          <div
-                            style={{
-                              fontSize: '0.7rem',
-                              color: roleContext.canAct ? 'var(--primary-light, #38bdf8)' : 'var(--text-muted)',
-                              fontWeight: roleContext.canAct ? 600 : 400,
-                            }}
-                          >
-                            {roleContext.note}
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* Certificate */}
-                      <td style={{ padding: '10px 14px' }}>
-                        {session.certificate_number ? (
-                          <span
-                            style={{
-                              fontSize: '0.74rem',
-                              fontWeight: 600,
-                              fontFamily: 'monospace',
-                              color: 'var(--text-primary)',
-                            }}
-                          >
-                            {session.certificate_number}
-                          </span>
-                        ) : (
-                          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>—</span>
                         )}
                       </td>
 
-                      {/* Actions */}
-                      <td style={{ padding: '10px 14px', textAlign: 'right' }}>
+                      {/* Stage Badge (the single status badge per row, matching Command Center) */}
+                      <td style={{ padding: '10px 12px' }}>
+                        {getExamStatusBadge(session.status)}
+                      </td>
+
+                      {/* Role Access */}
+                      <td style={{ padding: '10px 12px', color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
+                        {roleContext.note}
+                      </td>
+
+                      {/* Certificate */}
+                      <td style={{ padding: '10px 12px', color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
+                        {session.certificate_number || (
+                          <span style={{ color: 'var(--text-muted)' }}>—</span>
+                        )}
+                      </td>
+
+                      {/* Action */}
+                      <td style={{ padding: '10px 12px', textAlign: 'right' }}>
                         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                           {session.status === 'APPROVED' && isSystemAdmin && !session.is_published && (
                             <button
                               onClick={() => handleSinglePublish(session.id)}
-                              className="btn btn-primary btn-sm"
-                              style={{ padding: '4px 10px', fontSize: '0.74rem' }}
+                              className="btn btn-secondary btn-sm"
+                              style={{ fontSize: '0.75rem', padding: '4px 10px' }}
                             >
                               Publish
                             </button>
@@ -647,8 +539,14 @@ export const ExamPipelineSection: React.FC<ExamPipelineSectionProps> = ({
 
                           <button
                             onClick={() => handleInspect(session)}
-                            className={roleContext.canAct ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'}
-                            style={{ padding: '4px 10px', fontSize: '0.74rem' }}
+                            className="btn btn-secondary btn-sm"
+                            style={{
+                              fontSize: '0.75rem',
+                              padding: '4px 10px',
+                              fontWeight: roleContext.canAct ? 600 : 500,
+                              color: roleContext.canAct ? 'var(--text-primary)' : 'var(--text-secondary)',
+                              borderColor: roleContext.canAct ? 'var(--text-muted)' : 'var(--border-subtle)',
+                            }}
                           >
                             {roleContext.actionLabel}
                           </button>
@@ -675,6 +573,7 @@ export const ExamPipelineSection: React.FC<ExamPipelineSectionProps> = ({
         isTrainingAdmin={isTrainingAdmin}
         isSystemAdmin={isSystemAdmin}
       />
-    </div>
+    </>
   );
 };
+

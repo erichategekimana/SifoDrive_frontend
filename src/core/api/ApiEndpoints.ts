@@ -20,11 +20,40 @@ export const ApiEndpoints = {
     CONSENT_PRIVACY: `${API_BASE_URL}/auth/consent/privacy-policy/`,
     ME: `${API_BASE_URL}/auth/me/`,
     STUDENT_PROFILE: `${API_BASE_URL}/auth/me/student-profile/`,
+    STUDENT_ELIGIBILITY: `${API_BASE_URL}/auth/me/student-profile/eligibility/`,
     USERS: `${API_BASE_URL}/auth/users/`,
     USERS_CREATE: `${API_BASE_URL}/auth/users/create/`,
     USER_DETAIL: (id: string) => `${API_BASE_URL}/auth/users/${id}/`,
     USER_ROLE: (id: string) => `${API_BASE_URL}/auth/users/${id}/role/`,
     USER_STATUS: (id: string) => `${API_BASE_URL}/auth/users/${id}/status/`,
+  },
+
+  // Role Consoles
+  TUTOR: {
+    STATS: `${API_BASE_URL}/auth/tutor/stats/`,
+    PROFILE: `${API_BASE_URL}/auth/tutor/profile/`,
+    STUDENTS: `${API_BASE_URL}/auth/tutor/students/`,
+  },
+
+  ENTERPRISE: {
+    STATS: `${API_BASE_URL}/auth/enterprise/stats/`,
+    PROFILE: `${API_BASE_URL}/auth/enterprise/profile/`,
+    STUDENTS: `${API_BASE_URL}/auth/enterprise/students/`,
+    BULK_STUDENTS: `${API_BASE_URL}/auth/enterprise/students/bulk/`,
+  },
+
+  REVIEWER: {
+    STATS: `${API_BASE_URL}/auth/reviewer/stats/`,
+    PROFILE: `${API_BASE_URL}/auth/reviewer/profile/`,
+    QUEUE: `${API_BASE_URL}/auth/reviewer/queue/`,
+    CERTIFY: `${API_BASE_URL}/auth/reviewer/certify/`,
+  },
+
+  AGENT: {
+    ONBOARD: `${API_BASE_URL}/auth/agent/onboard-client/`,
+    FACILITATE: `${API_BASE_URL}/auth/agent/facilitate-service/`,
+    COMMISSIONS: `${API_BASE_URL}/auth/agent-commissions/`,
+    PAYOUT: `${API_BASE_URL}/auth/agent-commissions/payout/`,
   },
 
   // Learning Management System (LMS)

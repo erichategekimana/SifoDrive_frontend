@@ -15,149 +15,176 @@ export const ExamSettingsSection: React.FC = () => {
   });
 
   const handleSaveSettings = () => {
-    showToast('Exam policies and settings saved successfully!', 'success');
+    showToast('Exam policies saved.', 'success');
   };
 
   return (
-    <div className="glass-panel" style={{ padding: '24px', maxWidth: '800px', margin: '0 auto' }}>
-      <h2 style={{ fontSize: '1.25rem', fontWeight: 800, margin: '0 0 6px 0' }}>
-        National Police Theory Examination Policies
-      </h2>
-      <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '24px' }}>
-        Configure passing criteria, proctoring security thresholds, and guest trial access limits
-      </p>
+    <div
+      style={{
+        background: 'var(--bg-surface)',
+        padding: '22px 24px',
+        borderRadius: 'var(--radius-xl)',
+        border: '1px solid var(--border-subtle)',
+        maxWidth: '760px',
+      }}
+    >
+      <div style={{ marginBottom: '18px' }}>
+        <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+          Examination Policies
+        </h3>
+        <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: '3px 0 0 0' }}>
+          Passing criteria, proctoring thresholds, and guest trial limits.
+        </p>
+      </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
           <div>
-            <label style={{ fontSize: '0.85rem', fontWeight: 600 }}>Passing Score (Questions Required)</label>
+            <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+              Passing Score
+            </label>
             <input
               type="number"
               value={settingsForm.passingScore}
               onChange={(e) => setSettingsForm({ ...settingsForm, passingScore: Number(e.target.value) })}
               style={{
                 width: '100%',
-                padding: '8px 12px',
-                borderRadius: '8px',
-                background: 'rgba(0,0,0,0.2)',
+                padding: '7px 10px',
+                borderRadius: 'var(--radius-md)',
+                background: 'var(--bg-surface-elevated)',
                 border: '1px solid var(--border-subtle)',
-                color: '#ffffff',
-                marginTop: '6px',
+                color: 'var(--text-primary)',
+                marginTop: '4px',
+                fontSize: '0.84rem',
               }}
             />
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Rwanda National standard: 12 / 20 (60%)</span>
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Standard: 12 / 20 (60%)</span>
           </div>
 
           <div>
-            <label style={{ fontSize: '0.85rem', fontWeight: 600 }}>Total Questions per Exam</label>
+            <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+              Total Questions
+            </label>
             <input
               type="number"
               value={settingsForm.totalQuestions}
               disabled
               style={{
                 width: '100%',
-                padding: '8px 12px',
-                borderRadius: '8px',
-                background: 'rgba(0,0,0,0.4)',
+                padding: '7px 10px',
+                borderRadius: 'var(--radius-md)',
+                background: 'var(--bg-surface-elevated)',
                 border: '1px solid var(--border-subtle)',
-                color: '#9ca3af',
-                marginTop: '6px',
+                color: 'var(--text-muted)',
+                marginTop: '4px',
+                fontSize: '0.84rem',
               }}
             />
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Fixed standard by Rwanda National Police</span>
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Fixed national standard</span>
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
           <div>
-            <label style={{ fontSize: '0.85rem', fontWeight: 600 }}>Exam Duration (Minutes)</label>
+            <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+              Duration (Minutes)
+            </label>
             <input
               type="number"
               value={settingsForm.durationMinutes}
               onChange={(e) => setSettingsForm({ ...settingsForm, durationMinutes: Number(e.target.value) })}
               style={{
                 width: '100%',
-                padding: '8px 12px',
-                borderRadius: '8px',
-                background: 'rgba(0,0,0,0.2)',
+                padding: '7px 10px',
+                borderRadius: 'var(--radius-md)',
+                background: 'var(--bg-surface-elevated)',
                 border: '1px solid var(--border-subtle)',
-                color: '#ffffff',
-                marginTop: '6px',
+                color: 'var(--text-primary)',
+                marginTop: '4px',
+                fontSize: '0.84rem',
               }}
             />
           </div>
 
           <div>
-            <label style={{ fontSize: '0.85rem', fontWeight: 600 }}>Guest Free Trial Sessions Limit</label>
+            <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+              Guest Trial Limit
+            </label>
             <input
               type="number"
               value={settingsForm.maxGuestTrials}
               onChange={(e) => setSettingsForm({ ...settingsForm, maxGuestTrials: Number(e.target.value) })}
               style={{
                 width: '100%',
-                padding: '8px 12px',
-                borderRadius: '8px',
-                background: 'rgba(0,0,0,0.2)',
+                padding: '7px 10px',
+                borderRadius: 'var(--radius-md)',
+                background: 'var(--bg-surface-elevated)',
                 border: '1px solid var(--border-subtle)',
-                color: '#ffffff',
-                marginTop: '6px',
+                color: 'var(--text-primary)',
+                marginTop: '4px',
+                fontSize: '0.84rem',
               }}
             />
           </div>
         </div>
 
-        <div style={{ padding: '14px', background: 'rgba(0,0,0,0.15)', borderRadius: '8px' }}>
-          <div style={{ fontWeight: 700, fontSize: '0.88rem', marginBottom: '8px', color: 'var(--primary-light)' }}>
-            Anti-Cheat & Proctoring Engine Settings
+        <div
+          style={{
+            padding: '14px 16px',
+            background: 'var(--bg-surface-elevated)',
+            border: '1px solid var(--border-subtle)',
+            borderRadius: 'var(--radius-lg)',
+          }}
+        >
+          <div style={{ fontWeight: 600, fontSize: '0.85rem', marginBottom: '10px', color: 'var(--text-primary)' }}>
+            Proctoring Controls
           </div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-            <span style={{ fontSize: '0.82rem' }}>Tab switch violation auto-flag threshold</span>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Tab switch threshold</span>
             <input
               type="number"
               value={settingsForm.tabSwitchLimit}
               onChange={(e) => setSettingsForm({ ...settingsForm, tabSwitchLimit: Number(e.target.value) })}
               style={{
-                width: '80px',
+                width: '72px',
                 padding: '4px 8px',
-                borderRadius: '6px',
-                background: 'rgba(0,0,0,0.2)',
+                borderRadius: 'var(--radius-md)',
+                background: 'var(--bg-surface)',
                 border: '1px solid var(--border-subtle)',
-                color: '#ffffff',
+                color: 'var(--text-primary)',
                 textAlign: 'center',
+                fontSize: '0.8rem',
               }}
             />
           </div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: '0.82rem' }}>Capture Anomaly Webcam Snapshots (B2C Remote)</span>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Capture webcam anomaly snapshots</span>
             <input
               type="checkbox"
               checked={settingsForm.anomalySnapshots}
               onChange={(e) => setSettingsForm({ ...settingsForm, anomalySnapshots: e.target.checked })}
-              style={{ transform: 'scale(1.2)', cursor: 'pointer' }}
+              style={{ cursor: 'pointer' }}
             />
           </div>
         </div>
 
-        <button
-          onClick={handleSaveSettings}
-          style={{
-            background: 'var(--primary)',
-            color: '#ffffff',
-            border: 'none',
-            padding: '10px 18px',
-            borderRadius: '8px',
-            fontWeight: 700,
-            fontSize: '0.9rem',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '8px',
-          }}
-        >
-          <Save size={16} /> Save Examination Policies
-        </button>
+        <div>
+          <button
+            onClick={handleSaveSettings}
+            className="btn btn-primary btn-sm"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '7px 14px',
+              fontSize: '0.82rem',
+            }}
+          >
+            <Save size={14} /> Save Policies
+          </button>
+        </div>
       </div>
     </div>
   );
 };
+

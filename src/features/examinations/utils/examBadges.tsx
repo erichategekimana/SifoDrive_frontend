@@ -1,122 +1,24 @@
 import React from 'react';
-
-const badgeBase: React.CSSProperties = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  padding: '2px 8px',
-  borderRadius: '4px',
-  fontSize: '0.72rem',
-  fontWeight: 600,
-  letterSpacing: '0.02em',
-  lineHeight: '1.4',
-};
+import { Badge } from '../../../components/common/Badge';
 
 export function getExamStatusBadge(status: string): React.ReactElement {
   switch (status) {
     case 'SUBMITTED':
     case 'BOARD_REVIEW':
-      return (
-        <span
-          style={{
-            ...badgeBase,
-            background: '#27272a',
-            color: '#f4f4f5',
-            border: '1px solid #52525b',
-          }}
-        >
-          Stage 1: Board Review
-        </span>
-      );
+      return <Badge variant="warning">Stage 1: Board Review</Badge>;
     case 'TRAINING_REVIEW':
-      return (
-        <span
-          style={{
-            ...badgeBase,
-            background: '#27272a',
-            color: '#f4f4f5',
-            border: '1px solid #52525b',
-          }}
-        >
-          Stage 2: Training Audit
-        </span>
-      );
+      return <Badge variant="info">Stage 2: Training Audit</Badge>;
     case 'SYSTEM_REVIEW':
-      return (
-        <span
-          style={{
-            ...badgeBase,
-            background: '#27272a',
-            color: '#f4f4f5',
-            border: '1px solid #52525b',
-          }}
-        >
-          Stage 3: System Approval
-        </span>
-      );
+      return <Badge variant="info">Stage 3: System Approval</Badge>;
     case 'APPROVED':
-      return (
-        <span
-          style={{
-            ...badgeBase,
-            background: '#ffffff',
-            color: '#000000',
-            border: '1px solid #ffffff',
-          }}
-        >
-          Approved
-        </span>
-      );
+      return <Badge variant="success">Approved</Badge>;
     case 'PUBLISHED':
-      return (
-        <span
-          style={{
-            ...badgeBase,
-            background: '#18181b',
-            color: '#a1a1aa',
-            border: '1px solid #3f3f46',
-          }}
-        >
-          Published
-        </span>
-      );
+      return <Badge variant="neutral">Published</Badge>;
     case 'REJECTED':
-      return (
-        <span
-          style={{
-            ...badgeBase,
-            background: '#18181b',
-            color: '#d4d4d8',
-            border: '1px solid #52525b',
-          }}
-        >
-          Rejected
-        </span>
-      );
+      return <Badge variant="danger">Rejected</Badge>;
     case 'FLAGGED':
-      return (
-        <span
-          style={{
-            ...badgeBase,
-            background: '#18181b',
-            color: '#f4f4f5',
-            border: '1px solid #71717a',
-          }}
-        >
-          Flagged
-        </span>
-      );
+      return <Badge variant="danger">Flagged</Badge>;
     default:
-      return (
-        <span
-          style={{
-            ...badgeBase,
-            background: '#18181b',
-            color: '#a1a1aa',
-            border: '1px solid #3f3f46',
-          }}
-        >
-          {status}
-        </span>
-      );
+      return <Badge variant="neutral">{status}</Badge>;
   }
 }

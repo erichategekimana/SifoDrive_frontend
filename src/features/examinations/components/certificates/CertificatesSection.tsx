@@ -70,33 +70,29 @@ export const CertificatesSection: React.FC<CertificatesSectionProps> = ({ isSyst
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
         <button
           onClick={() => setCertSubTab('registry')}
+          className="btn btn-secondary btn-sm"
           style={{
-            padding: '8px 18px',
-            borderRadius: '8px',
-            border: 'none',
-            background: certSubTab === 'registry' ? 'var(--primary)' : 'rgba(255,255,255,0.05)',
-            color: certSubTab === 'registry' ? '#ffffff' : 'var(--text-secondary)',
-            fontWeight: 700,
-            fontSize: '0.85rem',
-            cursor: 'pointer',
+            padding: '6px 14px',
+            fontSize: '0.82rem',
+            background: certSubTab === 'registry' ? 'var(--bg-surface-elevated)' : 'var(--bg-surface)',
+            color: certSubTab === 'registry' ? 'var(--text-primary)' : 'var(--text-secondary)',
+            borderColor: certSubTab === 'registry' ? 'var(--text-muted)' : 'var(--border-subtle)',
           }}
         >
-          Issued Certificates Registry ({certificatesData.count})
+          Issued Certificates ({certificatesData.count})
         </button>
         <button
           onClick={() => setCertSubTab('templates')}
+          className="btn btn-secondary btn-sm"
           style={{
-            padding: '8px 18px',
-            borderRadius: '8px',
-            border: 'none',
-            background: certSubTab === 'templates' ? 'var(--primary)' : 'rgba(255,255,255,0.05)',
-            color: certSubTab === 'templates' ? '#ffffff' : 'var(--text-secondary)',
-            fontWeight: 700,
-            fontSize: '0.85rem',
-            cursor: 'pointer',
+            padding: '6px 14px',
+            fontSize: '0.82rem',
+            background: certSubTab === 'templates' ? 'var(--bg-surface-elevated)' : 'var(--bg-surface)',
+            color: certSubTab === 'templates' ? 'var(--text-primary)' : 'var(--text-secondary)',
+            borderColor: certSubTab === 'templates' ? 'var(--text-muted)' : 'var(--border-subtle)',
           }}
         >
-          Certificate Template Studio (Student, Guest, Enterprise)
+          Template Studio
         </button>
       </div>
 

@@ -11,6 +11,7 @@ import {
   type AdminQuizQuestionItem,
   type PaginatedResult,
 } from '../../../../core/services/AdminService';
+import { Badge } from '../../../../components/common/Badge';
 import { Spinner } from '../../../../components/common/Spinner';
 import { useToast } from '../../../../context/ToastContext';
 import { useTranslation } from '../../../../context/I18nContext';
@@ -28,7 +29,6 @@ export const QuestionBankSection: React.FC = () => {
   const [domainFilter, setDomainFilter] = useState<string>('ALL');
   const [questionPage, setQuestionPage] = useState<number>(1);
 
-  // Edit question modal state
   const [editQuestionModalOpen, setEditQuestionModalOpen] = useState<boolean>(false);
   const [editingQuestion, setEditingQuestion] = useState<AdminQuizQuestionItem | null>(null);
 
@@ -70,43 +70,49 @@ export const QuestionBankSection: React.FC = () => {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-      {/* Question Bank Header & Filter */}
+    <div
+      style={{
+        background: 'var(--bg-surface)',
+        padding: '22px 24px',
+        borderRadius: 'var(--radius-xl)',
+        border: '1px solid var(--border-subtle)',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '20px',
+      }}
+    >
+      {/* Header & Filter */}
       <div
-        className="glass-panel"
         style={{
-          padding: '18px 22px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           flexWrap: 'wrap',
-          gap: '14px',
-          border: '1px solid rgba(56, 189, 248, 0.2)',
+          gap: '12px',
         }}
       >
         <div>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0, color: '#ffffff' }}>
-            Ububiko bw'Ibibazo by'Amategeko y'Umuhanda (Ibibazo 400+)
-          </h2>
-          <p style={{ margin: '5px 0 0', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-            Gukosora amakosa y'imyandikire, amahitamo y'ibisubizo, ibishushanyo by'ibyapa, n'ibisobanuro mu Kinyarwanda.
+          <h3 style={{ fontSize: '1.05rem', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
+            Question Bank
+          </h3>
+          <p style={{ margin: '3px 0 0', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+            Traffic rules questions, options, and road sign diagrams.
           </p>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-          {/* Search Questions in Kinyarwanda */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
           <div
             style={{
               display: 'flex',
               alignItems: 'center',
-              background: 'rgba(0,0,0,0.25)',
-              border: '1px solid rgba(56, 189, 248, 0.25)',
-              borderRadius: '8px',
-              padding: '6px 12px',
-              minWidth: '280px',
+              background: 'var(--bg-surface-elevated)',
+              border: '1px solid var(--border-subtle)',
+              borderRadius: 'var(--radius-md)',
+              padding: '5px 10px',
+              minWidth: '240px',
             }}
           >
-            <Search size={16} color="#38bdf8" style={{ marginRight: '8px' }} />
+            <Search size={14} style={{ color: 'var(--text-muted)', marginRight: '6px' }} />
             <input
               type="text"
               placeholder={t('admin.examinations.searchQuestionPlaceholder')}
@@ -115,15 +121,14 @@ export const QuestionBankSection: React.FC = () => {
               style={{
                 background: 'transparent',
                 border: 'none',
-                color: '#ffffff',
-                fontSize: '0.85rem',
+                color: 'var(--text-primary)',
+                fontSize: '0.8rem',
                 outline: 'none',
                 width: '100%',
               }}
             />
           </div>
 
-          {/* Domain Filter */}
           <select
             value={domainFilter}
             onChange={(e) => {
@@ -131,12 +136,12 @@ export const QuestionBankSection: React.FC = () => {
               setQuestionPage(1);
             }}
             style={{
-              background: 'rgba(0,0,0,0.35)',
-              border: '1px solid rgba(56, 189, 248, 0.25)',
+              background: 'var(--bg-surface-elevated)',
+              border: '1px solid var(--border-subtle)',
               color: 'var(--text-primary)',
-              padding: '7px 12px',
-              borderRadius: '8px',
-              fontSize: '0.85rem',
+              padding: '5px 10px',
+              borderRadius: 'var(--radius-md)',
+              fontSize: '0.8rem',
               outline: 'none',
             }}
           >
@@ -156,58 +161,36 @@ export const QuestionBankSection: React.FC = () => {
 
       {/* Question Cards Grid */}
       {isQuestionsLoading ? (
-        <div style={{ padding: '60px 20px', textAlign: 'center' }}>
-          <Spinner size={36} />
-          <p style={{ marginTop: '12px', color: 'var(--text-muted)' }}>{t('admin.examinations.loadingQuestions')}</p>
+        <div style={{ padding: '48px 20px', textAlign: 'center' }}>
+          <Spinner size={28} />
         </div>
       ) : questionsData.results.length === 0 ? (
-        <div className="glass-panel" style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
-          <HelpCircle size={48} style={{ opacity: 0.3, marginBottom: '12px', color: '#38bdf8' }} />
-          <p>{t('admin.examinations.noQuestionsFound')}</p>
+        <div style={{ padding: '32px 16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.88rem' }}>
+          <HelpCircle size={22} style={{ opacity: 0.4, marginBottom: '6px' }} />
+          <div>{t('admin.examinations.noQuestionsFound')}</div>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(420px, 1fr))', gap: '16px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(400px, 1fr))', gap: '14px' }}>
           {questionsData.results.map((q) => (
             <div
               key={q.id}
-              className="glass-panel"
               style={{
-                padding: '18px',
+                padding: '16px 18px',
+                borderRadius: 'var(--radius-lg)',
+                background: 'var(--bg-surface-elevated)',
+                border: '1px solid var(--border-subtle)',
                 display: 'flex',
                 flexDirection: 'column',
                 justifyContent: 'space-between',
-                borderLeft: '4px solid #38bdf8',
-                border: '1px solid rgba(255, 255, 255, 0.06)',
               }}
             >
               <div>
-                {/* Header line */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                    <span
-                      style={{
-                        background: 'rgba(56, 189, 248, 0.12)',
-                        color: '#38bdf8',
-                        border: '1px solid rgba(56, 189, 248, 0.3)',
-                        fontWeight: 800,
-                        padding: '2px 8px',
-                        borderRadius: '6px',
-                        fontSize: '0.78rem',
-                      }}
-                    >
-                      {language === 'rw' ? `Ikibazo #${q.question_number}` : `Question #${q.question_number}`}
+                    <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                      #{q.question_number}
                     </span>
-                    <span
-                      style={{
-                        background: 'rgba(248, 113, 113, 0.1)',
-                        color: '#f87171',
-                        border: '1px solid rgba(248, 113, 113, 0.25)',
-                        fontWeight: 600,
-                        padding: '2px 8px',
-                        borderRadius: '6px',
-                        fontSize: '0.72rem',
-                      }}
-                    >
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
                       {getDomainLabel(q.domain)}
                     </span>
                     <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
@@ -216,43 +199,34 @@ export const QuestionBankSection: React.FC = () => {
                   </div>
                   <button
                     onClick={() => handleOpenEditQuestion(q)}
+                    className="btn btn-secondary btn-sm"
                     style={{
-                      background: 'rgba(56, 189, 248, 0.08)',
-                      border: '1px solid rgba(56, 189, 248, 0.25)',
-                      borderRadius: '6px',
-                      color: '#38bdf8',
                       padding: '4px 10px',
-                      fontSize: '0.78rem',
-                      fontWeight: 600,
-                      cursor: 'pointer',
+                      fontSize: '0.75rem',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '6px',
-                      transition: 'all 0.15s ease',
+                      gap: '4px',
                     }}
                   >
-                    <Edit3 size={13} /> {t('admin.examinations.editQuestion')}
+                    <Edit3 size={12} /> {t('admin.examinations.editQuestion')}
                   </button>
                 </div>
 
-                {/* Question text */}
-                <div style={{ fontWeight: 700, fontSize: '0.94rem', color: '#ffffff', lineHeight: '1.5' }}>
+                <div style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-primary)', lineHeight: '1.45' }}>
                   {language === 'rw' ? (q.question_text_kinyarwanda || q.question_text) : (q.question_text || q.question_text_kinyarwanda)}
                 </div>
 
-                {/* Diagram preview if present */}
                 {q.image && (
-                  <div style={{ margin: '12px 0', textAlign: 'center' }}>
+                  <div style={{ margin: '10px 0', textAlign: 'center' }}>
                     <img
                       src={q.image}
-                      alt="Diagram preview"
-                      style={{ maxHeight: '110px', borderRadius: '6px', border: '1px solid rgba(56, 189, 248, 0.25)', background: '#ffffff', padding: '2px' }}
+                      alt="Diagram"
+                      style={{ maxHeight: '100px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)', background: '#ffffff', padding: '2px' }}
                     />
                   </div>
                 )}
 
-                {/* Options A, B, C, D */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '12px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '10px' }}>
                   {[
                     { key: 'A', text: language === 'rw' ? (q.option_a_kinyarwanda || q.option_a) : (q.option_a || q.option_a_kinyarwanda), image: q.option_a_image },
                     { key: 'B', text: language === 'rw' ? (q.option_b_kinyarwanda || q.option_b) : (q.option_b || q.option_b_kinyarwanda), image: q.option_b_image },
@@ -267,20 +241,14 @@ export const QuestionBankSection: React.FC = () => {
                           display: 'flex',
                           alignItems: 'center',
                           gap: '8px',
-                          padding: '7px 10px',
-                          borderRadius: '6px',
-                          background: isCorrect ? 'rgba(56, 189, 248, 0.12)' : 'rgba(0,0,0,0.18)',
-                          border: isCorrect ? '1px solid rgba(56, 189, 248, 0.45)' : '1px solid rgba(255,255,255,0.04)',
-                          fontSize: '0.84rem',
+                          padding: '6px 10px',
+                          borderRadius: 'var(--radius-md)',
+                          background: 'var(--bg-surface)',
+                          border: isCorrect ? '1px solid var(--text-muted)' : '1px solid var(--border-subtle)',
+                          fontSize: '0.82rem',
                         }}
                       >
-                        <span
-                          style={{
-                            fontWeight: 800,
-                            color: isCorrect ? '#38bdf8' : 'var(--text-muted)',
-                            width: '18px',
-                          }}
-                        >
+                        <span style={{ fontWeight: 700, color: 'var(--text-muted)', width: '16px' }}>
                           {opt.key}.
                         </span>
                         {opt.image && (
@@ -288,7 +256,7 @@ export const QuestionBankSection: React.FC = () => {
                             src={opt.image}
                             alt={`Option ${opt.key}`}
                             style={{
-                              height: '32px',
+                              height: '28px',
                               borderRadius: '4px',
                               background: '#ffffff',
                               padding: '2px',
@@ -296,34 +264,29 @@ export const QuestionBankSection: React.FC = () => {
                             }}
                           />
                         )}
-                        <span style={{ color: isCorrect ? '#ffffff' : 'var(--text-secondary)', flex: 1, fontWeight: isCorrect ? 600 : 400 }}>
-                          {opt.text || (opt.image ? "Icyapa cy'amahitamo" : '')}
+                        <span style={{ color: isCorrect ? 'var(--text-primary)' : 'var(--text-secondary)', flex: 1, fontWeight: isCorrect ? 600 : 400 }}>
+                          {opt.text || (opt.image ? 'Diagram option' : '')}
                         </span>
-                        {isCorrect && (
-                          <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#38bdf8', letterSpacing: '0.03em' }}>
-                            {t('admin.examinations.correctBadge')}
-                          </span>
-                        )}
+                        {isCorrect && <Badge variant="success">Correct</Badge>}
                       </div>
                     );
                   })}
                 </div>
               </div>
 
-              {/* Explanation footer */}
               {(q.explanation_kinyarwanda || q.explanation) && (
                 <div
                   style={{
-                    marginTop: '12px',
+                    marginTop: '10px',
                     padding: '8px 10px',
-                    borderRadius: '6px',
-                    background: 'rgba(56, 189, 248, 0.05)',
-                    border: '1px solid rgba(56, 189, 248, 0.15)',
-                    fontSize: '0.78rem',
+                    borderRadius: 'var(--radius-md)',
+                    background: 'var(--bg-surface)',
+                    border: '1px solid var(--border-subtle)',
+                    fontSize: '0.76rem',
                     color: 'var(--text-secondary)',
                   }}
                 >
-                  <strong style={{ color: '#38bdf8' }}>{language === 'rw' ? 'Ibisobanuro: ' : 'Explanation: '}</strong>
+                  <strong style={{ color: 'var(--text-primary)' }}>{language === 'rw' ? 'Ibisobanuro: ' : 'Note: '}</strong>
                   {language === 'rw' ? (q.explanation_kinyarwanda || q.explanation) : (q.explanation || q.explanation_kinyarwanda)}
                 </div>
               )}
@@ -333,37 +296,23 @@ export const QuestionBankSection: React.FC = () => {
       )}
 
       {/* Pagination */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', marginTop: '12px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
         <button
           onClick={() => setQuestionPage((p) => Math.max(1, p - 1))}
           disabled={questionPage === 1}
-          style={{
-            padding: '6px 14px',
-            borderRadius: '6px',
-            border: '1px solid rgba(56, 189, 248, 0.25)',
-            background: 'rgba(56, 189, 248, 0.06)',
-            color: 'var(--text-primary)',
-            cursor: questionPage === 1 ? 'not-allowed' : 'pointer',
-            opacity: questionPage === 1 ? 0.4 : 1,
-          }}
+          className="btn btn-secondary btn-sm"
+          style={{ padding: '5px 10px' }}
         >
-          <ChevronLeft size={16} />
+          <ChevronLeft size={15} />
         </button>
-        <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Ipaji {questionPage}</span>
+        <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>Page {questionPage}</span>
         <button
           onClick={() => setQuestionPage((p) => p + 1)}
           disabled={questionsData.results.length < 20}
-          style={{
-            padding: '6px 14px',
-            borderRadius: '6px',
-            border: '1px solid rgba(56, 189, 248, 0.25)',
-            background: 'rgba(56, 189, 248, 0.06)',
-            color: 'var(--text-primary)',
-            cursor: questionsData.results.length < 20 ? 'not-allowed' : 'pointer',
-            opacity: questionsData.results.length < 20 ? 0.4 : 1,
-          }}
+          className="btn btn-secondary btn-sm"
+          style={{ padding: '5px 10px' }}
         >
-          <ChevronRight size={16} />
+          <ChevronRight size={15} />
         </button>
       </div>
 
@@ -383,3 +332,4 @@ export const QuestionBankSection: React.FC = () => {
     </div>
   );
 };
+

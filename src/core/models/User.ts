@@ -57,6 +57,10 @@ export class User {
     return this.role === 'TUTOR';
   }
 
+  public isAgent(): boolean {
+    return this.role === 'AGENT';
+  }
+
   public isTrainingAdmin(): boolean {
     return this.role === 'TRAINING_ADMIN';
   }

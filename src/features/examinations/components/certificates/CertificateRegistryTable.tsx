@@ -24,42 +24,57 @@ export const CertificateRegistryTable: React.FC<CertificateRegistryTableProps> =
   onSelectCertificate,
 }) => {
   return (
-    <div className="glass-panel" style={{ padding: 0, overflow: 'hidden' }}>
-      {/* Filter bar */}
+    <div
+      style={{
+        background: 'var(--bg-surface)',
+        padding: '22px 24px',
+        borderRadius: 'var(--radius-xl)',
+        border: '1px solid var(--border-subtle)',
+      }}
+    >
+      {/* Header & Filter bar */}
       <div
         style={{
-          padding: '14px 18px',
-          borderBottom: '1px solid var(--border-subtle)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           flexWrap: 'wrap',
           gap: '12px',
+          marginBottom: '16px',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div>
+          <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+            Issued Certificates
+          </h3>
+          <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: '3px 0 0 0' }}>
+            Official theory credentials generated for candidates.
+          </p>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
           <div
             style={{
               display: 'flex',
               alignItems: 'center',
-              background: 'rgba(0,0,0,0.2)',
+              background: 'var(--bg-surface-elevated)',
               border: '1px solid var(--border-subtle)',
-              borderRadius: '8px',
-              padding: '6px 12px',
-              minWidth: '240px',
+              borderRadius: 'var(--radius-md)',
+              padding: '5px 10px',
+              minWidth: '220px',
             }}
           >
-            <Search size={16} color="var(--text-muted)" style={{ marginRight: '8px' }} />
+            <Search size={14} style={{ color: 'var(--text-muted)', marginRight: '6px' }} />
             <input
               type="text"
-              placeholder="Search certificate # or name..."
+              placeholder="Search certificate or name..."
               value={search}
               onChange={(e) => onSearchChange(e.target.value)}
               style={{
                 background: 'transparent',
                 border: 'none',
                 color: 'var(--text-primary)',
-                fontSize: '0.85rem',
+                fontSize: '0.8rem',
                 outline: 'none',
                 width: '100%',
               }}
@@ -70,113 +85,100 @@ export const CertificateRegistryTable: React.FC<CertificateRegistryTableProps> =
             value={trackFilter}
             onChange={(e) => onTrackFilterChange(e.target.value)}
             style={{
-              background: 'rgba(0,0,0,0.3)',
+              background: 'var(--bg-surface-elevated)',
               border: '1px solid var(--border-subtle)',
               color: 'var(--text-primary)',
-              padding: '6px 12px',
-              borderRadius: '8px',
-              fontSize: '0.85rem',
+              padding: '5px 10px',
+              borderRadius: 'var(--radius-md)',
+              fontSize: '0.8rem',
               outline: 'none',
             }}
           >
             <option value="ALL">All Tracks</option>
-            <option value="STUDENT">Enrolled Student</option>
-            <option value="GUEST">Guest Trial</option>
-            <option value="ENTERPRISE">Enterprise Partner</option>
+            <option value="STUDENT">Student</option>
+            <option value="GUEST">Guest</option>
+            <option value="ENTERPRISE">Enterprise</option>
           </select>
         </div>
       </div>
 
       {/* Certificates List Table */}
       {isLoading ? (
-        <div style={{ padding: '60px 20px', textAlign: 'center' }}>
-          <Spinner size={36} />
-          <p style={{ marginTop: '12px', color: 'var(--text-muted)' }}>Loading certificates...</p>
+        <div style={{ padding: '48px 20px', textAlign: 'center' }}>
+          <Spinner size={28} />
         </div>
       ) : certificatesData.results.length === 0 ? (
-        <div style={{ padding: '60px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>
-          <Award size={48} style={{ opacity: 0.3, marginBottom: '12px' }} />
-          <p>No certificates issued yet.</p>
+        <div style={{ padding: '32px 16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.88rem' }}>
+          <Award size={22} style={{ opacity: 0.4, marginBottom: '6px' }} />
+          <div>No certificates issued yet.</div>
         </div>
       ) : (
         <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.88rem' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.86rem' }}>
             <thead>
-              <tr style={{ background: 'rgba(0,0,0,0.25)', borderBottom: '1px solid var(--border-subtle)' }}>
-                <th style={{ padding: '14px 16px', color: 'var(--text-secondary)' }}>Serial Number</th>
-                <th style={{ padding: '14px 16px', color: 'var(--text-secondary)' }}>Recipient</th>
-                <th style={{ padding: '14px 16px', color: 'var(--text-secondary)' }}>Track & School</th>
-                <th style={{ padding: '14px 16px', color: 'var(--text-secondary)' }}>Score</th>
-                <th style={{ padding: '14px 16px', color: 'var(--text-secondary)' }}>Issue Date</th>
-                <th style={{ padding: '14px 16px', color: 'var(--text-secondary)', textAlign: 'right' }}>Actions</th>
+              <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                <th style={{ padding: '10px 12px', color: 'var(--text-muted)', fontWeight: 600 }}>Serial Number</th>
+                <th style={{ padding: '10px 12px', color: 'var(--text-muted)', fontWeight: 600 }}>Recipient</th>
+                <th style={{ padding: '10px 12px', color: 'var(--text-muted)', fontWeight: 600 }}>Track</th>
+                <th style={{ padding: '10px 12px', color: 'var(--text-muted)', fontWeight: 600 }}>Score</th>
+                <th style={{ padding: '10px 12px', color: 'var(--text-muted)', fontWeight: 600 }}>Issue Date</th>
+                <th style={{ padding: '10px 12px', color: 'var(--text-muted)', fontWeight: 600, textAlign: 'right' }}>Action</th>
               </tr>
             </thead>
             <tbody>
               {certificatesData.results.map((cert) => (
                 <tr key={cert.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                  <td style={{ padding: '14px 16px' }}>
-                    <span style={{ fontFamily: 'monospace', fontWeight: 700, color: 'var(--primary-light)' }}>
-                      {cert.certificate_number}
-                    </span>
+                  <td style={{ padding: '10px 12px', color: 'var(--text-secondary)', fontWeight: 600 }}>
+                    {cert.certificate_number}
                   </td>
-                  <td style={{ padding: '14px 16px' }}>
-                    <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{cert.student_name}</div>
-                    <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>ID: {cert.student_code}</div>
+                  <td style={{ padding: '10px 12px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                    <div>{cert.student_name}</div>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 400 }}>{cert.student_code}</div>
                   </td>
-                  <td style={{ padding: '14px 16px' }}>
+                  <td style={{ padding: '10px 12px' }}>
                     <Badge variant="neutral">{cert.track_type}</Badge>
                     {cert.enterprise_name && (
-                      <div style={{ fontSize: '0.75rem', color: 'var(--primary-light)', marginTop: '3px' }}>
+                      <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
                         {cert.enterprise_name}
                       </div>
                     )}
                   </td>
-                  <td style={{ padding: '14px 16px' }}>
-                    <span style={{ fontWeight: 800, color: '#10b981' }}>
-                      {cert.score} / {cert.total_questions}
-                    </span>
+                  <td style={{ padding: '10px 12px', color: 'var(--text-primary)', fontWeight: 600 }}>
+                    {cert.score}/{cert.total_questions}
                   </td>
-                  <td style={{ padding: '14px 16px', color: 'var(--text-muted)', fontSize: '0.82rem' }}>
+                  <td style={{ padding: '10px 12px', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
                     {new Date(cert.issue_date).toLocaleDateString()}
                   </td>
-                  <td style={{ padding: '14px 16px', textAlign: 'right' }}>
-                    <div style={{ display: 'inline-flex', gap: '8px' }}>
+                  <td style={{ padding: '10px 12px', textAlign: 'right' }}>
+                    <div style={{ display: 'inline-flex', gap: '6px' }}>
                       <button
                         onClick={() => onSelectCertificate(cert)}
+                        className="btn btn-secondary btn-sm"
                         style={{
-                          padding: '5px 12px',
-                          borderRadius: '6px',
-                          border: '1px solid var(--border-subtle)',
-                          background: 'rgba(255,255,255,0.06)',
-                          color: 'var(--text-primary)',
-                          fontSize: '0.78rem',
-                          fontWeight: 600,
-                          cursor: 'pointer',
-                          display: 'flex',
+                          padding: '4px 10px',
+                          fontSize: '0.75rem',
+                          display: 'inline-flex',
                           alignItems: 'center',
-                          gap: '6px',
+                          gap: '4px',
                         }}
                       >
-                        <QrCode size={13} /> View & QR
+                        <QrCode size={12} /> View
                       </button>
                       <a
                         href={`/verify/certificate/${cert.verification_hash}`}
                         target="_blank"
                         rel="noopener noreferrer"
+                        className="btn btn-secondary btn-sm"
                         style={{
-                          padding: '5px 10px',
-                          borderRadius: '6px',
-                          border: '1px solid var(--border-subtle)',
-                          background: 'transparent',
-                          color: 'var(--primary-light)',
-                          fontSize: '0.78rem',
-                          display: 'flex',
+                          padding: '4px 10px',
+                          fontSize: '0.75rem',
+                          display: 'inline-flex',
                           alignItems: 'center',
                           gap: '4px',
                           textDecoration: 'none',
                         }}
                       >
-                        <ExternalLink size={13} /> Verify
+                        <ExternalLink size={12} /> Verify
                       </a>
                     </div>
                   </td>
@@ -189,3 +191,4 @@ export const CertificateRegistryTable: React.FC<CertificateRegistryTableProps> =
     </div>
   );
 };
+

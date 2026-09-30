@@ -8,8 +8,12 @@ import { LandingPage } from '../pages/public/LandingPage';
 import { LoginPage } from '../pages/public/LoginPage';
 import { RegisterPage } from '../pages/public/RegisterPage';
 
-// Protected Pages
-import { DashboardPage } from '../pages/dashboard/DashboardPage';
+// Protected Pages & Role Consoles
+import { DashboardDispatcher } from '../pages/dashboard/DashboardDispatcher';
+import { TutorDashboard } from '../pages/dashboard/TutorDashboard';
+import { EnterpriseDashboard } from '../pages/dashboard/EnterpriseDashboard';
+import { BoardReviewerDashboard } from '../pages/dashboard/BoardReviewerDashboard';
+import { AgentDashboard } from '../pages/dashboard/AgentDashboard';
 import { CourseListPage } from '../pages/lms/CourseListPage';
 import { LessonViewPage } from '../pages/lms/LessonViewPage';
 import { RoadSignsPage } from '../pages/lms/RoadSignsPage';
@@ -47,10 +51,14 @@ export const AppRoutes: React.FC = () => {
       <Route path="/lesson/:id" element={<LessonViewPage />} />
       <Route path="/verify/certificate/:hashOrCode" element={<CertificateVerificationPage />} />
 
-      {/* Protected Learner & Student Routes */}
+      {/* Protected Learner, Student & Role Routes */}
       <Route element={<ProtectedRoute />}>
         <Route element={<AppLayout />}>
-          <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/dashboard" element={<DashboardDispatcher />} />
+          <Route path="/tutor" element={<TutorDashboard />} />
+          <Route path="/enterprise" element={<EnterpriseDashboard />} />
+          <Route path="/board-reviewer" element={<BoardReviewerDashboard />} />
+          <Route path="/agent" element={<AgentDashboard />} />
           <Route path="/live-classes" element={<LiveClassesPage />} />
           <Route path="/booking" element={<BookingWizardPage />} />
           <Route path="/booking/my-bookings" element={<MyBookingsPage />} />
