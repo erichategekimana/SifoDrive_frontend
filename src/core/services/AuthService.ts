@@ -144,19 +144,39 @@ export class AuthService {
   /**
    * Accept Terms of Service
    */
-  public async acceptTermsOfService(): Promise<void> {
+  public async acceptTermsOfService(): Promise<User | null> {
     logger.info('Submitting Terms of Service consent');
-    await this.http.post(ApiEndpoints.AUTH.CONSENT_TERMS, { terms_of_service_accepted: true });
-    this.refreshLocalUserConsent({ termsAccepted: true });
+    const tokens = this.storage.getItem<TokenPair>('sifo_tokens');
+    if (tokens?.access && tokens.access !== 'demo-access-token') {
+      try {
+        await this.http.post(ApiEndpoints.AUTH.CONSENT_TERMS, {
+          accepted: true,
+          terms_of_service_accepted: true,
+        });
+      } catch (err) {
+        logger.warn('Remote consent terms submission failed, updating local state:', err);
+      }
+    }
+    return this.refreshLocalUserConsent({ termsAccepted: true });
   }
 
   /**
    * Accept Privacy Policy
    */
-  public async acceptPrivacyPolicy(): Promise<void> {
+  public async acceptPrivacyPolicy(): Promise<User | null> {
     logger.info('Submitting Privacy Policy consent');
-    await this.http.post(ApiEndpoints.AUTH.CONSENT_PRIVACY, { privacy_policy_accepted: true });
-    this.refreshLocalUserConsent({ privacyAccepted: true });
+    const tokens = this.storage.getItem<TokenPair>('sifo_tokens');
+    if (tokens?.access && tokens.access !== 'demo-access-token') {
+      try {
+        await this.http.post(ApiEndpoints.AUTH.CONSENT_PRIVACY, {
+          accepted: true,
+          privacy_policy_accepted: true,
+        });
+      } catch (err) {
+        logger.warn('Remote consent privacy submission failed, updating local state:', err);
+      }
+    }
+    return this.refreshLocalUserConsent({ privacyAccepted: true });
   }
 
   /**
@@ -167,6 +187,82 @@ export class AuthService {
     const user = new User(data);
     this.storage.setItem('sifo_user', data);
     return user;
+  }
+
+  /**
+   * Update user profile fields (names, bio, links, contacts, 2FA, photo)
+   */
+  public async updateProfile(payload: Partial<UserDTO> | FormData): Promise<User> {
+    logger.info('Updating user profile');
+    const data = await this.http.patch<UserDTO>(ApiEndpoints.AUTH.ME, payload);
+    const user = new User(data);
+    this.storage.setItem('sifo_user', data);
+    return user;
+  }
+
+  /**
+   * Change account password
+   */
+  public async changePassword(currentPassword: string, newPassword: string): Promise<void> {
+    logger.info('Updating account password');
+    await this.http.post(ApiEndpoints.AUTH.PASSWORD_CHANGE, {
+      current_password: currentPassword,
+      new_password: newPassword,
+    });
+  }
+
+  /**
+   * Fetch dynamic active login sessions
+   */
+  public async getActiveSessions(): Promise<Array<{ id: string; ip_address: string; user_agent: string; last_active: string | null; is_current: boolean }>> {
+    try {
+      const data = await this.http.get<Array<{ id: string; ip_address: string; user_agent: string; last_active: string | null; is_current: boolean }>>(
+        ApiEndpoints.AUTH.SESSIONS
+      );
+      return data || [];
+    } catch {
+      // Fallback to client session if network fails
+      return [
+        {
+          id: 'current',
+          ip_address: '127.0.0.1',
+          user_agent: navigator.userAgent,
+          last_active: new Date().toISOString(),
+          is_current: true,
+        },
+      ];
+    }
+  }
+
+  /**
+   * Terminate other active sessions
+   */
+  public async terminateOtherSessions(): Promise<void> {
+    await this.http.post(ApiEndpoints.AUTH.SESSIONS_TERMINATE, {});
+  }
+
+  /**
+   * Get notification preferences
+   */
+  public async getNotificationPreferences(): Promise<any> {
+    try {
+      return await this.http.get(ApiEndpoints.AUTH.NOTIFICATION_PREFERENCES);
+    } catch {
+      return {
+        sms_enabled: true,
+        email_enabled: false,
+        exam_alerts: true,
+        booking_alerts: true,
+        promo_alerts: false,
+      };
+    }
+  }
+
+  /**
+   * Update notification preferences
+   */
+  public async updateNotificationPreferences(prefs: any): Promise<any> {
+    return await this.http.patch(ApiEndpoints.AUTH.NOTIFICATION_PREFERENCES, prefs);
   }
 
   /**
@@ -181,12 +277,25 @@ export class AuthService {
     this.storage.setItem('sifo_user', {
       id: user.id,
       phone_number: user.phoneNumber,
+      email: user.email,
       role: user.role,
       full_name: user.fullName,
+      first_name: user.firstName,
+      last_name: user.lastName,
+      profile_photo: user.profilePhoto,
+      biography: user.biography,
+      links: user.links,
+      contact_methods: user.contactMethods,
+      two_factor_enabled: user.twoFactorEnabled,
+      two_factor_method: user.twoFactorMethod,
+      last_login_ip: user.lastLoginIp,
+      last_login: user.lastLogin,
       status: user.status,
       student_id: user.studentId,
       terms_accepted: user.termsAccepted,
+      termsAccepted: user.termsAccepted,
       privacy_accepted: user.privacyAccepted,
+      privacyAccepted: user.privacyAccepted,
     });
   }
 
@@ -199,12 +308,23 @@ export class AuthService {
     this.storage.removeItem('sifo_user');
   }
 
-  private refreshLocalUserConsent(patch: { termsAccepted?: boolean; privacyAccepted?: boolean }): void {
+  private refreshLocalUserConsent(patch: { termsAccepted?: boolean; privacyAccepted?: boolean }): User | null {
     const current = this.storage.getItem<UserDTO>('sifo_user');
     if (current) {
-      if (patch.termsAccepted !== undefined) current.terms_accepted = patch.termsAccepted;
-      if (patch.privacyAccepted !== undefined) current.privacy_accepted = patch.privacyAccepted;
+      if (patch.termsAccepted !== undefined) {
+        current.terms_accepted = patch.termsAccepted;
+        current.termsAccepted = patch.termsAccepted;
+        (current as any).has_accepted_terms = patch.termsAccepted;
+      }
+      if (patch.privacyAccepted !== undefined) {
+        current.privacy_accepted = patch.privacyAccepted;
+        current.privacyAccepted = patch.privacyAccepted;
+        (current as any).has_accepted_privacy_policy = patch.privacyAccepted;
+      }
       this.storage.setItem('sifo_user', current);
+      return new User(current);
     }
+    return null;
   }
 }
+

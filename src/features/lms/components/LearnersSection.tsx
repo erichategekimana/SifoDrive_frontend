@@ -98,7 +98,8 @@ export const LearnersSection: React.FC<LearnersSectionProps> = ({
   };
 
   return (
-    <div className="glass-panel" style={{ borderRadius: 'var(--radius-2xl)', overflow: 'hidden' }}>
+    <>
+      <div className="glass-panel" style={{ borderRadius: 'var(--radius-2xl)', overflow: 'hidden' }}>
       <div
         style={{
           padding: '20px 24px',
@@ -460,8 +461,9 @@ export const LearnersSection: React.FC<LearnersSectionProps> = ({
           </table>
         </div>
       )}
+      </div>
 
-      {/* Modals */}
+      {/* Modals rendered outside glass-panel */}
       <ChangeCohortModal
         learner={selectedLearnerForCohort}
         cohorts={cohorts}
@@ -490,7 +492,7 @@ export const LearnersSection: React.FC<LearnersSectionProps> = ({
         onChangeCohort={(learner) => handleOpenChangeCohort(learner)}
         onChangeTutor={(learner) => handleOpenStudentTutorModal(learner)}
       />
-    </div>
+    </>
   );
 };
 

@@ -10,11 +10,28 @@ export interface UserDTO {
   id: string;
   phone_number?: string;
   phoneNumber?: string;
+  email?: string;
   role: UserRole;
   full_name?: string;
   fullName?: string;
   first_name?: string;
+  firstName?: string;
   last_name?: string;
+  lastName?: string;
+  profile_photo?: string | null;
+  profilePhoto?: string | null;
+  biography?: string;
+  links?: Array<{ title: string; url: string }>;
+  contact_methods?: Array<{ type: string; value: string; is_primary?: boolean }>;
+  contactMethods?: Array<{ type: string; value: string; is_primary?: boolean }>;
+  two_factor_enabled?: boolean;
+  twoFactorEnabled?: boolean;
+  two_factor_method?: 'phone' | 'email';
+  twoFactorMethod?: 'phone' | 'email';
+  last_login_ip?: string | null;
+  lastLoginIp?: string | null;
+  last_login?: string | null;
+  lastLogin?: string | null;
   status: UserStatus;
   student_id?: string | null;
   studentId?: string | null;
@@ -27,8 +44,19 @@ export interface UserDTO {
 export class User {
   public readonly id: string;
   public readonly phoneNumber: string;
+  public readonly email: string;
   public readonly role: UserRole;
   public readonly fullName: string;
+  public readonly firstName: string;
+  public readonly lastName: string;
+  public readonly profilePhoto: string | null;
+  public readonly biography: string;
+  public readonly links: Array<{ title: string; url: string }>;
+  public readonly contactMethods: Array<{ type: string; value: string; is_primary?: boolean }>;
+  public readonly twoFactorEnabled: boolean;
+  public readonly twoFactorMethod: 'phone' | 'email';
+  public readonly lastLoginIp: string | null;
+  public readonly lastLogin: string | null;
   public readonly status: UserStatus;
   public readonly studentId: string | null;
   public readonly termsAccepted: boolean;
@@ -37,13 +65,33 @@ export class User {
   constructor(dto: UserDTO) {
     this.id = dto.id;
     this.phoneNumber = dto.phoneNumber || dto.phone_number || '';
+    this.email = dto.email || '';
     this.role = dto.role;
-    this.fullName = dto.fullName || dto.full_name || `${dto.first_name || ''} ${dto.last_name || ''}`.trim() || 'User';
+    this.firstName = dto.firstName || dto.first_name || '';
+    this.lastName = dto.lastName || dto.last_name || '';
+    this.fullName = dto.fullName || dto.full_name || `${this.firstName} ${this.lastName}`.trim() || 'User';
+    this.profilePhoto = dto.profilePhoto ?? dto.profile_photo ?? null;
+    this.biography = dto.biography || '';
+    this.links = Array.isArray(dto.links) ? dto.links : [];
+    this.contactMethods = Array.isArray(dto.contactMethods || dto.contact_methods) ? (dto.contactMethods || dto.contact_methods)! : [];
+    this.twoFactorEnabled = Boolean(dto.twoFactorEnabled ?? dto.two_factor_enabled ?? false);
+    this.twoFactorMethod = dto.twoFactorMethod || dto.two_factor_method || 'phone';
+    this.lastLoginIp = dto.lastLoginIp ?? dto.last_login_ip ?? null;
+    this.lastLogin = dto.lastLogin ?? dto.last_login ?? null;
     this.status = dto.status;
     this.studentId = dto.studentId ?? dto.student_id ?? null;
-    this.termsAccepted = Boolean(dto.termsAccepted ?? dto.terms_accepted);
-    this.privacyAccepted = Boolean(dto.privacyAccepted ?? dto.privacy_accepted);
+    this.termsAccepted = Boolean(
+      dto.termsAccepted ??
+      dto.terms_accepted ??
+      (dto as any).has_accepted_terms
+    );
+    this.privacyAccepted = Boolean(
+      dto.privacyAccepted ??
+      dto.privacy_accepted ??
+      (dto as any).has_accepted_privacy_policy
+    );
   }
+
 
   public isGuest(): boolean {
     return this.role === 'GUEST';

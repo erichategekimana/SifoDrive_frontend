@@ -28,6 +28,7 @@ interface AuthContextType {
     privacy_policy_accepted: boolean;
     national_id?: string;
   }) => Promise<{ phone_number: string }>;
+  updateProfile: (payload: Partial<import('../core/models/User').UserDTO> | FormData) => Promise<User>;
   acceptConsent: (type: 'terms' | 'privacy') => Promise<void>;
   logout: () => void;
   refreshUser: () => Promise<void>;
@@ -117,12 +118,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const acceptConsent = async (type: 'terms' | 'privacy') => {
+    let updatedUser: User | null = null;
     if (type === 'terms') {
-      await authService.acceptTermsOfService();
+      updatedUser = await authService.acceptTermsOfService();
     } else {
-      await authService.acceptPrivacyPolicy();
+      updatedUser = await authService.acceptPrivacyPolicy();
+    }
+    if (updatedUser) {
+      setUser(updatedUser);
+    } else {
+      const stored = authService.getStoredUser();
+      if (stored) setUser(stored);
     }
     await refreshUser();
+  };
+
+
+  const updateProfile = async (payload: Partial<import('../core/models/User').UserDTO> | FormData): Promise<User> => {
+    const updated = await authService.updateProfile(payload);
+    setUser(updated);
+    return updated;
   };
 
   const logout = () => {
@@ -164,6 +179,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         verifyOtp,
         registerGuest,
         registerStudent,
+        updateProfile,
         acceptConsent,
         logout,
         refreshUser,

@@ -3,6 +3,8 @@ import {
   Users,
   Video,
   Search,
+  BookOpen,
+  GraduationCap,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTranslation } from '../../context/I18nContext';
@@ -12,11 +14,13 @@ import {
   type TutorAssignedStudentDTO,
 } from '../../core/services/TutorService';
 import { Spinner } from '../../components/common/Spinner';
+import { TutorLmsStudio } from '../../features/lms/components/tutor/TutorLmsStudio';
 
 export const TutorDashboard: React.FC = () => {
   const { user } = useAuth();
-  const { language } = useTranslation();
+  const { t } = useTranslation();
 
+  const [activeTab, setActiveTab] = useState<'studio' | 'learners'>('studio');
   const [stats, setStats] = useState<TutorStatsDTO | null>(null);
   const [students, setStudents] = useState<TutorAssignedStudentDTO[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -48,16 +52,16 @@ export const TutorDashboard: React.FC = () => {
     setIsUpdatingMeeting(true);
     try {
       await TutorService.getInstance().updateProfile({ default_meeting_url: meetingUrlInput });
-      alert(language === 'rw' ? 'Ihuza rya Google Meet ryahinduwe neza!' : 'Google Meet URL updated!');
+      alert(t('dashboard.tutor.meetingSavedSuccess'));
     } catch {
-      alert('Updated successfully!');
+      alert(t('dashboard.tutor.meetingSavedSuccess'));
     } finally {
       setIsUpdatingMeeting(false);
     }
   };
 
   if (isLoading) {
-    return <Spinner message={language === 'rw' ? 'Birimo gufunguka...' : 'Loading Instructor Console...'} />;
+    return <Spinner message={t('dashboard.tutor.loadingConsole')} />;
   }
 
   const filteredStudents = students.filter(
@@ -87,7 +91,7 @@ export const TutorDashboard: React.FC = () => {
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
             <span
               style={{
-                background: '#003366',
+                background: '#0055A5',
                 color: '#ffffff',
                 padding: '4px 10px',
                 borderRadius: 'var(--radius-full)',
@@ -98,14 +102,14 @@ export const TutorDashboard: React.FC = () => {
               {stats?.tutor_code || 'SIFO-TUT-001'}
             </span>
             <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-              {language === 'rw' ? 'Umwarimu w\'Amategeko y\'Umuhanda' : 'Theory & Practical Instructor'}
+              {t('dashboard.tutor.badge')}
             </span>
           </div>
           <h1 style={{ fontSize: '1.75rem', fontWeight: 800, margin: '4px 0' }}>
             {user?.fullName}
           </h1>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', margin: 0 }}>
-            {stats?.title || 'Senior Traffic Law Instructor'} • Rating: ⭐ {stats?.rating || 5.0}
+            {stats?.title || t('dashboard.tutor.badge')} • Rating: ⭐ {stats?.rating || 5.0}
           </p>
         </div>
 
@@ -119,13 +123,38 @@ export const TutorDashboard: React.FC = () => {
             style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#058728', borderColor: '#058728' }}
           >
             <Video size={18} />
-            <span>{language === 'rw' ? 'Tangiza Ishuri (Google Meet)' : 'Start Live Classroom'}</span>
+            <span>{t('dashboard.tutor.startClassroom')}</span>
           </a>
         </div>
       </div>
 
-      {/* 4 Stat Overview Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
+      {/* Navigation Tabs */}
+      <div style={{ display: 'flex', gap: '10px', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '12px' }}>
+        <button
+          onClick={() => setActiveTab('studio')}
+          className={`btn btn-sm ${activeTab === 'studio' ? 'btn-primary' : 'btn-secondary'}`}
+          style={{ display: 'flex', alignItems: 'center', gap: '8px', borderRadius: 'var(--radius-lg)' }}
+        >
+          <BookOpen size={16} />
+          <span>Cohort LMS Studio</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('learners')}
+          className={`btn btn-sm ${activeTab === 'learners' ? 'btn-primary' : 'btn-secondary'}`}
+          style={{ display: 'flex', alignItems: 'center', gap: '8px', borderRadius: 'var(--radius-lg)' }}
+        >
+          <GraduationCap size={16} />
+          <span>Learners & Tele-Classroom</span>
+        </button>
+      </div>
+
+      {activeTab === 'studio' && <TutorLmsStudio />}
+
+      {activeTab === 'learners' && (
+        <>
+          {/* 4 Stat Overview Cards */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
         <div
           style={{
             background: 'var(--bg-surface)',
@@ -135,7 +164,7 @@ export const TutorDashboard: React.FC = () => {
           }}
         >
           <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-            {language === 'rw' ? 'Abanyeshuri Bose (Total Students)' : 'Total Assigned Students'}
+            {t('dashboard.tutor.totalStudents')}
           </div>
           <div style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-primary)', marginTop: '4px' }}>
             {stats?.total_students || 0}
@@ -151,7 +180,7 @@ export const TutorDashboard: React.FC = () => {
           }}
         >
           <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-            {language === 'rw' ? 'Abiga Kuri Ubu (Active Cohort)' : 'Active Cohort Learners'}
+            {t('dashboard.tutor.activeToday')}
           </div>
           <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#0374b5', marginTop: '4px' }}>
             {stats?.active_students || 0}
@@ -167,7 +196,7 @@ export const TutorDashboard: React.FC = () => {
           }}
         >
           <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-            {language === 'rw' ? 'Amasaha Yigishijwe (Teaching Hours)' : 'Teaching Hours Logged'}
+            {t('dashboard.tutor.liveSessionsConducted')}
           </div>
           <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#058728', marginTop: '4px' }}>
             {stats?.teaching_hours || 0} hrs
@@ -183,7 +212,7 @@ export const TutorDashboard: React.FC = () => {
           }}
         >
           <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-            {language === 'rw' ? 'Ubushobozi bwa Cohort (Capacity)' : 'Cohort Capacity'}
+            {t('dashboard.tutor.passRate')}
           </div>
           <div style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-primary)', marginTop: '4px' }}>
             {stats?.active_students || 0} / {stats?.max_capacity || 50}
@@ -207,7 +236,7 @@ export const TutorDashboard: React.FC = () => {
       >
         <div style={{ flex: '1 1 300px' }}>
           <label style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>
-            {language === 'rw' ? 'Ihuza rya Google Meet rya buri gihe (Permanent Link):' : 'Permanent Google Meet Classroom URL:'}
+            {t('dashboard.tutor.meetingSettingsTitle')}
           </label>
           <input
             type="url"
@@ -230,7 +259,7 @@ export const TutorDashboard: React.FC = () => {
           className="btn btn-secondary btn-md"
           style={{ alignSelf: 'flex-end' }}
         >
-          {isUpdatingMeeting ? (language === 'rw' ? 'Birimo kubikwa...' : 'Saving...') : (language === 'rw' ? 'Bika Ihuza' : 'Update URL')}
+          {isUpdatingMeeting ? t('dashboard.tutor.saving') : t('dashboard.tutor.saveLink')}
         </button>
       </div>
 
@@ -254,9 +283,9 @@ export const TutorDashboard: React.FC = () => {
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Users size={20} color="#003366" />
+            <Users size={20} color="#0055A5" />
             <h3 style={{ fontSize: '1.2rem', fontWeight: 700, margin: 0 }}>
-              {language === 'rw' ? 'Abanyeshuri Ushinzwe (Assigned Learners)' : 'Assigned Students Cohort'}
+              {t('dashboard.tutor.assignedStudentsTitle')}
             </h3>
           </div>
 
@@ -264,7 +293,7 @@ export const TutorDashboard: React.FC = () => {
             <Search size={16} style={{ position: 'absolute', left: '12px', top: '10px', color: 'var(--text-muted)' }} />
             <input
               type="text"
-              placeholder={language === 'rw' ? 'Shakisha umunyeshuri...' : 'Search learners...'}
+              placeholder={t('dashboard.tutor.searchPlaceholder')}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               style={{
@@ -285,13 +314,13 @@ export const TutorDashboard: React.FC = () => {
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.88rem' }}>
             <thead>
               <tr style={{ borderBottom: '2px solid var(--border-subtle)', color: 'var(--text-secondary)' }}>
-                <th style={{ padding: '12px 14px' }}>{language === 'rw' ? 'Amazina' : 'Student Name'}</th>
-                <th style={{ padding: '12px 14px' }}>{language === 'rw' ? 'Nimero ya Sifo' : 'Student ID'}</th>
-                <th style={{ padding: '12px 14px' }}>{language === 'rw' ? 'Telefone' : 'Phone'}</th>
-                <th style={{ padding: '12px 14px' }}>{language === 'rw' ? 'Category' : 'Category'}</th>
-                <th style={{ padding: '12px 14px' }}>{language === 'rw' ? 'Kwitabira (Attendance)' : 'Attendance'}</th>
-                <th style={{ padding: '12px 14px' }}>{language === 'rw' ? 'Kwiga Amasomo' : 'LMS Progress'}</th>
-                <th style={{ padding: '12px 14px' }}>{language === 'rw' ? 'Kwemererwa Ikizamini' : 'Exam Eligibility'}</th>
+                <th style={{ padding: '12px 14px' }}>{t('dashboard.tutor.colStudent')}</th>
+                <th style={{ padding: '12px 14px' }}>ID</th>
+                <th style={{ padding: '12px 14px' }}>{t('dashboard.enterprise.colPhone')}</th>
+                <th style={{ padding: '12px 14px' }}>{t('dashboard.tutor.colCategory')}</th>
+                <th style={{ padding: '12px 14px' }}>{t('dashboard.student.liveAttendance')}</th>
+                <th style={{ padding: '12px 14px' }}>{t('dashboard.tutor.colProgress')}</th>
+                <th style={{ padding: '12px 14px' }}>{t('dashboard.student.examEligibility')}</th>
               </tr>
             </thead>
             <tbody>
@@ -337,9 +366,7 @@ export const TutorDashboard: React.FC = () => {
                           color: s.exam_eligible ? '#058728' : '#d13838',
                         }}
                       >
-                        {s.exam_eligible
-                          ? language === 'rw' ? 'Yemerewe' : 'Eligible'
-                          : language === 'rw' ? 'Ntaremererwa' : 'Not Eligible'}
+                        {s.exam_eligible ? t('dashboard.student.eligible') : t('dashboard.student.notEligible')}
                       </span>
                     </td>
                   </tr>
@@ -347,7 +374,7 @@ export const TutorDashboard: React.FC = () => {
               ) : (
                 <tr>
                   <td colSpan={7} style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                    {language === 'rw' ? 'Nta munyeshuri ubonywe.' : 'No students found.'}
+                    {t('dashboard.canvas.noResults')}
                   </td>
                 </tr>
               )}
@@ -355,6 +382,8 @@ export const TutorDashboard: React.FC = () => {
           </table>
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 };

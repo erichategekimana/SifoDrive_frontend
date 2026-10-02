@@ -1,0 +1,584 @@
+/**
+ * Sifo Drive — Canvas LMS Stylesheet
+ * Strict adherence to Canvas LMS aesthetic:
+ * - Square corners (border-radius: 0px or 2px max)
+ * - Pure white / light gray surfaces (#FFFFFF, #F5F5F5)
+ * - Canvas Navy primary rail (#003366)
+ * - Clean 1px solid borders (#E0E0E0, #D0D5DD)
+ * - Utilitarian tables, tabs, and metric boxes
+ */
+
+:root {
+  --canvas-bg-root: #F5F5F5;
+  --canvas-bg-surface: #FFFFFF;
+  --canvas-bg-subtle: #F8F9FA;
+  --canvas-bg-hover: #F0F2F5;
+  --canvas-bg-active: #EBF4FA;
+  --canvas-border: #E0E0E0;
+  --canvas-border-subtle: #EAEAEA;
+  --canvas-border-strong: #D0D5DD;
+  --canvas-text-primary: #2D3B45;
+  --canvas-text-secondary: #555555;
+  --canvas-text-muted: #888888;
+  --canvas-input-bg: #FFFFFF;
+  --canvas-input-border: #D0D5DD;
+}
+
+[data-theme="dark"] {
+  --canvas-bg-root: #0F172A;
+  --canvas-bg-surface: #1E293B;
+  --canvas-bg-subtle: #172033;
+  --canvas-bg-hover: #26354A;
+  --canvas-bg-active: #1E3A5F;
+  --canvas-border: #334155;
+  --canvas-border-subtle: #243044;
+  --canvas-border-strong: #475569;
+  --canvas-text-primary: #F8FAFC;
+  --canvas-text-secondary: #CBD5E1;
+  --canvas-text-muted: #94A3B8;
+  --canvas-input-bg: #0F172A;
+  --canvas-input-border: #334155;
+}
+
+.canvas-root {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  color: var(--canvas-text-primary);
+  background-color: var(--canvas-bg-root);
+  min-height: 100vh;
+}
+
+/* Primary Left Rail (86px Canvas Blue) */
+.canvas-primary-rail {
+  width: 86px;
+  min-width: 86px;
+  background-color: #0055A5;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0;
+  z-index: 50;
+  border-right: 1px solid #004382;
+}
+
+.canvas-rail-tab {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 6px 10px 6px;
+  color: #FFFFFF;
+  text-decoration: none;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+  position: relative;
+  font-size: 12px;
+  line-height: 1.25;
+  text-align: center;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  word-break: break-word;
+}
+
+.canvas-rail-tab:hover {
+  background-color: rgba(0, 0, 0, 0.18);
+}
+
+.canvas-rail-tab.active {
+  background-color: #FFFFFF !important;
+  color: #0055A5 !important;
+  font-weight: 700;
+  border-radius: 0px !important;
+}
+
+.canvas-rail-tab.active svg {
+  color: #0055A5 !important;
+  stroke: #0055A5 !important;
+}
+
+.canvas-rail-tab span {
+  display: block;
+  max-width: 100%;
+}
+
+.canvas-rail-tab.active span {
+  color: #0055A5 !important;
+  font-weight: 700;
+}
+
+.canvas-rail-tab .rail-icon {
+  margin-bottom: 5px;
+}
+
+/* Canvas Flyout Child Sidebar / Drawer (Slide-out) */
+.canvas-child-sidebar {
+  width: 310px;
+  min-width: 310px;
+  background-color: #FFFFFF;
+  border-right: 1px solid #D8D8D8;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  z-index: 40;
+  box-shadow: 3px 0 8px rgba(0, 0, 0, 0.06);
+}
+
+.canvas-child-sidebar-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid #E0E0E0;
+  background-color: #FFFFFF;
+}
+
+.canvas-child-sidebar-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #C82333; /* Canvas Red */
+  letter-spacing: 0.02em;
+  margin: 0;
+}
+
+.canvas-child-list {
+  list-style: none;
+  margin: 0;
+  padding: 6px 0;
+  overflow-y: auto;
+}
+
+.canvas-child-item {
+  display: flex;
+  flex-direction: column;
+  padding: 12px 20px;
+  color: #2D3B45;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border-bottom: 1px solid #F0F0F0;
+}
+
+.canvas-child-item:hover {
+  background-color: #F5F5F5;
+}
+
+.canvas-child-item.active {
+  background-color: #EBF4FA;
+  font-weight: 600;
+}
+
+/* Canvas Top Bar Header (Slim Blue Strip #0055A5) */
+.canvas-top-bar {
+  height: 44px;
+  min-height: 44px;
+  background-color: #0055A5;
+  border-bottom: 1px solid #004382;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  color: #FFFFFF;
+  z-index: 45;
+}
+
+.canvas-breadcrumbs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.92rem;
+  color: #FFFFFF;
+}
+
+.canvas-breadcrumbs a {
+  color: #FFFFFF;
+  text-decoration: none;
+  opacity: 0.9;
+}
+
+.canvas-breadcrumbs a:hover {
+  text-decoration: underline;
+  opacity: 1;
+}
+
+.canvas-breadcrumbs .separator {
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.canvas-breadcrumbs .current {
+  color: #FFFFFF;
+  font-weight: 600;
+}
+
+/* Canvas Buttons & Controls (Strictly Square: border-radius: 0px or 2px) */
+.canvas-btn {
+  border-radius: 2px !important;
+  border: 1px solid #D0D5DD;
+  background-color: #FFFFFF;
+  color: #2D3B45;
+  padding: 8px 16px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  box-shadow: none !important;
+}
+
+.canvas-btn:hover {
+  background-color: #F3F4F6;
+  border-color: #9CA3AF;
+}
+
+.canvas-btn-primary {
+  background-color: #003366 !important;
+  color: #FFFFFF !important;
+  border-color: #002244 !important;
+}
+
+.canvas-btn-primary:hover {
+  background-color: #002244 !important;
+}
+
+.canvas-btn-accent {
+  background-color: #D9381E !important;
+  color: #FFFFFF !important;
+  border-color: #B92B15 !important;
+}
+
+.canvas-btn-accent:hover {
+  background-color: #B92B15 !important;
+}
+
+/* Canvas Cards (Square, no drop shadow, clean border) */
+.canvas-card {
+  border-radius: 2px !important;
+  border: 1px solid #E0E0E0 !important;
+  background-color: #FFFFFF !important;
+  padding: 20px;
+  box-shadow: none !important;
+}
+
+.canvas-card-header {
+  border-bottom: 1px solid #E0E0E0;
+  padding-bottom: 12px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* Canvas Metric Boxes */
+.canvas-metric-box {
+  border-radius: 2px !important;
+  border: 1px solid #E0E0E0;
+  background-color: #FFFFFF;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.canvas-metric-box.alert-due {
+  border-top: 3px solid #D9381E;
+}
+
+.canvas-metric-box.alert-missing {
+  border-top: 3px solid #E67E22;
+}
+
+.canvas-metric-box.alert-submitted {
+  border-top: 3px solid #058728;
+}
+
+.canvas-metric-box.alert-score {
+  border-top: 3px solid #005699;
+}
+
+/* Canvas Table */
+.canvas-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.canvas-table th {
+  background-color: #F8F9FA;
+  border-bottom: 2px solid #E0E0E0;
+  padding: 10px 14px;
+  text-align: left;
+  font-weight: 700;
+  color: #2D3B45;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.canvas-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid #EAEAEA;
+  color: #333333;
+}
+
+.canvas-table tr:hover td {
+  background-color: #F9FAFB;
+}
+
+/* Canvas Badges (Square: border-radius: 2px) */
+.canvas-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 2px !important;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.canvas-badge-open {
+  background-color: #EBF8FF;
+  color: #005699;
+  border: 1px solid #BEE3F8;
+}
+
+.canvas-badge-progress {
+  background-color: #FFFDF0;
+  color: #B7791F;
+  border: 1px solid #FEEBC8;
+}
+
+.canvas-badge-resolved {
+  background-color: #F0FFF4;
+  color: #22543D;
+  border: 1px solid #C6F6D5;
+}
+
+.canvas-badge-closed {
+  background-color: #F7FAFC;
+  color: #4A5568;
+  border: 1px solid #E2E8F0;
+}
+
+/* Canvas Form Controls */
+.canvas-input {
+  background-color: var(--canvas-input-bg);
+  border: 1px solid var(--canvas-input-border);
+  color: var(--canvas-text-primary);
+  border-radius: 2px;
+  padding: 8px 12px;
+  font-size: 0.875rem;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.canvas-input:focus {
+  border-color: #0055A5;
+}
+
+/* Canvas Account View Sub Navigation & Typography */
+.account-sub-nav {
+  width: 215px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--canvas-bg-surface);
+  border-right: 1px solid var(--canvas-border);
+  min-height: calc(100vh - 54px);
+  padding-top: 16px;
+}
+
+.account-sub-nav-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  padding: 11px 16px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #0055A5;
+  background-color: transparent;
+  border: none;
+  border-left: 3px solid transparent;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.account-sub-nav-btn:hover {
+  background-color: var(--canvas-bg-hover);
+  color: #003870;
+}
+
+.account-sub-nav-btn.active {
+  font-weight: 700;
+  color: var(--canvas-text-primary);
+  background-color: var(--canvas-bg-hover);
+  border-left-color: #0055A5;
+}
+
+.account-label {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--canvas-text-primary);
+}
+
+.account-subtext {
+  font-size: 0.825rem;
+  color: var(--canvas-text-secondary);
+}
+
+.account-divider {
+  border-bottom: 1px solid var(--canvas-border-subtle);
+  padding-bottom: 22px;
+}
+
+.account-card-header {
+  border-bottom: 1px solid var(--canvas-border-subtle);
+  margin-bottom: 20px;
+  padding-bottom: 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.account-card-title {
+  font-size: 1.15rem;
+  margin: 0;
+  color: #0055A5;
+  font-weight: 700;
+}
+
+.account-item-box {
+  background-color: var(--canvas-bg-subtle);
+  border: 1px solid var(--canvas-border);
+  color: var(--canvas-text-primary);
+}
+
+/* =========================================================================
+   CANVAS LMS DARK MODE OVERRIDES
+   ========================================================================= */
+[data-theme="dark"] .canvas-card {
+  background-color: var(--canvas-bg-surface) !important;
+  border-color: var(--canvas-border) !important;
+  color: var(--canvas-text-primary);
+}
+
+[data-theme="dark"] .canvas-card-header {
+  border-bottom-color: var(--canvas-border-subtle);
+}
+
+[data-theme="dark"] .canvas-child-sidebar {
+  background-color: var(--canvas-bg-surface);
+  border-right-color: var(--canvas-border);
+}
+
+[data-theme="dark"] .canvas-child-sidebar-header {
+  background-color: var(--canvas-bg-surface);
+  border-bottom-color: var(--canvas-border);
+}
+
+[data-theme="dark"] .canvas-child-item {
+  color: var(--canvas-text-primary);
+  border-bottom-color: var(--canvas-border-subtle);
+}
+
+[data-theme="dark"] .canvas-child-item:hover {
+  background-color: var(--canvas-bg-hover);
+}
+
+[data-theme="dark"] .canvas-child-item.active {
+  background-color: var(--canvas-bg-active);
+  color: #38BDF8;
+}
+
+[data-theme="dark"] .canvas-metric-box {
+  background-color: var(--canvas-bg-surface);
+  border-color: var(--canvas-border);
+  color: var(--canvas-text-primary);
+}
+
+[data-theme="dark"] .canvas-btn {
+  background-color: var(--canvas-bg-surface);
+  border-color: var(--canvas-border-strong);
+  color: var(--canvas-text-primary);
+}
+
+[data-theme="dark"] .canvas-btn:hover {
+  background-color: var(--canvas-bg-hover);
+  border-color: var(--canvas-border);
+}
+
+[data-theme="dark"] .canvas-table th {
+  background-color: var(--canvas-bg-subtle);
+  border-bottom-color: var(--canvas-border);
+  color: var(--canvas-text-primary);
+}
+
+[data-theme="dark"] .canvas-table td {
+  border-bottom-color: var(--canvas-border-subtle);
+  color: var(--canvas-text-secondary);
+}
+
+[data-theme="dark"] .canvas-table tr:hover td {
+  background-color: var(--canvas-bg-hover);
+}
+
+[data-theme="dark"] .canvas-rail-tab.active {
+  background-color: #1E293B !important;
+  color: #38BDF8 !important;
+}
+
+[data-theme="dark"] .canvas-rail-tab.active svg {
+  color: #38BDF8 !important;
+  stroke: #38BDF8 !important;
+}
+
+[data-theme="dark"] .canvas-rail-tab.active span {
+  color: #38BDF8 !important;
+}
+
+[data-theme="dark"] .canvas-badge-open {
+  background-color: rgba(56, 189, 248, 0.15);
+  color: #38BDF8;
+  border-color: rgba(56, 189, 248, 0.3);
+}
+
+[data-theme="dark"] .canvas-badge-progress {
+  background-color: rgba(245, 158, 11, 0.15);
+  color: #FBBF24;
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+[data-theme="dark"] .canvas-badge-resolved {
+  background-color: rgba(16, 185, 129, 0.15);
+  color: #34D399;
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+[data-theme="dark"] .canvas-badge-closed {
+  background-color: rgba(148, 163, 184, 0.15);
+  color: #CBD5E1;
+  border-color: rgba(148, 163, 184, 0.3);
+}
+
+[data-theme="dark"] .account-sub-nav-btn {
+  color: #94A3B8;
+}
+
+[data-theme="dark"] .account-sub-nav-btn:hover {
+  background-color: var(--canvas-bg-hover);
+  color: #38BDF8;
+}
+
+[data-theme="dark"] .account-sub-nav-btn.active {
+  color: #F8FAFC !important;
+  background-color: var(--canvas-bg-hover) !important;
+  border-left-color: #38BDF8 !important;
+}
+
+[data-theme="dark"] .account-card-title {
+  color: #38BDF8;
+}

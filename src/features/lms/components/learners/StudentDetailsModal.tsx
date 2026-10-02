@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { X, ArrowRightLeft, UserCheck } from 'lucide-react';
 import type { AdminUserItem } from '../../../../core/services/AdminService';
 import { Badge } from '../../../../components/common/Badge';
@@ -18,16 +19,16 @@ export const StudentDetailsModal: React.FC<StudentDetailsModalProps> = ({
 }) => {
   if (!learner) return null;
 
-  return (
+  return createPortal(
     <div
       style={{
         position: 'fixed',
         inset: 0,
-        zIndex: 1000,
+        zIndex: 9999,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'rgba(0, 0, 0, 0.7)',
+        background: 'rgba(0, 0, 0, 0.75)',
         backdropFilter: 'blur(8px)',
         padding: '16px',
       }}
@@ -165,6 +166,7 @@ export const StudentDetailsModal: React.FC<StudentDetailsModalProps> = ({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

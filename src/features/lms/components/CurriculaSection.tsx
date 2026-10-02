@@ -134,6 +134,7 @@ export const CurriculaSection: React.FC<CurriculaSectionProps> = ({
         courses={courses}
         curricula={curricula}
         isSystemAdmin={isSystemAdmin}
+        isTrainingAdmin={isTrainingAdmin}
         onBack={() => setSelectedCurriculumId(null)}
         onSelectCourse={(course) => setSelectedCourseId(course.id)}
         onRefresh={triggerRefresh}
@@ -143,7 +144,8 @@ export const CurriculaSection: React.FC<CurriculaSectionProps> = ({
 
   // LEVEL 1: Curricula Overview & List
   return (
-    <div className="glass-panel" style={{ borderRadius: 'var(--radius-2xl)', overflow: 'hidden' }}>
+    <>
+      <div className="glass-panel" style={{ borderRadius: 'var(--radius-2xl)', overflow: 'hidden' }}>
       <div
         style={{
           padding: '18px 24px',
@@ -328,11 +330,7 @@ export const CurriculaSection: React.FC<CurriculaSectionProps> = ({
                               <Trash2 size={13} />
                             </button>
                           </>
-                        ) : (
-                          <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>
-                            {curr.is_published ? 'Published' : 'Draft'}
-                          </span>
-                        )}
+                        ) : null}
                       </div>
                     </td>
                   </tr>
@@ -342,6 +340,7 @@ export const CurriculaSection: React.FC<CurriculaSectionProps> = ({
           </table>
         </div>
       )}
+      </div>
 
       <CurriculumModal
         isOpen={isCurriculumModalOpen}
@@ -356,6 +355,6 @@ export const CurriculaSection: React.FC<CurriculaSectionProps> = ({
           triggerRefresh();
         }}
       />
-    </div>
+    </>
   );
 };

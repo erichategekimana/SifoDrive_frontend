@@ -15,7 +15,7 @@ import { Spinner } from '../../components/common/Spinner';
 
 export const AgentDashboard: React.FC = () => {
   const { user } = useAuth();
-  const { language } = useTranslation();
+  const { t } = useTranslation();
 
   const [stats, setStats] = useState<AgentKioskStatsDTO | null>(null);
   const [commissions, setCommissions] = useState<AgentCommissionDTO[]>([]);
@@ -63,11 +63,7 @@ export const AgentDashboard: React.FC = () => {
         last_name: lastName,
         national_id: nationalId,
       });
-      alert(
-        language === 'rw'
-          ? `Umunyeshuri ${firstName} ${lastName} yanditswe neza muri Sifo Drive!`
-          : `Client ${firstName} ${lastName} enrolled successfully!`
-      );
+      alert(t('dashboard.agent.onboardSuccess', { first: firstName, last: lastName }));
       setShowOnboardModal(false);
       setClientPhone('');
       setFirstName('');
@@ -91,11 +87,7 @@ export const AgentDashboard: React.FC = () => {
         client_phone: facClientPhone,
         service_type: selectedService,
       });
-      alert(
-        language === 'rw'
-          ? 'Serivisi yahawe umukiriya neza! Komisiyo yashyizwe kuri konti yawe.'
-          : 'Service facilitated! Commission accrued to your ledger.'
-      );
+      alert(t('dashboard.agent.facilitateSuccess'));
       setShowFacilitateModal(false);
       setFacClientPhone('');
       // Reload
@@ -109,7 +101,7 @@ export const AgentDashboard: React.FC = () => {
   };
 
   if (isLoading) {
-    return <Spinner message={language === 'rw' ? 'Birimo gufunguka...' : 'Loading Agent Kiosk Portal...'} />;
+    return <Spinner message={t('dashboard.agent.loadingConsole')} />;
   }
 
   return (
@@ -147,12 +139,13 @@ export const AgentDashboard: React.FC = () => {
             </span>
           </div>
           <h1 style={{ fontSize: '1.75rem', fontWeight: 800, margin: '4px 0' }}>
-            {user?.fullName} — {language === 'rw' ? 'Umuhagarikizi wa Sifo Drive' : 'Field & Kiosk Agent'}
+            {user?.fullName} — {t('dashboard.agent.agentTitle')}
           </h1>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', margin: 0 }}>
-            {language === 'rw'
-              ? `Abakiriya banditswe: ${stats?.total_clients_onboarded || 0} • Payout y'ukwezi isigaje iminsi: ${stats?.days_to_payout || 8}`
-              : `Total Clients Onboarded: ${stats?.total_clients_onboarded || 0} • Next 30-Day Payout in: ${stats?.days_to_payout || 8} days`}
+            {t('dashboard.agent.agentSubtitle', {
+              onboarded: stats?.total_clients_onboarded || 0,
+              days: stats?.days_to_payout || 8,
+            })}
           </p>
         </div>
 
@@ -161,10 +154,10 @@ export const AgentDashboard: React.FC = () => {
           <button
             onClick={() => setShowOnboardModal(true)}
             className="btn btn-primary btn-md"
-            style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#003366', borderColor: '#003366' }}
+            style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#0055A5', borderColor: '#0055A5' }}
           >
             <UserPlus size={18} />
-            <span>{language === 'rw' ? 'Andika Umukiriya (Onboard)' : 'Onboard Client'}</span>
+            <span>{t('dashboard.agent.onboardClientBtn')}</span>
           </button>
           <button
             onClick={() => setShowFacilitateModal(true)}
@@ -172,7 +165,7 @@ export const AgentDashboard: React.FC = () => {
             style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#058728', borderColor: '#058728' }}
           >
             <Sparkles size={18} />
-            <span>{language === 'rw' ? 'Tanga Serivisi (Facilitate)' : 'Facilitate Service'}</span>
+            <span>{t('dashboard.agent.facilitateServiceBtn')}</span>
           </button>
         </div>
       </div>
@@ -188,7 +181,7 @@ export const AgentDashboard: React.FC = () => {
           }}
         >
           <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-            {language === 'rw' ? 'Komisiyo Itegerejwe (Accrued RWF)' : 'Accrued Unpaid Commission'}
+            {t('dashboard.agent.accruedCommission')}
           </div>
           <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#058728', marginTop: '4px' }}>
             {(stats?.pending_balance_rwf || 0).toLocaleString()} RWF
@@ -204,7 +197,7 @@ export const AgentDashboard: React.FC = () => {
           }}
         >
           <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-            {language === 'rw' ? 'Iyimuriwe Kuri MoMo (Paid Out)' : 'Total Settled All-Time'}
+            {t('dashboard.agent.settledCommission')}
           </div>
           <div style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-primary)', marginTop: '4px' }}>
             {(stats?.total_paid_out_rwf || 0).toLocaleString()} RWF
@@ -220,7 +213,7 @@ export const AgentDashboard: React.FC = () => {
           }}
         >
           <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-            {language === 'rw' ? 'Ibarura ry\'Abakiriya Banditswe' : 'Clients Onboarded'}
+            {t('dashboard.agent.clientsOnboardedCount')}
           </div>
           <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#0374b5', marginTop: '4px' }}>
             {stats?.total_clients_onboarded || 0}
@@ -236,10 +229,10 @@ export const AgentDashboard: React.FC = () => {
           }}
         >
           <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-            {language === 'rw' ? 'Iminsi Isigaye Payout Ibashe Kugeraho' : 'Next 30-Day Payout Cycle'}
+            {t('dashboard.agent.daysToPayoutLabel')}
           </div>
           <div style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-primary)', marginTop: '4px' }}>
-            {stats?.days_to_payout || 8} {language === 'rw' ? 'iminsi' : 'days'}
+            {stats?.days_to_payout || 8} {t('dashboard.agent.daysUnit')}
           </div>
         </div>
       </div>
@@ -257,7 +250,7 @@ export const AgentDashboard: React.FC = () => {
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <Banknote size={20} color="#058728" />
             <h3 style={{ fontSize: '1.2rem', fontWeight: 700, margin: 0 }}>
-              {language === 'rw' ? 'Igitabo cy\'Ubwishyu bwa Komisiyo (Commission Ledger)' : 'Commission Ledger & History'}
+              {t('dashboard.agent.ledgerTitle')}
             </h3>
           </div>
         </div>
@@ -266,11 +259,11 @@ export const AgentDashboard: React.FC = () => {
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.88rem' }}>
             <thead>
               <tr style={{ borderBottom: '2px solid var(--border-subtle)', color: 'var(--text-secondary)' }}>
-                <th style={{ padding: '12px 14px' }}>{language === 'rw' ? 'Umukiriya' : 'Client Phone'}</th>
-                <th style={{ padding: '12px 14px' }}>{language === 'rw' ? 'Serivisi' : 'Service Facilitated'}</th>
-                <th style={{ padding: '12px 14px' }}>{language === 'rw' ? 'Komisiyo (RWF)' : 'Commission Earned'}</th>
-                <th style={{ padding: '12px 14px' }}>{language === 'rw' ? 'Imiterere' : 'Settlement Status'}</th>
-                <th style={{ padding: '12px 14px' }}>{language === 'rw' ? 'Itariki' : 'Date'}</th>
+                <th style={{ padding: '12px 14px' }}>{t('dashboard.agent.colClient')}</th>
+                <th style={{ padding: '12px 14px' }}>{t('dashboard.agent.colService')}</th>
+                <th style={{ padding: '12px 14px' }}>{t('dashboard.agent.colCommission')}</th>
+                <th style={{ padding: '12px 14px' }}>{t('dashboard.agent.colStatus')}</th>
+                <th style={{ padding: '12px 14px' }}>{t('dashboard.agent.colDate')}</th>
               </tr>
             </thead>
             <tbody>
@@ -297,8 +290,8 @@ export const AgentDashboard: React.FC = () => {
                         }}
                       >
                         {c.status === 'PAID_OUT'
-                          ? language === 'rw' ? 'Yishyuwe' : 'Paid Out'
-                          : language === 'rw' ? 'Itegerejwe' : 'Accrued'}
+                          ? t('dashboard.agent.statusPaidOut')
+                          : t('dashboard.agent.statusAccrued')}
                       </span>
                     </td>
                     <td style={{ padding: '12px 14px', color: 'var(--text-secondary)' }}>
@@ -309,7 +302,7 @@ export const AgentDashboard: React.FC = () => {
               ) : (
                 <tr>
                   <td colSpan={5} style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                    {language === 'rw' ? 'Nta komisiyo irabarurwa.' : 'No commission records found.'}
+                    {t('dashboard.agent.noCommissions')}
                   </td>
                 </tr>
               )}
@@ -344,13 +337,13 @@ export const AgentDashboard: React.FC = () => {
             }}
           >
             <h3 style={{ fontSize: '1.25rem', fontWeight: 800, margin: '0 0 16px 0' }}>
-              {language === 'rw' ? 'Kwandika Umukiriya Mushya muri Kiosk' : 'Kiosk Client Onboarding'}
+              {t('dashboard.agent.onboardModalTitle')}
             </h3>
 
             <form onSubmit={handleOnboardSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div>
                 <label style={{ fontSize: '0.8rem', fontWeight: 700, display: 'block', marginBottom: '4px' }}>
-                  {language === 'rw' ? 'Nimero ya Telefone' : 'Phone Number'}
+                  {t('dashboard.agent.clientPhoneLabel')}
                 </label>
                 <input
                   type="tel"
@@ -372,7 +365,7 @@ export const AgentDashboard: React.FC = () => {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div>
                   <label style={{ fontSize: '0.8rem', fontWeight: 700, display: 'block', marginBottom: '4px' }}>
-                    {language === 'rw' ? 'Izina rya mbere' : 'First Name'}
+                    {t('dashboard.agent.firstNameLabel')}
                   </label>
                   <input
                     type="text"
@@ -391,7 +384,7 @@ export const AgentDashboard: React.FC = () => {
                 </div>
                 <div>
                   <label style={{ fontSize: '0.8rem', fontWeight: 700, display: 'block', marginBottom: '4px' }}>
-                    {language === 'rw' ? 'Izina rya kabiri' : 'Last Name'}
+                    {t('dashboard.agent.lastNameLabel')}
                   </label>
                   <input
                     type="text"
@@ -412,7 +405,7 @@ export const AgentDashboard: React.FC = () => {
 
               <div>
                 <label style={{ fontSize: '0.8rem', fontWeight: 700, display: 'block', marginBottom: '4px' }}>
-                  {language === 'rw' ? 'Indangamuntu (National ID)' : 'National ID (Indangamuntu)'}
+                  {t('dashboard.agent.nationalIdLabel')}
                 </label>
                 <input
                   type="text"
@@ -436,15 +429,15 @@ export const AgentDashboard: React.FC = () => {
                   onClick={() => setShowOnboardModal(false)}
                   className="btn btn-secondary btn-md"
                 >
-                  {language === 'rw' ? 'Reka' : 'Cancel'}
+                  {t('common.cancel')}
                 </button>
                 <button
                   type="submit"
                   disabled={isOnboarding}
                   className="btn btn-primary btn-md"
-                  style={{ background: '#003366', borderColor: '#003366' }}
+                  style={{ background: '#0055A5', borderColor: '#0055A5' }}
                 >
-                  {isOnboarding ? (language === 'rw' ? 'Birimo kwandikwa...' : 'Registering...') : (language === 'rw' ? 'Andika Umukiriya' : 'Enroll Client')}
+                  {isOnboarding ? t('dashboard.agent.registering') : t('dashboard.agent.enrollClient')}
                 </button>
               </div>
             </form>
@@ -478,13 +471,13 @@ export const AgentDashboard: React.FC = () => {
             }}
           >
             <h3 style={{ fontSize: '1.25rem', fontWeight: 800, margin: '0 0 16px 0' }}>
-              {language === 'rw' ? 'Gufasha Umukiriya Kubona Serivisi' : 'Facilitate Client Service'}
+              {t('dashboard.agent.facilitateModalTitle')}
             </h3>
 
             <form onSubmit={handleFacilitateSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div>
                 <label style={{ fontSize: '0.8rem', fontWeight: 700, display: 'block', marginBottom: '4px' }}>
-                  {language === 'rw' ? 'Ubwoko bwa Serivisi' : 'Select Service'}
+                  {t('dashboard.agent.selectServiceLabel')}
                 </label>
                 <select
                   value={selectedService}
@@ -498,15 +491,15 @@ export const AgentDashboard: React.FC = () => {
                     color: 'var(--text-primary)',
                   }}
                 >
-                  <option value="BOOKING">{language === 'rw' ? 'Kwiyandikisha ku kizamini cya Polisi (Irembo)' : 'Driving Test Booking Concierge'}</option>
-                  <option value="SUBSCRIPTION">{language === 'rw' ? "Kwishyura Ishuri ry'Ukwezi (Tuition)" : 'Full Course Subscription'}</option>
-                  <option value="EXAM_PURCHASE">{language === 'rw' ? "Kugura Ikizamini cy'Igerageza (Single Mock)" : 'Single Mock Exam Purchase'}</option>
+                  <option value="BOOKING">{t('dashboard.agent.serviceBooking')}</option>
+                  <option value="SUBSCRIPTION">{t('dashboard.agent.serviceSubscription')}</option>
+                  <option value="EXAM_PURCHASE">{t('dashboard.agent.serviceExamPurchase')}</option>
                 </select>
               </div>
 
               <div>
                 <label style={{ fontSize: '0.8rem', fontWeight: 700, display: 'block', marginBottom: '4px' }}>
-                  {language === 'rw' ? 'Telefone y\'Umukiriya' : 'Client Phone Number'}
+                  {t('dashboard.agent.clientPhoneLabel')}
                 </label>
                 <input
                   type="tel"
@@ -531,7 +524,7 @@ export const AgentDashboard: React.FC = () => {
                   onClick={() => setShowFacilitateModal(false)}
                   className="btn btn-secondary btn-md"
                 >
-                  {language === 'rw' ? 'Reka' : 'Cancel'}
+                  {t('common.cancel')}
                 </button>
                 <button
                   type="submit"
@@ -539,7 +532,7 @@ export const AgentDashboard: React.FC = () => {
                   className="btn btn-primary btn-md"
                   style={{ background: '#058728', borderColor: '#058728' }}
                 >
-                  {isFacilitating ? (language === 'rw' ? 'Birimo gutangwa...' : 'Processing...') : (language === 'rw' ? 'Emeza Serivisi' : 'Confirm & Earn Commission')}
+                  {isFacilitating ? t('dashboard.agent.processing') : t('dashboard.agent.confirmFacilitate')}
                 </button>
               </div>
             </form>

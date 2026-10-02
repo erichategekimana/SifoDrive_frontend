@@ -13,7 +13,7 @@ import {
 import { Spinner } from '../../components/common/Spinner';
 
 export const EnterpriseDashboard: React.FC = () => {
-  const { language } = useTranslation();
+  const { t } = useTranslation();
 
   const [stats, setStats] = useState<EnterpriseStatsDTO | null>(null);
   const [students, setStudents] = useState<EnterpriseStudentDTO[]>([]);
@@ -59,11 +59,7 @@ export const EnterpriseDashboard: React.FC = () => {
       });
 
       const res = await EnterpriseService.getInstance().bulkEnrollStudents(parsedStudents);
-      alert(
-        language === 'rw'
-          ? `Guhuza byarangiye: abanyeshuri ${res.created_count} banditswe neza!`
-          : `Batch complete: ${res.created_count} students registered successfully!`
-      );
+      alert(t('dashboard.enterprise.batchSuccess', { count: res.created_count }));
       setShowBulkModal(false);
       setBulkCsvText('');
       // Reload students
@@ -77,7 +73,7 @@ export const EnterpriseDashboard: React.FC = () => {
   };
 
   if (isLoading) {
-    return <Spinner message={language === 'rw' ? 'Birimo gufunguka...' : 'Loading Driving School Hub...'} />;
+    return <Spinner message={t('dashboard.enterprise.loadingHub')} />;
   }
 
   const quota = stats?.concurrent_station_quota || 20;
@@ -103,7 +99,7 @@ export const EnterpriseDashboard: React.FC = () => {
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
             <span
               style={{
-                background: '#003366',
+                background: '#0055A5',
                 color: '#ffffff',
                 padding: '4px 10px',
                 borderRadius: 'var(--radius-full)',
@@ -118,12 +114,10 @@ export const EnterpriseDashboard: React.FC = () => {
             </span>
           </div>
           <h1 style={{ fontSize: '1.75rem', fontWeight: 800, margin: '4px 0' }}>
-            {stats?.school_name || 'Driving School Hub'}
+            {stats?.school_name || t('dashboard.enterprise.badge')}
           </h1>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', margin: 0 }}>
-            {language === 'rw'
-              ? `Ibyumba by'Ibizamini: Imyanya ${quota} iremewe • Abanyeshuri banditswe: ${stats?.total_students || 0}`
-              : `Computer Lab Quota: ${quota} Concurrent Seats • Registered Candidates: ${stats?.total_students || 0}`}
+            {t('dashboard.enterprise.labQuota', { quota, total: stats?.total_students || 0 })}
           </p>
         </div>
 
@@ -131,10 +125,10 @@ export const EnterpriseDashboard: React.FC = () => {
         <button
           onClick={() => setShowBulkModal(true)}
           className="btn btn-primary btn-md"
-          style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#003366', borderColor: '#003366' }}
+          style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#0055A5', borderColor: '#0055A5' }}
         >
           <PlusCircle size={18} />
-          <span>{language === 'rw' ? 'Iyandikishe Abanyeshuri Benshi (Bulk)' : 'Batch Student Intake'}</span>
+          <span>{t('dashboard.enterprise.batchIntake')}</span>
         </button>
       </div>
 
@@ -149,10 +143,10 @@ export const EnterpriseDashboard: React.FC = () => {
           }}
         >
           <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-            {language === 'rw' ? 'Imyanya ya Lab Irekewe (Quota)' : 'Concurrent Station Quota'}
+            {t('dashboard.enterprise.labQuota', { quota: '', total: '' }).split('•')[0].trim()}
           </div>
           <div style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-primary)', marginTop: '4px' }}>
-            {quota} {language === 'rw' ? 'Imyanya' : 'Stations'}
+            {quota}
           </div>
         </div>
 
@@ -165,7 +159,7 @@ export const EnterpriseDashboard: React.FC = () => {
           }}
         >
           <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-            {language === 'rw' ? 'Ibizamini Birimo Gukorwa (Active)' : 'Active Lab Exam Sessions'}
+            {t('dashboard.enterprise.activeStations')}
           </div>
           <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#0374b5', marginTop: '4px' }}>
             {activeSeats} / {quota}
@@ -181,10 +175,10 @@ export const EnterpriseDashboard: React.FC = () => {
           }}
         >
           <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-            {language === 'rw' ? 'Imyanya Isigaye (Available)' : 'Available Workstations'}
+            {t('dashboard.enterprise.availableSeats')}
           </div>
           <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#058728', marginTop: '4px' }}>
-            {Math.max(0, quota - activeSeats)} {language === 'rw' ? 'Isigaye' : 'Free'}
+            {Math.max(0, quota - activeSeats)}
           </div>
         </div>
 
@@ -197,7 +191,7 @@ export const EnterpriseDashboard: React.FC = () => {
           }}
         >
           <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-            {language === 'rw' ? 'Ijanisha ry\'Imyanya Ikoreshwa' : 'Lab Seat Utilization'}
+            {t('dashboard.enterprise.passRateTitle')}
           </div>
           <div style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-primary)', marginTop: '4px' }}>
             {stats?.utilization_percentage || 70}%
@@ -216,13 +210,13 @@ export const EnterpriseDashboard: React.FC = () => {
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Monitor size={20} color="#003366" />
+            <Monitor size={20} color="#0055A5" />
             <h3 style={{ fontSize: '1.2rem', fontWeight: 700, margin: 0 }}>
-              {language === 'rw' ? "Ibyicaro by'Ibizamini muri Lab (Workstations)" : "Lab Hardware Workstations Monitor"}
+              {t('dashboard.enterprise.stationLiveGrid')}
             </h3>
           </div>
           <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-            🟢 {activeSeats} {language === 'rw' ? 'Birakoreshwa' : 'Active'} • ⚪ {quota - activeSeats} {language === 'rw' ? 'Birategereje' : 'Idle'}
+            🟢 {activeSeats} {t('dashboard.enterprise.inExam')} • ⚪ {quota - activeSeats} {t('dashboard.enterprise.idle')}
           </span>
         </div>
 
@@ -249,7 +243,7 @@ export const EnterpriseDashboard: React.FC = () => {
               >
                 <Monitor size={22} color={isOccupied ? '#0374b5' : 'var(--text-muted)'} style={{ margin: '0 auto 6px auto' }} />
                 <div style={{ fontSize: '0.82rem', fontWeight: 700 }}>
-                  Station {String(idx + 1).padStart(2, '0')}
+                  {t('dashboard.enterprise.stationNumber', { num: String(idx + 1).padStart(2, '0') })}
                 </div>
                 <div
                   style={{
@@ -259,7 +253,7 @@ export const EnterpriseDashboard: React.FC = () => {
                     color: isOccupied ? '#0374b5' : 'var(--text-muted)',
                   }}
                 >
-                  {isOccupied ? (language === 'rw' ? 'Kuri Ikizamini' : 'In Exam') : (language === 'rw' ? 'Kiteguye' : 'Idle')}
+                  {isOccupied ? t('dashboard.enterprise.inExam') : t('dashboard.enterprise.idle')}
                 </div>
               </div>
             );
@@ -277,16 +271,16 @@ export const EnterpriseDashboard: React.FC = () => {
         }}
       >
         <h3 style={{ fontSize: '1.2rem', fontWeight: 700, margin: '0 0 16px 0' }}>
-          {language === 'rw' ? "Abanyeshuri Banditswe mu Ishuri" : "Enrolled School Candidates"}
+          {t('dashboard.enterprise.candidateDirectory')}
         </h3>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.88rem' }}>
             <thead>
               <tr style={{ borderBottom: '2px solid var(--border-subtle)', color: 'var(--text-secondary)' }}>
-                <th style={{ padding: '12px 14px' }}>{language === 'rw' ? 'Amazina' : 'Candidate Name'}</th>
-                <th style={{ padding: '12px 14px' }}>{language === 'rw' ? 'Nimero ya Sifo' : 'Student ID'}</th>
-                <th style={{ padding: '12px 14px' }}>{language === 'rw' ? 'Telefone' : 'Phone'}</th>
-                <th style={{ padding: '12px 14px' }}>{language === 'rw' ? 'Imiterere' : 'Status'}</th>
+                <th style={{ padding: '12px 14px' }}>{t('dashboard.tutor.colStudent')}</th>
+                <th style={{ padding: '12px 14px' }}>ID</th>
+                <th style={{ padding: '12px 14px' }}>{t('dashboard.enterprise.colPhone')}</th>
+                <th style={{ padding: '12px 14px' }}>{t('dashboard.enterprise.colStatus')}</th>
               </tr>
             </thead>
             <tbody>
@@ -315,7 +309,7 @@ export const EnterpriseDashboard: React.FC = () => {
               ) : (
                 <tr>
                   <td colSpan={4} style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                    {language === 'rw' ? 'Nta banyeshuri barandikwa.' : 'No candidates registered yet.'}
+                    {t('dashboard.canvas.noResults')}
                   </td>
                 </tr>
               )}
@@ -350,12 +344,10 @@ export const EnterpriseDashboard: React.FC = () => {
             }}
           >
             <h3 style={{ fontSize: '1.25rem', fontWeight: 800, margin: '0 0 8px 0' }}>
-              {language === 'rw' ? 'Kwandika Abanyeshuri Benshi (CSV Intake)' : 'Batch Student Intake'}
+              {t('dashboard.enterprise.bulkEnrollTitle')}
             </h3>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '16px' }}>
-              {language === 'rw'
-                ? "Shyiramo umunyeshuri umwe kuri buri murongo mu buryo bukurikira: Telefone, Izina rya mbere, Izina rya kabiri, Category"
-                : "Enter one candidate per row formatted as: Phone, First Name, Last Name, Category"}
+              {t('dashboard.enterprise.bulkEnrollDesc')}
             </p>
 
             <form onSubmit={handleBulkEnrollSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -383,15 +375,15 @@ export const EnterpriseDashboard: React.FC = () => {
                   onClick={() => setShowBulkModal(false)}
                   className="btn btn-secondary btn-md"
                 >
-                  {language === 'rw' ? 'Reka' : 'Cancel'}
+                  {t('dashboard.guest.cancel')}
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
                   className="btn btn-primary btn-md"
-                  style={{ background: '#003366', borderColor: '#003366' }}
+                  style={{ background: '#0055A5', borderColor: '#0055A5' }}
                 >
-                  {isSubmitting ? (language === 'rw' ? 'Birimo kwandikwa...' : 'Registering...') : (language === 'rw' ? 'Andika Bose' : 'Enroll Batch')}
+                  {isSubmitting ? t('dashboard.guest.sendingPrompt') : t('dashboard.enterprise.submitBatch')}
                 </button>
               </div>
             </form>

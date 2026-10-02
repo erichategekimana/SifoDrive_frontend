@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { BookOpen } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { BookOpen, Globe, Lock, Users } from 'lucide-react';
 import { AdminService } from '../../../../core/services/AdminService';
 import { useToast } from '../../../../context/ToastContext';
 import { useTranslation } from '../../../../context/I18nContext';
@@ -136,16 +137,16 @@ export const LessonModal: React.FC<LessonModalProps> = ({
     }
   };
 
-  return (
+  return createPortal(
     <div
       style={{
         position: 'fixed',
         inset: 0,
-        zIndex: 1000,
+        zIndex: 9999,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'rgba(0, 0, 0, 0.7)',
+        background: 'rgba(0, 0, 0, 0.75)',
         backdropFilter: 'blur(8px)',
         padding: '16px',
       }}
@@ -510,26 +511,118 @@ export const LessonModal: React.FC<LessonModalProps> = ({
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '20px', padding: '10px 0' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.84rem', color: '#ffffff' }}>
-              <input
-                type="checkbox"
-                checked={lesIsFreePreview}
-                onChange={(e) => setLesIsFreePreview(e.target.checked)}
-                style={{ width: '16px', height: '16px', cursor: 'pointer' }}
-              />
-              <span>{t('admin.courses.freePreviewLabel')}</span>
+          {/* Audience & Access Level Management */}
+          <div
+            style={{
+              padding: '14px',
+              borderRadius: 'var(--radius-md)',
+              background: 'rgba(255, 255, 255, 0.03)',
+              border: '1px solid var(--border-subtle)',
+            }}
+          >
+            <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '8px' }}>
+              Audience & Access Level
             </label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '10px',
+                  cursor: 'pointer',
+                  padding: '8px 10px',
+                  borderRadius: 'var(--radius-sm)',
+                  background: lesIsFreePreview ? 'rgba(16, 185, 129, 0.1)' : 'transparent',
+                  border: lesIsFreePreview ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid transparent',
+                }}
+              >
+                <input
+                  type="radio"
+                  name="lessonAccessLevel"
+                  checked={lesIsFreePreview}
+                  onChange={() => {
+                    setLesIsFreePreview(true);
+                    setLesIsStudentOnly(false);
+                  }}
+                  style={{ marginTop: '3px' }}
+                />
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', fontWeight: 600, color: '#10B981' }}>
+                    <Globe size={15} />
+                    <span>Public / Free Preview (Open to Guests & Students)</span>
+                  </div>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'block', marginTop: '2px' }}>
+                    Accessible to public visitors and guest trial accounts as introductory material.
+                  </span>
+                </div>
+              </label>
 
-            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.84rem', color: '#ffffff' }}>
-              <input
-                type="checkbox"
-                checked={lesIsStudentOnly}
-                onChange={(e) => setLesIsStudentOnly(e.target.checked)}
-                style={{ width: '16px', height: '16px', cursor: 'pointer' }}
-              />
-              <span>{t('admin.courses.studentOnlyLabel')}</span>
-            </label>
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '10px',
+                  cursor: 'pointer',
+                  padding: '8px 10px',
+                  borderRadius: 'var(--radius-sm)',
+                  background: lesIsStudentOnly ? 'rgba(245, 158, 11, 0.1)' : 'transparent',
+                  border: lesIsStudentOnly ? '1px solid rgba(245, 158, 11, 0.3)' : '1px solid transparent',
+                }}
+              >
+                <input
+                  type="radio"
+                  name="lessonAccessLevel"
+                  checked={lesIsStudentOnly}
+                  onChange={() => {
+                    setLesIsFreePreview(false);
+                    setLesIsStudentOnly(true);
+                  }}
+                  style={{ marginTop: '3px' }}
+                />
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', fontWeight: 600, color: '#F59E0B' }}>
+                    <Lock size={15} />
+                    <span>Student Only (Exclusive to Enrolled Students)</span>
+                  </div>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'block', marginTop: '2px' }}>
+                    Restricted material. Blocked from guests and requires an active student account.
+                  </span>
+                </div>
+              </label>
+
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '10px',
+                  cursor: 'pointer',
+                  padding: '8px 10px',
+                  borderRadius: 'var(--radius-sm)',
+                  background: !lesIsFreePreview && !lesIsStudentOnly ? 'rgba(56, 189, 248, 0.1)' : 'transparent',
+                  border: !lesIsFreePreview && !lesIsStudentOnly ? '1px solid rgba(56, 189, 248, 0.3)' : '1px solid transparent',
+                }}
+              >
+                <input
+                  type="radio"
+                  name="lessonAccessLevel"
+                  checked={!lesIsFreePreview && !lesIsStudentOnly}
+                  onChange={() => {
+                    setLesIsFreePreview(false);
+                    setLesIsStudentOnly(false);
+                  }}
+                  style={{ marginTop: '3px' }}
+                />
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', fontWeight: 600, color: '#38BDF8' }}>
+                    <Users size={15} />
+                    <span>Standard Material (All Authenticated Users)</span>
+                  </div>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'block', marginTop: '2px' }}>
+                    Accessible to any logged-in user on the learning platform.
+                  </span>
+                </div>
+              </label>
+            </div>
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '10px' }}>
@@ -546,6 +639,7 @@ export const LessonModal: React.FC<LessonModalProps> = ({
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

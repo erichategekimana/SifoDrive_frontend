@@ -9,9 +9,14 @@ export interface ModuleDTO {
   course: string;
   title: string;
   description: string;
-  order: number;
+  order?: number;
+  sort_order?: number;
   is_published?: boolean;
   isPublished?: boolean;
+  is_student_only?: boolean;
+  isStudentOnly?: boolean;
+  is_foundational?: boolean;
+  isFoundational?: boolean;
   lessons?: LessonDTO[];
 }
 
@@ -22,6 +27,8 @@ export class Module {
   public readonly description: string;
   public readonly order: number;
   public readonly isPublished: boolean;
+  public readonly isStudentOnly: boolean;
+  public readonly isFoundational: boolean;
   public readonly lessons: Lesson[];
 
   constructor(dto: ModuleDTO) {
@@ -29,8 +36,10 @@ export class Module {
     this.courseId = dto.course;
     this.title = dto.title;
     this.description = dto.description || '';
-    this.order = dto.order ?? 0;
+    this.order = dto.order ?? dto.sort_order ?? 0;
     this.isPublished = Boolean(dto.isPublished ?? dto.is_published ?? true);
+    this.isStudentOnly = Boolean(dto.isStudentOnly ?? dto.is_student_only ?? false);
+    this.isFoundational = Boolean(dto.isFoundational ?? dto.is_foundational ?? false);
     this.lessons = (dto.lessons || []).map((l) => new Lesson(l));
   }
 
@@ -43,3 +52,4 @@ export class Module {
     return Math.round((this.completedLessonsCount / this.lessons.length) * 100);
   }
 }
+

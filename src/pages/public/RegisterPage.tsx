@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { UserPlus, Phone, Lock, User as UserIcon, KeyRound, ArrowRight, AlertCircle } from 'lucide-react';
+import { UserPlus, Phone, Lock, User as UserIcon, KeyRound, ArrowRight, AlertCircle, RotateCcw } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { useTranslation } from '../../context/I18nContext';
@@ -10,7 +10,7 @@ import { Input } from '../../components/common/Input';
 import { AppError } from '../../core/errors/AppError';
 
 export const RegisterPage: React.FC = () => {
-  const { registerGuest, registerStudent, verifyOtp } = useAuth();
+  const { registerGuest, registerStudent, verifyOtp, requestOtp } = useAuth();
   const { success, error } = useToast();
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -27,6 +27,15 @@ export const RegisterPage: React.FC = () => {
   const [otpCode, setOtpCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [resendCooldown, setResendCooldown] = useState(0);
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = setInterval(() => {
+      setResendCooldown((prev) => prev - 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [resendCooldown]);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -97,6 +106,23 @@ export const RegisterPage: React.FC = () => {
       const user = await verifyOtp(phoneNumber, otpCode.trim(), 'REGISTRATION');
       success(`${t('dashboard.greeting')} ${user.fullName}!`);
       navigate('/dashboard');
+    } catch (err: any) {
+      const msg = err instanceof AppError ? err.getFriendlyMessage() : err.message || t('common.errorOccurred');
+      setErrorMessage(msg);
+      error(msg);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    if (resendCooldown > 0 || isLoading) return;
+    setIsLoading(true);
+    setErrorMessage(null);
+    try {
+      await requestOtp(phoneNumber, 'REGISTRATION');
+      setResendCooldown(60);
+      success(t('auth.resendSuccess') || 'A new verification code has been sent.');
     } catch (err: any) {
       const msg = err instanceof AppError ? err.getFriendlyMessage() : err.message || t('common.errorOccurred');
       setErrorMessage(msg);
@@ -312,7 +338,7 @@ export const RegisterPage: React.FC = () => {
               </Button>
             </form>
           ) : (
-            <form onSubmit={handleVerifyOtp}>
+            <form onSubmit={handleVerifyOtp} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <Input
                 label={t('auth.otpLabel')}
                 type="text"
@@ -330,10 +356,59 @@ export const RegisterPage: React.FC = () => {
                 type="submit"
                 variant="primary"
                 isLoading={isLoading}
-                style={{ width: '100%', marginTop: '12px' }}
+                style={{ width: '100%', marginTop: '4px' }}
               >
                 {t('auth.verifyAndActivate')}
               </Button>
+
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  marginTop: '8px',
+                  fontSize: '0.85rem',
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={handleResendOtp}
+                  disabled={resendCooldown > 0 || isLoading}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: resendCooldown > 0 ? 'var(--text-muted)' : 'var(--primary)',
+                    cursor: resendCooldown > 0 ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    fontWeight: 500,
+                    padding: 0,
+                  }}
+                >
+                  <RotateCcw size={14} />
+                  {resendCooldown > 0 ? `${t('auth.resendOtp')} (${resendCooldown}s)` : t('auth.resendOtp')}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStep('FORM');
+                    setOtpCode('');
+                    setErrorMessage(null);
+                  }}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--text-secondary)',
+                    cursor: 'pointer',
+                    textDecoration: 'underline',
+                    padding: 0,
+                  }}
+                >
+                  {t('auth.changePhone')}
+                </button>
+              </div>
             </form>
           )}
 

@@ -13,7 +13,7 @@ import { useTranslation } from '../../context/I18nContext';
 
 export const GuestDashboard: React.FC = () => {
   const { user } = useAuth();
-  const { language } = useTranslation();
+  const { t } = useTranslation();
 
   const [isUpgrading, setIsUpgrading] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState(user?.phoneNumber || '');
@@ -25,11 +25,7 @@ export const GuestDashboard: React.FC = () => {
     setTimeout(() => {
       setIsUpgrading(false);
       setShowUpgradeModal(false);
-      alert(
-        language === 'rw'
-          ? 'Ubutumwa bwa MoMo bwo kwemeza bwoherejwe kuri terefone yawe (+250...). Numara kwishyura konti ihita iba iy\'Umunyeshuri!'
-          : 'MoMo prompt sent to your phone! Once confirmed, your account will be immediately upgraded to Full Student.'
-      );
+      alert(t('dashboard.guest.momoSuccess'));
     }, 1500);
   };
 
@@ -62,16 +58,14 @@ export const GuestDashboard: React.FC = () => {
                 border: '1px solid rgba(234, 88, 12, 0.25)',
               }}
             >
-              {language === 'rw' ? "Umusura w'Igerageza (Guest Trial)" : "Free Trial Account"}
+              {t('dashboard.guest.trialBadge')}
             </span>
           </div>
           <h1 style={{ fontSize: '1.75rem', fontWeight: 800, margin: '6px 0' }}>
-            {language === 'rw' ? `Muraho, ${user?.fullName}!` : `Welcome, ${user?.fullName}!`}
+            {t('dashboard.guest.welcome', { name: user?.fullName || '' })}
           </h1>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', margin: 0, maxWidth: '600px' }}>
-            {language === 'rw'
-              ? "Ubu ufite uburyo bwo gusoma amasomo amwe n'ibyapa by'ubuntu. Iyandikishe nk'umunyeshuri wuzuye kugira ngo witabire amasomo ya Google Meet n'ibizamini bya Polisi."
-              : "You have free trial access to sample lessons and road signs. Upgrade to full student to attend live classes and take official mock exams."}
+            {t('dashboard.guest.welcomeSub')}
           </p>
         </div>
 
@@ -81,7 +75,7 @@ export const GuestDashboard: React.FC = () => {
           style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#058728', borderColor: '#058728' }}
         >
           <Sparkles size={18} />
-          <span>{language === 'rw' ? "Kora 'Upgrade' ku Munyeshuri Wuzuye" : "Upgrade to Full Student"}</span>
+          <span>{t('dashboard.guest.upgradeToStudent')}</span>
         </button>
       </div>
 
@@ -97,28 +91,28 @@ export const GuestDashboard: React.FC = () => {
           }}
         >
           <h3 style={{ fontSize: '1.2rem', fontWeight: 700, margin: '0 0 16px 0', color: 'var(--text-primary)' }}>
-            {language === 'rw' ? "Ibyo Ufite Ubu (Guest Trial)" : "Current Trial Features"}
+            {t('dashboard.guest.currentTrialFeatures')}
           </h3>
           <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.9rem' }}>
               <CheckCircle2 size={16} color="#058728" />
-              <span>{language === 'rw' ? "Amasomo y'ibanze y'amategeko (Sample Lessons)" : "Introductory Theory Lessons"}</span>
+              <span>{t('dashboard.guest.introLessons')}</span>
             </li>
             <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.9rem' }}>
               <CheckCircle2 size={16} color="#058728" />
-              <span>{language === 'rw' ? "Ibyapa by'ibanze by'umuhanda" : "Standard Road Signs Guide"}</span>
+              <span>{t('dashboard.guest.roadSignsGuide')}</span>
             </li>
             <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.9rem', color: 'var(--text-muted)' }}>
               <Lock size={16} />
-              <span>{language === 'rw' ? "Amasomo y'imbonankubone (Google Meet) — Ntabyo" : "Live Tutoring (No Google Meet)"}</span>
+              <span>{t('dashboard.guest.noLiveClasses')}</span>
             </li>
             <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.9rem', color: 'var(--text-muted)' }}>
               <Lock size={16} />
-              <span>{language === 'rw' ? "Nimero y'Umunyeshuri ya Sifo (SIFO-STU-YYYY-XXXX) — Ntabyo" : "Official Student ID — Locked"}</span>
+              <span>{t('dashboard.guest.noStudentId')}</span>
             </li>
             <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.9rem', color: 'var(--text-muted)' }}>
               <Lock size={16} />
-              <span>{language === 'rw' ? "Kwemererwa Ikizamini cya Polisi — Ntabyo" : "Police Exam Eligibility Certificate — Locked"}</span>
+              <span>{t('dashboard.guest.noPoliceEligibility')}</span>
             </li>
           </ul>
         </div>
@@ -146,27 +140,30 @@ export const GuestDashboard: React.FC = () => {
               fontWeight: 800,
             }}
           >
-            {language === 'rw' ? 'BYIZA CYANE (RECOMMENDED)' : 'RECOMMENDED'}
+            {t('dashboard.guest.recommended')}
           </div>
           <h3 style={{ fontSize: '1.2rem', fontWeight: 800, margin: '0 0 8px 0', color: '#003366' }}>
-            {language === 'rw' ? "Umunyeshuri Wuzuye (Full Student)" : "Full Enrolled Student"}
+            {t('dashboard.guest.fullStudent')}
           </h3>
           <div style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '16px' }}>
-            15,000 RWF <span style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-muted)' }}>/ ukwezi kose</span>
+            {t('dashboard.guest.fullStudentPrice')}{' '}
+            <span style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-muted)' }}>
+              {t('dashboard.guest.perMonth')}
+            </span>
           </div>
 
           <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.9rem' }}>
               <CheckCircle2 size={16} color="#058728" />
-              <span>{language === 'rw' ? "Amasomo ya buri munsi kuri Google Meet n'Umwarimu" : "Daily live Google Meet classes with certified instructors"}</span>
+              <span>{t('dashboard.guest.dailyLiveClasses')}</span>
             </li>
             <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.9rem' }}>
               <CheckCircle2 size={16} color="#058728" />
-              <span>{language === 'rw' ? "Ibizamini by'igerageza bitagira umupaka (Unlimited Mock Exams)" : "Unlimited realistic 20-minute mock exams"}</span>
+              <span>{t('dashboard.guest.unlimitedMockExams')}</span>
             </li>
             <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.9rem' }}>
               <CheckCircle2 size={16} color="#058728" />
-              <span>{language === 'rw' ? "Nimero y'Umunyeshuri n'Uruhushya rwo Kwiyandikisha ku Kizamini" : "Student ID & official eligibility clearance for Police Exam"}</span>
+              <span>{t('dashboard.guest.studentIdClearance')}</span>
             </li>
           </ul>
 
@@ -175,7 +172,7 @@ export const GuestDashboard: React.FC = () => {
             className="btn btn-primary btn-md"
             style={{ width: '100%', marginTop: '24px', justifyContent: 'center', background: '#003366', borderColor: '#003366' }}
           >
-            <span>{language === 'rw' ? "Ishyura Ukoresheje MoMo (15,000 RWF)" : "Pay with MTN / Airtel MoMo"}</span>
+            <span>{t('dashboard.guest.payWithMoMo')}</span>
           </button>
         </div>
       </div>
@@ -183,7 +180,7 @@ export const GuestDashboard: React.FC = () => {
       {/* Free Trial Learning Cards */}
       <div>
         <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '16px' }}>
-          {language === 'rw' ? "Amasomo y'Ubuntu Ushobora Kwigaho Ubu" : "Free Lessons Available Right Now"}
+          {t('dashboard.guest.freeLessonsTitle')}
         </h3>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
           <Link
@@ -203,14 +200,14 @@ export const GuestDashboard: React.FC = () => {
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <BookOpen size={20} color="#0374b5" />
               <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: 700 }}>
-                {language === 'rw' ? "Amategeko Rusange yo Gutwara" : "General Traffic Rules"}
+                {t('dashboard.guest.generalRulesTitle')}
               </h4>
             </div>
             <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-              {language === 'rw' ? "Iga amategeko shingiro y'umuhanda mu Rwanda." : "Learn the fundamental traffic laws and regulations in Rwanda."}
+              {t('dashboard.guest.generalRulesDesc')}
             </p>
             <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#0374b5', display: 'flex', alignItems: 'center', gap: '4px' }}>
-              {language === 'rw' ? "Fungura Isomo" : "Open Lesson"} <ArrowRight size={14} />
+              {t('dashboard.guest.openLesson')} <ArrowRight size={14} />
             </span>
           </Link>
 
@@ -231,14 +228,14 @@ export const GuestDashboard: React.FC = () => {
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <Compass size={20} color="#058728" />
               <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: 700 }}>
-                {language === 'rw' ? "Ibyapa byo Kuburira n'Iby'Umutekano" : "Danger & Warning Road Signs"}
+                {t('dashboard.guest.dangerSignsTitle')}
               </h4>
             </div>
             <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-              {language === 'rw' ? "Reba ibyapa by'umuhanda n'ibisobanuro byabyo." : "Inspect interactive road signs and safety signals."}
+              {t('dashboard.guest.dangerSignsDesc')}
             </p>
             <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#058728', display: 'flex', alignItems: 'center', gap: '4px' }}>
-              {language === 'rw' ? "Reba Ibyapa" : "Explore Signs"} <ArrowRight size={14} />
+              {t('dashboard.guest.exploreSigns')} <ArrowRight size={14} />
             </span>
           </Link>
         </div>
@@ -270,18 +267,16 @@ export const GuestDashboard: React.FC = () => {
             }}
           >
             <h3 style={{ fontSize: '1.25rem', fontWeight: 800, margin: '0 0 8px 0' }}>
-              {language === 'rw' ? "Kwemeza Kwishyura Ishuri (MoMo)" : "Confirm Tuition Payment (MoMo)"}
+              {t('dashboard.guest.confirmPaymentTitle')}
             </h3>
             <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', marginBottom: '20px' }}>
-              {language === 'rw'
-                ? "Shyiramo terefone yawe yo kwishyuriraho. Urahita wakira ubutumwa bwo kwemeza (USSD prompt) kuri telefone yawe."
-                : "Enter your mobile money number to receive the USSD prompt for 15,000 RWF."}
+              {t('dashboard.guest.confirmPaymentDesc')}
             </p>
 
             <form onSubmit={handleUpgradePayment} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div>
                 <label style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '6px', display: 'block' }}>
-                  {language === 'rw' ? "Nimero ya Telefone (MTN / Airtel)" : "Phone Number (MTN / Airtel)"}
+                  {t('dashboard.guest.phoneNumber')}
                 </label>
                 <div style={{ position: 'relative' }}>
                   <input
@@ -312,7 +307,7 @@ export const GuestDashboard: React.FC = () => {
                   fontWeight: 600,
                 }}
               >
-                {language === 'rw' ? "Amafaranga: 15,000 RWF (Amasomo yose + Google Meet)" : "Amount: 15,000 RWF (Full Access)"}
+                {t('dashboard.guest.paymentAmount')}
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '12px' }}>
@@ -321,7 +316,7 @@ export const GuestDashboard: React.FC = () => {
                   onClick={() => setShowUpgradeModal(false)}
                   className="btn btn-secondary btn-md"
                 >
-                  {language === 'rw' ? 'Reka' : 'Cancel'}
+                  {t('dashboard.guest.cancel')}
                 </button>
                 <button
                   type="submit"
@@ -329,7 +324,7 @@ export const GuestDashboard: React.FC = () => {
                   className="btn btn-primary btn-md"
                   style={{ background: '#058728', borderColor: '#058728' }}
                 >
-                  {isUpgrading ? (language === 'rw' ? 'Birimo koherezwa...' : 'Sending Prompt...') : (language === 'rw' ? 'Ohereza Kwishyura' : 'Send Payment Prompt')}
+                  {isUpgrading ? t('dashboard.guest.sendingPrompt') : t('dashboard.guest.sendPaymentPrompt')}
                 </button>
               </div>
             </form>

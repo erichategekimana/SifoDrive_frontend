@@ -18,6 +18,10 @@ export const ApiEndpoints = {
     TOKEN_BLACKLIST: `${API_BASE_URL}/auth/token/blacklist/`,
     CONSENT_TERMS: `${API_BASE_URL}/auth/consent/terms/`,
     CONSENT_PRIVACY: `${API_BASE_URL}/auth/consent/privacy-policy/`,
+    PASSWORD_CHANGE: `${API_BASE_URL}/auth/password/change/`,
+    SESSIONS: `${API_BASE_URL}/auth/sessions/`,
+    SESSIONS_TERMINATE: `${API_BASE_URL}/auth/sessions/terminate/`,
+    NOTIFICATION_PREFERENCES: `${API_BASE_URL}/notifications/preferences/`,
     ME: `${API_BASE_URL}/auth/me/`,
     STUDENT_PROFILE: `${API_BASE_URL}/auth/me/student-profile/`,
     STUDENT_ELIGIBILITY: `${API_BASE_URL}/auth/me/student-profile/eligibility/`,
@@ -74,6 +78,32 @@ export const ApiEndpoints = {
     QUIZZES: `${API_BASE_URL}/lms/quizzes/`,
     QUIZ_DETAIL: (id: string) => `${API_BASE_URL}/lms/quizzes/${id}/`,
     QUIZ_PUBLISH: (id: string) => `${API_BASE_URL}/lms/quizzes/${id}/publish/`,
+    SUPPORT_TICKETS: `${API_BASE_URL}/lms/support/tickets/`,
+    SUPPORT_TICKET_DETAIL: (id: string) => `${API_BASE_URL}/lms/support/tickets/${id}/`,
+    SUPPORT_ANNOUNCEMENTS: `${API_BASE_URL}/lms/support/announcements/`,
+
+    // Training Admin: Tutor Assignments
+    ADMIN_TUTORS: `${API_BASE_URL}/lms/admin/tutors/`,
+    ADMIN_TUTOR_CURRICULA: (tutorId: string) => `${API_BASE_URL}/lms/admin/tutors/${tutorId}/curricula/`,
+    ADMIN_TUTOR_COURSES: (tutorId: string) => `${API_BASE_URL}/lms/admin/tutors/${tutorId}/courses/`,
+
+    // Tutor LMS Studio: Cohorts & Content
+    TUTOR_COHORTS: `${API_BASE_URL}/lms/tutor/cohorts/`,
+    TUTOR_COHORT_COURSES: (cohortId: string) => `${API_BASE_URL}/lms/tutor/cohorts/${cohortId}/courses/`,
+    TUTOR_COHORT_MODULES: (cohortId: string, courseId: string) => `${API_BASE_URL}/lms/tutor/cohorts/${cohortId}/courses/${courseId}/modules/`,
+    TUTOR_COHORT_MODULE_RELEASE: (cohortId: string, moduleId: string) => `${API_BASE_URL}/lms/tutor/cohorts/${cohortId}/modules/${moduleId}/release/`,
+    TUTOR_COHORT_QUIZZES: (cohortId: string, courseId: string) => `${API_BASE_URL}/lms/tutor/cohorts/${cohortId}/courses/${courseId}/quizzes/`,
+    TUTOR_COHORT_QUIZ_SCHEDULE: (cohortId: string, quizId: string) => `${API_BASE_URL}/lms/tutor/cohorts/${cohortId}/quizzes/${quizId}/schedule/`,
+    TUTOR_COHORT_QUIZ_EXTEND: (cohortId: string, quizId: string) => `${API_BASE_URL}/lms/tutor/cohorts/${cohortId}/quizzes/${quizId}/extend/`,
+
+    // Cohort Activities & Submissions
+    TUTOR_COHORT_ACTIVITIES: (cohortId: string) => `${API_BASE_URL}/lms/tutor/cohorts/${cohortId}/activities/`,
+    TUTOR_COHORT_ACTIVITY_DETAIL: (cohortId: string, activityId: string) => `${API_BASE_URL}/lms/tutor/cohorts/${cohortId}/activities/${activityId}/`,
+    TUTOR_COHORT_ACTIVITY_SUBMISSIONS: (cohortId: string, activityId: string) => `${API_BASE_URL}/lms/tutor/cohorts/${cohortId}/activities/${activityId}/submissions/`,
+    TUTOR_COHORT_ACTIVITY_GRADE: (cohortId: string, activityId: string, submissionId: string) => `${API_BASE_URL}/lms/tutor/cohorts/${cohortId}/activities/${activityId}/submissions/${submissionId}/grade/`,
+    STUDENT_COHORT_ACTIVITIES: (cohortId?: string) =>
+      cohortId ? `${API_BASE_URL}/lms/cohorts/${cohortId}/activities/` : `${API_BASE_URL}/lms/cohorts/activities/`,
+    STUDENT_COHORT_ACTIVITY_SUBMIT: (cohortId: string, activityId: string) => `${API_BASE_URL}/lms/cohorts/${cohortId}/activities/${activityId}/submit/`,
   },
 
   // Live Classes & Google Meet Hub

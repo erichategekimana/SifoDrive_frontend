@@ -14,13 +14,18 @@ import { TutorDashboard } from '../pages/dashboard/TutorDashboard';
 import { EnterpriseDashboard } from '../pages/dashboard/EnterpriseDashboard';
 import { BoardReviewerDashboard } from '../pages/dashboard/BoardReviewerDashboard';
 import { AgentDashboard } from '../pages/dashboard/AgentDashboard';
-import { CourseListPage } from '../pages/lms/CourseListPage';
 import { LessonViewPage } from '../pages/lms/LessonViewPage';
 import { RoadSignsPage } from '../pages/lms/RoadSignsPage';
 import { LiveClassesPage } from '../pages/live-classes/LiveClassesPage';
 import { BookingWizardPage } from '../pages/booking/BookingWizardPage';
 import { MyBookingsPage } from '../pages/booking/MyBookingsPage';
-import { ProfilePage } from '../pages/profile/ProfilePage';
+import { AccountView } from '../pages/canvas/AccountView';
+
+import { CoursesView } from '../pages/canvas/CoursesView';
+import { GroupsView } from '../pages/canvas/GroupsView';
+import { CalendarView } from '../pages/canvas/CalendarView';
+import { HelpView } from '../pages/canvas/HelpView';
+
 
 // System Admin Pages & Guard
 import { SystemAdminRoute } from './SystemAdminRoute';
@@ -47,7 +52,6 @@ export const AppRoutes: React.FC = () => {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/road-signs" element={<RoadSignsPage />} />
-      <Route path="/courses" element={<CourseListPage />} />
       <Route path="/lesson/:id" element={<LessonViewPage />} />
       <Route path="/verify/certificate/:hashOrCode" element={<CertificateVerificationPage />} />
 
@@ -55,6 +59,14 @@ export const AppRoutes: React.FC = () => {
       <Route element={<ProtectedRoute />}>
         <Route element={<AppLayout />}>
           <Route path="/dashboard" element={<DashboardDispatcher />} />
+          <Route path="/account" element={<AccountView />} />
+          <Route path="/courses" element={<CoursesView />} />
+          <Route path="/courses/:id" element={<CoursesView />} />
+          <Route path="/lesson/:id" element={<LessonViewPage />} />
+          <Route path="/groups" element={<GroupsView />} />
+          <Route path="/groups/:id" element={<GroupsView />} />
+          <Route path="/calendar" element={<CalendarView />} />
+          <Route path="/help" element={<HelpView />} />
           <Route path="/tutor" element={<TutorDashboard />} />
           <Route path="/enterprise" element={<EnterpriseDashboard />} />
           <Route path="/board-reviewer" element={<BoardReviewerDashboard />} />
@@ -62,9 +74,10 @@ export const AppRoutes: React.FC = () => {
           <Route path="/live-classes" element={<LiveClassesPage />} />
           <Route path="/booking" element={<BookingWizardPage />} />
           <Route path="/booking/my-bookings" element={<MyBookingsPage />} />
-          <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/profile" element={<AccountView />} />
         </Route>
       </Route>
+
 
       {/* Exclusively Protected System Admin Routes */}
       <Route element={<SystemAdminRoute />}>

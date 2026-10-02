@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Layers } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { Layers, Globe, Lock } from 'lucide-react';
 import { AdminService } from '../../../../core/services/AdminService';
 import { useToast } from '../../../../context/ToastContext';
 import { useTranslation } from '../../../../context/I18nContext';
@@ -30,6 +31,7 @@ export const ModuleModal: React.FC<ModuleModalProps> = ({
   const [modDescription, setModDescription] = useState<string>('');
   const [modSortOrder, setModSortOrder] = useState<number>(1);
   const [modIsFoundational, setModIsFoundational] = useState<boolean>(false);
+  const [modIsStudentOnly, setModIsStudentOnly] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   useEffect(() => {
@@ -38,11 +40,13 @@ export const ModuleModal: React.FC<ModuleModalProps> = ({
       setModDescription(module.description || '');
       setModSortOrder(module.sort_order ?? 1);
       setModIsFoundational(!!module.is_foundational);
+      setModIsStudentOnly(!!module.is_student_only);
     } else {
       setModTitle('');
       setModDescription('');
       setModSortOrder(existingModulesCount + 1);
       setModIsFoundational(false);
+      setModIsStudentOnly(false);
     }
   }, [module, existingModulesCount, isOpen]);
 
@@ -62,6 +66,7 @@ export const ModuleModal: React.FC<ModuleModalProps> = ({
           description: modDescription.trim() || undefined,
           sort_order: Number(modSortOrder) || 1,
           is_foundational: modIsFoundational,
+          is_student_only: modIsStudentOnly,
         });
         success('Updated module successfully.');
       } else {
@@ -71,6 +76,7 @@ export const ModuleModal: React.FC<ModuleModalProps> = ({
           description: modDescription.trim() || undefined,
           sort_order: Number(modSortOrder) || existingModulesCount + 1,
           is_foundational: modIsFoundational,
+          is_student_only: modIsStudentOnly,
         });
         success('Created new module.');
       }
@@ -83,16 +89,16 @@ export const ModuleModal: React.FC<ModuleModalProps> = ({
     }
   };
 
-  return (
+  return createPortal(
     <div
       style={{
         position: 'fixed',
         inset: 0,
-        zIndex: 1000,
+        zIndex: 9999,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'rgba(0, 0, 0, 0.7)',
+        background: 'rgba(0, 0, 0, 0.75)',
         backdropFilter: 'blur(8px)',
         padding: '16px',
       }}
@@ -193,6 +199,81 @@ export const ModuleModal: React.FC<ModuleModalProps> = ({
             </div>
           </div>
 
+          {/* Audience & Availability Management */}
+          <div
+            style={{
+              padding: '14px',
+              borderRadius: 'var(--radius-md)',
+              background: 'rgba(255, 255, 255, 0.03)',
+              border: '1px solid var(--border-subtle)',
+            }}
+          >
+            <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '8px' }}>
+              Audience & Access Level
+            </label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '10px',
+                  cursor: 'pointer',
+                  padding: '8px 10px',
+                  borderRadius: 'var(--radius-sm)',
+                  background: !modIsStudentOnly ? 'rgba(16, 185, 129, 0.1)' : 'transparent',
+                  border: !modIsStudentOnly ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid transparent',
+                }}
+              >
+                <input
+                  type="radio"
+                  name="moduleAccessLevel"
+                  checked={!modIsStudentOnly}
+                  onChange={() => setModIsStudentOnly(false)}
+                  style={{ marginTop: '3px' }}
+                />
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', fontWeight: 600, color: '#10B981' }}>
+                    <Globe size={15} />
+                    <span>Public Material (Available to Guests & Enrolled Students)</span>
+                  </div>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'block', marginTop: '2px' }}>
+                    Open for guest trial learners and registered students alike.
+                  </span>
+                </div>
+              </label>
+
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '10px',
+                  cursor: 'pointer',
+                  padding: '8px 10px',
+                  borderRadius: 'var(--radius-sm)',
+                  background: modIsStudentOnly ? 'rgba(245, 158, 11, 0.1)' : 'transparent',
+                  border: modIsStudentOnly ? '1px solid rgba(245, 158, 11, 0.3)' : '1px solid transparent',
+                }}
+              >
+                <input
+                  type="radio"
+                  name="moduleAccessLevel"
+                  checked={modIsStudentOnly}
+                  onChange={() => setModIsStudentOnly(true)}
+                  style={{ marginTop: '3px' }}
+                />
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', fontWeight: 600, color: '#F59E0B' }}>
+                    <Lock size={15} />
+                    <span>Student Only (Exclusive to Enrolled Students)</span>
+                  </div>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'block', marginTop: '2px' }}>
+                    Restricted material. Blocked and hidden from guest trial learners.
+                  </span>
+                </div>
+              </label>
+            </div>
+          </div>
+
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '10px' }}>
             <button type="button" onClick={onClose} className="btn btn-secondary">
               {t('admin.courses.cancelBtn')}
@@ -207,6 +288,7 @@ export const ModuleModal: React.FC<ModuleModalProps> = ({
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

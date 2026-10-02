@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { GraduationCap, X } from 'lucide-react';
 import { AdminService } from '../../../../core/services/AdminService';
 import { useToast } from '../../../../context/ToastContext';
@@ -58,16 +59,16 @@ export const CreateCohortModal: React.FC<CreateCohortModalProps> = ({
     }
   };
 
-  return (
+  return createPortal(
     <div
       style={{
         position: 'fixed',
         inset: 0,
-        zIndex: 1000,
+        zIndex: 9999,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'rgba(0, 0, 0, 0.7)',
+        background: 'rgba(0, 0, 0, 0.75)',
         backdropFilter: 'blur(8px)',
         padding: '16px',
       }}
@@ -293,6 +294,7 @@ export const CreateCohortModal: React.FC<CreateCohortModalProps> = ({
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

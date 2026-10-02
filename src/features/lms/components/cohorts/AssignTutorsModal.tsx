@@ -1,5 +1,6 @@
-import React, { useState, useMemo } from 'react';
-import { X, Search, CheckSquare, Square, Check } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { createPortal } from 'react-dom';
+import { X, Search, CheckSquare, Square, Check, Users, UserCheck } from 'lucide-react';
 import { AdminService } from '../../../../core/services/AdminService';
 import type { CohortItem, AdminUserItem } from '../../../../core/services/AdminService';
 import { Badge } from '../../../../components/common/Badge';
@@ -19,14 +20,19 @@ export const AssignTutorsModal: React.FC<AssignTutorsModalProps> = ({
   onClose,
   onSuccess,
 }) => {
-  const [selectedTutorIds, setSelectedTutorIds] = useState<string[]>(() =>
-    (cohort?.assigned_tutors || []).map((t) => t.id)
-  );
+  const [selectedTutorIds, setSelectedTutorIds] = useState<string[]>([]);
   const [tutorModalSearch, setTutorModalSearch] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   const adminService = AdminService.getInstance();
   const { success, error: toastError } = useToast();
+
+  useEffect(() => {
+    if (cohort) {
+      setSelectedTutorIds((cohort.assigned_tutors || []).map((t) => t.id));
+      setTutorModalSearch('');
+    }
+  }, [cohort]);
 
   const filteredModalTutors = useMemo(() => {
     if (!tutorModalSearch.trim()) return tutors;
@@ -71,22 +77,37 @@ export const AssignTutorsModal: React.FC<AssignTutorsModalProps> = ({
         await adminService.assignTutorsToCohort(cohort.id, toUnassign, 'unassign');
       }
 
-      success(`Tutor assignments updated for cohort "${cohort.name}".`);
+      if (toAssign.length === 0 && toUnassign.length === 0) {
+        success(`No changes made to tutor assignments for "${cohort.name}".`);
+      } else {
+        success(`Successfully updated tutor assignments for cohort "${cohort.name}".`);
+      }
+
       onSuccess();
       onClose();
     } catch (err: any) {
-      toastError(err?.message || 'Failed to save tutor assignments.');
+      const msg =
+        err?.response?.data?.error ||
+        err?.response?.data?.detail ||
+        err?.message ||
+        'Failed to save tutor assignments.';
+      toastError(typeof msg === 'string' ? msg : JSON.stringify(msg));
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  return (
+  const originallyAssignedCount = (cohort.assigned_tutors || []).length;
+  const isDirty =
+    selectedTutorIds.length !== originallyAssignedCount ||
+    selectedTutorIds.some((id) => !(cohort.assigned_tutors || []).some((t) => t.id === id));
+
+  return createPortal(
     <div
       style={{
         position: 'fixed',
         inset: 0,
-        zIndex: 1000,
+        zIndex: 9999,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -99,147 +120,181 @@ export const AssignTutorsModal: React.FC<AssignTutorsModalProps> = ({
         className="glass-panel"
         style={{
           width: '100%',
-          maxWidth: '620px',
-          maxHeight: '90vh',
+          maxWidth: '640px',
+          maxHeight: '88vh',
           display: 'flex',
           flexDirection: 'column',
           borderRadius: 'var(--radius-2xl)',
-          padding: '26px',
           border: '1px solid var(--border-medium)',
           background: 'var(--bg-surface)',
+          boxShadow: '0 24px 64px rgba(0, 0, 0, 0.5)',
+          overflow: 'hidden',
         }}
       >
-        {/* Modal Header */}
+        {/* Modal Header (Pinned at Top) */}
         <div
           style={{
-            display: 'flex',
-            alignItems: 'flex-start',
-            justifyContent: 'space-between',
-            marginBottom: '16px',
-            paddingBottom: '14px',
+            flexShrink: 0,
+            padding: '20px 24px 16px',
             borderBottom: '1px solid var(--border-subtle)',
+            background: 'var(--bg-surface)',
           }}
         >
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <h3 style={{ margin: 0, fontSize: '1.18rem', fontWeight: 800, color: '#ffffff' }}>
-                Assign Tutors to Cohort
-              </h3>
-              <Badge variant={cohort.is_active ? 'success' : 'neutral'}>
-                {cohort.is_active ? 'ACTIVE' : 'INACTIVE'}
-              </Badge>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px' }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: 'var(--radius-md)',
+                    background: 'rgba(56, 189, 248, 0.15)',
+                    color: '#38bdf8',
+                  }}
+                >
+                  <Users size={18} />
+                </div>
+                <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800, color: '#ffffff' }}>
+                  Assign Tutors to Cohort
+                </h3>
+                <Badge variant={cohort.is_active ? 'success' : 'neutral'}>
+                  {cohort.is_active ? 'ACTIVE' : 'INACTIVE'}
+                </Badge>
+              </div>
+              <p style={{ margin: '6px 0 0 0', fontSize: '0.84rem', color: 'var(--text-secondary)' }}>
+                Cohort: <strong style={{ color: '#ffffff' }}>{cohort.name}</strong> ({cohort.code || 'COHORT'})
+                {cohort.schedule_description ? ` • ${cohort.schedule_description}` : ''}
+              </p>
             </div>
-            <p style={{ margin: '4px 0 0 0', fontSize: '0.84rem', color: 'var(--text-muted)' }}>
-              Cohort: <strong style={{ color: '#ffffff' }}>{cohort.name}</strong> ({cohort.code || 'COHORT'}) • Select tutors from the list below.
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            style={{
-              background: 'transparent',
-              border: 'none',
-              cursor: 'pointer',
-              color: 'var(--text-muted)',
-              padding: '4px',
-            }}
-            title="Close modal"
-          >
-            <X size={20} />
-          </button>
-        </div>
-
-        {/* Search & Bulk Select Controls */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '12px',
-            marginBottom: '12px',
-            flexWrap: 'wrap',
-          }}
-        >
-          <div style={{ position: 'relative', flex: 1, minWidth: '220px' }}>
-            <Search
-              size={15}
-              style={{ position: 'absolute', left: '12px', top: '10px', color: 'var(--text-muted)' }}
-            />
-            <input
-              type="text"
-              placeholder="Search tutors by name, phone, email..."
-              value={tutorModalSearch}
-              onChange={(e) => setTutorModalSearch(e.target.value)}
+            <button
+              onClick={onClose}
               style={{
-                width: '100%',
-                padding: '8px 12px 8px 36px',
-                borderRadius: 'var(--radius-md)',
-                background: 'var(--bg-surface-elevated)',
-                border: '1px solid var(--border-subtle)',
-                color: '#ffffff',
-                fontSize: '0.84rem',
+                background: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                color: 'var(--text-muted)',
+                padding: '6px',
+                borderRadius: 'var(--radius-sm)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
               }}
-            />
+              title="Close modal"
+            >
+              <X size={20} />
+            </button>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <button
-              type="button"
-              onClick={handleSelectAllFiltered}
-              className="btn btn-secondary btn-sm"
-              style={{ fontSize: '0.74rem', padding: '5px 10px' }}
-              title="Select all matching tutors"
-            >
-              Select All
-            </button>
-            <button
-              type="button"
-              onClick={handleDeselectAllFiltered}
-              className="btn btn-secondary btn-sm"
-              style={{ fontSize: '0.74rem', padding: '5px 10px' }}
-              title="Deselect all matching tutors"
-            >
-              Deselect All
-            </button>
+          {/* Search & Bulk Select Controls */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '12px',
+              marginTop: '16px',
+              flexWrap: 'wrap',
+            }}
+          >
+            <div style={{ position: 'relative', flex: 1, minWidth: '220px' }}>
+              <Search
+                size={15}
+                style={{ position: 'absolute', left: '12px', top: '10px', color: 'var(--text-muted)' }}
+              />
+              <input
+                type="text"
+                placeholder="Search tutors by name, phone, email..."
+                value={tutorModalSearch}
+                onChange={(e) => setTutorModalSearch(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '8px 12px 8px 36px',
+                  borderRadius: 'var(--radius-md)',
+                  background: 'var(--bg-surface-elevated)',
+                  border: '1px solid var(--border-subtle)',
+                  color: '#ffffff',
+                  fontSize: '0.84rem',
+                }}
+              />
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <button
+                type="button"
+                onClick={handleSelectAllFiltered}
+                className="btn btn-secondary btn-sm"
+                style={{ fontSize: '0.74rem', padding: '6px 10px' }}
+                title="Select all matching tutors"
+              >
+                Select All
+              </button>
+              <button
+                type="button"
+                onClick={handleDeselectAllFiltered}
+                className="btn btn-secondary btn-sm"
+                style={{ fontSize: '0.74rem', padding: '6px 10px' }}
+                title="Deselect all matching tutors"
+              >
+                Deselect All
+              </button>
+            </div>
+          </div>
+
+          {/* Selection Counter Bar */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '8px 14px',
+              borderRadius: 'var(--radius-md)',
+              background: 'var(--bg-surface-elevated)',
+              border: '1px solid var(--border-subtle)',
+              marginTop: '10px',
+              fontSize: '0.8rem',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <UserCheck size={14} color="#38bdf8" />
+              <span style={{ color: 'var(--text-secondary)' }}>
+                Selected: <strong style={{ color: '#38bdf8' }}>{selectedTutorIds.length}</strong> of {tutors.length} instructors
+              </span>
+            </div>
+            {isDirty && (
+              <span style={{ color: '#f59e0b', fontSize: '0.72rem', fontWeight: 600 }}>
+                • Unsaved changes
+              </span>
+            )}
           </div>
         </div>
 
-        {/* Selection Counter Bar */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: '8px 14px',
-            borderRadius: 'var(--radius-md)',
-            background: 'var(--bg-surface-elevated)',
-            border: '1px solid var(--border-subtle)',
-            marginBottom: '12px',
-            fontSize: '0.8rem',
-          }}
-        >
-          <span style={{ color: 'var(--text-secondary)' }}>
-            Selected: <strong style={{ color: 'var(--primary-light)' }}>{selectedTutorIds.length}</strong> of {tutors.length} tutors
-          </span>
-          <span style={{ color: 'var(--text-muted)', fontSize: '0.74rem' }}>
-            Click tutor row or checkbox to toggle
-          </span>
-        </div>
-
-        {/* Scrollable Tutor Selection List */}
+        {/* Scrollable Tutor Selection List (Middle Flex Area) */}
         <div
           style={{
             flex: 1,
+            minHeight: 0,
             overflowY: 'auto',
             display: 'flex',
             flexDirection: 'column',
-            gap: '6px',
-            maxHeight: '360px',
-            paddingRight: '4px',
+            gap: '8px',
+            padding: '16px 24px',
           }}
         >
           {filteredModalTutors.length === 0 ? (
-            <div style={{ padding: '36px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.86rem' }}>
-              {tutors.length === 0 ? 'No tutors registered in the system directory.' : 'No tutors match your search.'}
+            <div
+              style={{
+                padding: '48px 16px',
+                textAlign: 'center',
+                color: 'var(--text-muted)',
+                fontSize: '0.86rem',
+              }}
+            >
+              {tutors.length === 0
+                ? 'No instructors registered in the system directory.'
+                : 'No instructors match your search.'}
             </div>
           ) : (
             filteredModalTutors.map((tut) => {
@@ -254,42 +309,70 @@ export const AssignTutorsModal: React.FC<AssignTutorsModalProps> = ({
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    padding: '10px 14px',
+                    padding: '12px 16px',
                     borderRadius: 'var(--radius-lg)',
                     cursor: 'pointer',
                     userSelect: 'none',
                     background: isSelected ? 'rgba(56, 189, 248, 0.08)' : 'var(--bg-surface-elevated)',
-                    border: isSelected ? '1px solid rgba(56, 189, 248, 0.35)' : '1px solid var(--border-subtle)',
+                    border: isSelected ? '1px solid rgba(56, 189, 248, 0.4)' : '1px solid var(--border-subtle)',
                     transition: 'all 0.15s ease',
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       {isSelected ? (
-                        <CheckSquare size={19} color="#38bdf8" />
+                        <CheckSquare size={20} color="#38bdf8" />
                       ) : (
-                        <Square size={19} color="var(--text-muted)" />
+                        <Square size={20} color="var(--text-muted)" />
                       )}
                     </div>
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontWeight: 700, color: isSelected ? '#ffffff' : 'var(--text-primary)', fontSize: '0.88rem' }}>
-                          {tut.full_name || 'Tutor'}
+                        <span
+                          style={{
+                            fontWeight: 700,
+                            color: isSelected ? '#ffffff' : 'var(--text-primary)',
+                            fontSize: '0.9rem',
+                          }}
+                        >
+                          {tut.full_name || 'Instructor'}
                         </span>
                         {isOriginallyAssigned && (
-                          <span style={{ fontSize: '0.68rem', padding: '1px 6px', borderRadius: '4px', background: 'rgba(34, 197, 94, 0.15)', color: '#4ade80', fontWeight: 600 }}>
+                          <span
+                            style={{
+                              fontSize: '0.68rem',
+                              padding: '2px 7px',
+                              borderRadius: '4px',
+                              background: 'rgba(34, 197, 94, 0.15)',
+                              color: '#4ade80',
+                              fontWeight: 600,
+                            }}
+                          >
                             Currently Assigned
                           </span>
                         )}
                       </div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontFamily: 'monospace', marginTop: '2px' }}>
+                      <div
+                        style={{
+                          fontSize: '0.76rem',
+                          color: 'var(--text-muted)',
+                          fontFamily: 'monospace',
+                          marginTop: '3px',
+                        }}
+                      >
                         {tut.phone_number} {tut.email ? `• ${tut.email}` : ''}
                       </div>
                     </div>
                   </div>
 
-                  <div style={{ fontSize: '0.78rem', fontWeight: 600, color: isSelected ? '#38bdf8' : 'var(--text-muted)' }}>
-                    {isSelected ? 'Selected' : 'Click to select'}
+                  <div
+                    style={{
+                      fontSize: '0.78rem',
+                      fontWeight: 600,
+                      color: isSelected ? '#38bdf8' : 'var(--text-muted)',
+                    }}
+                  >
+                    {isSelected ? 'Assigned' : 'Click to assign'}
                   </div>
                 </div>
               );
@@ -297,47 +380,66 @@ export const AssignTutorsModal: React.FC<AssignTutorsModalProps> = ({
           )}
         </div>
 
-        {/* Modal Footer */}
+        {/* Modal Footer (Pinned at Bottom - Always Accessible) */}
         <div
           style={{
+            flexShrink: 0,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            marginTop: '18px',
-            paddingTop: '14px',
+            padding: '16px 24px',
             borderTop: '1px solid var(--border-subtle)',
+            background: 'var(--bg-surface-elevated)',
+            gap: '12px',
           }}
         >
           <button
             type="button"
             onClick={onClose}
-            className="btn btn-secondary"
+            className="btn btn-secondary btn-sm"
             disabled={isSubmitting}
+            style={{ padding: '8px 16px' }}
           >
             Cancel
           </button>
 
-          <button
-            type="button"
-            onClick={handleSave}
-            className="btn btn-primary"
-            disabled={isSubmitting}
-            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-          >
-            {isSubmitting ? (
-              <>
-                <Spinner size={16} />
-                <span>Saving Assignments...</span>
-              </>
-            ) : (
-              <>
-                <Check size={16} />
-                <span>Save Tutor Assignments ({selectedTutorIds.length})</span>
-              </>
-            )}
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+              <strong style={{ color: '#38bdf8' }}>{selectedTutorIds.length}</strong> instructor{selectedTutorIds.length === 1 ? '' : 's'} selected
+            </span>
+
+            <button
+              type="button"
+              onClick={handleSave}
+              className="btn btn-primary btn-sm"
+              disabled={isSubmitting}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '8px 20px',
+                fontWeight: 700,
+                boxShadow: '0 2px 10px rgba(0, 85, 165, 0.4)',
+              }}
+            >
+              {isSubmitting ? (
+                <>
+                  <Spinner size={16} />
+                  <span>Saving Assignments...</span>
+                </>
+              ) : (
+                <>
+                  <Check size={16} />
+                  <span>Save Tutor Assignments</span>
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
+
+export default AssignTutorsModal;

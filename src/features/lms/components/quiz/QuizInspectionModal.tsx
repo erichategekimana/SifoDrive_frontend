@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { X, Pencil } from 'lucide-react';
 import type { QuizItem } from '../../../../core/services/AdminService';
 import { Badge } from '../../../../components/common/Badge';
@@ -16,12 +17,12 @@ export const QuizInspectionModal: React.FC<QuizInspectionModalProps> = ({
 }) => {
   if (!quiz) return null;
 
-  return (
+  return createPortal(
     <div
       style={{
         position: 'fixed',
         inset: 0,
-        zIndex: 1100,
+        zIndex: 9999,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -204,6 +205,7 @@ export const QuizInspectionModal: React.FC<QuizInspectionModalProps> = ({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

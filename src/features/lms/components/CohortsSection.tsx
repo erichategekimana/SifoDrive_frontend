@@ -87,7 +87,8 @@ export const CohortsSection: React.FC<CohortsSectionProps> = ({
   };
 
   return (
-    <div className="glass-panel" style={{ borderRadius: 'var(--radius-2xl)', overflow: 'hidden' }}>
+    <>
+      <div className="glass-panel" style={{ borderRadius: 'var(--radius-2xl)', overflow: 'hidden' }}>
       <div
         style={{
           padding: '18px 24px',
@@ -280,6 +281,7 @@ export const CohortsSection: React.FC<CohortsSectionProps> = ({
           </table>
         </div>
       )}
+      </div>
 
       <CreateCohortModal
         isOpen={isCreateCohortModalOpen}
@@ -287,13 +289,16 @@ export const CohortsSection: React.FC<CohortsSectionProps> = ({
         onSuccess={refetch}
       />
 
-      <AssignTutorsModal
-        cohort={selectedCohortForTutors}
-        tutors={tutors}
-        onClose={() => setSelectedCohortForTutors(null)}
-        onSuccess={refetch}
-      />
-    </div>
+      {selectedCohortForTutors && (
+        <AssignTutorsModal
+          key={selectedCohortForTutors.id}
+          cohort={selectedCohortForTutors}
+          tutors={tutors}
+          onClose={() => setSelectedCohortForTutors(null)}
+          onSuccess={refetch}
+        />
+      )}
+    </>
   );
 };
 

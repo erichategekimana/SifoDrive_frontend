@@ -1,5 +1,6 @@
 @import './tokens.css';
 @import './components.css';
+@import './canvas.css';
 
 /* Modern CSS Reset */
 *, *::before, *::after {

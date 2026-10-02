@@ -176,6 +176,8 @@ export const AdminCoursesPage: React.FC = () => {
               tutors={tutors}
               liveClasses={liveClasses}
               cohorts={cohorts}
+              curricula={curricula}
+              courses={courses}
               refetch={refetch}
             />
           )}

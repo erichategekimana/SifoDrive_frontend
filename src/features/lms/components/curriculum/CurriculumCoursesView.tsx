@@ -23,6 +23,7 @@ interface CurriculumCoursesViewProps {
   courses: any[];
   curricula: CurriculumItem[];
   isSystemAdmin?: boolean;
+  isTrainingAdmin?: boolean;
   onBack: () => void;
   onSelectCourse: (course: any) => void;
   onRefresh: () => void;
@@ -33,10 +34,12 @@ export const CurriculumCoursesView: React.FC<CurriculumCoursesViewProps> = ({
   courses,
   curricula,
   isSystemAdmin,
+  isTrainingAdmin: _isTrainingAdmin,
   onBack,
   onSelectCourse,
   onRefresh,
 }) => {
+  const canManageCourse = Boolean(isSystemAdmin);
   const { t, language } = useTranslation();
   const { success, warning, error: toastError } = useToast();
   const adminService = AdminService.getInstance();
@@ -63,6 +66,11 @@ export const CurriculumCoursesView: React.FC<CurriculumCoursesViewProps> = ({
   }, [courses, courseSearch, curriculum.id]);
 
   const handleTogglePublish = async (course: any) => {
+    if (!course.is_published && !curriculum.is_published) {
+      warning('Cannot publish course under an unpublished curriculum. Please publish the parent curriculum first.');
+      return;
+    }
+
     const modCount = course.module_count ?? course.modules_count ?? 0;
     if (!course.is_published && modCount === 0) {
       warning('Cannot publish an empty course. Training admin must add course modules before publishing.');
@@ -163,7 +171,7 @@ export const CurriculumCoursesView: React.FC<CurriculumCoursesViewProps> = ({
           </div>
         </div>
 
-        {isSystemAdmin && (
+        {canManageCourse && (
           <button
             onClick={handleOpenCreateCourse}
             className="btn btn-primary btn-sm"
@@ -297,8 +305,8 @@ export const CurriculumCoursesView: React.FC<CurriculumCoursesViewProps> = ({
                             <span>{t('admin.courses.modulesBtn')}</span>
                           </button>
 
-                          {/* Course Publishing, Edit, and Delete are strictly for System Admin */}
-                          {isSystemAdmin && (
+                          {/* Course Publishing, Edit, and Delete for Training and System Admins */}
+                          {canManageCourse && (
                             <>
                               {c.is_published ? (
                                 <button
@@ -320,13 +328,19 @@ export const CurriculumCoursesView: React.FC<CurriculumCoursesViewProps> = ({
                                     display: 'flex',
                                     alignItems: 'center',
                                     gap: '4px',
-                                    opacity: isEmpty ? 0.75 : 1,
-                                    borderColor: isEmpty ? 'rgba(234, 179, 8, 0.4)' : undefined,
-                                    color: isEmpty ? 'var(--warning)' : undefined,
+                                    opacity: (!curriculum.is_published || isEmpty) ? 0.65 : 1,
+                                    borderColor: (!curriculum.is_published || isEmpty) ? 'rgba(234, 179, 8, 0.4)' : undefined,
+                                    color: (!curriculum.is_published || isEmpty) ? 'var(--warning)' : undefined,
                                   }}
-                                  title={isEmpty ? 'Cannot publish empty course. Training admin must add modules first.' : 'Publish course'}
+                                  title={
+                                    !curriculum.is_published
+                                      ? 'Cannot publish course under an unpublished curriculum. Please publish the curriculum first.'
+                                      : isEmpty
+                                      ? 'Cannot publish empty course. Training admin must add modules first.'
+                                      : 'Publish course'
+                                  }
                                 >
-                                  {isEmpty ? <Lock size={13} /> : <Eye size={13} />}
+                                  {(!curriculum.is_published || isEmpty) ? <Lock size={13} /> : <Eye size={13} />}
                                   <span>{t('admin.courses.publish')}</span>
                                 </button>
                               )}

@@ -604,6 +604,7 @@ export class AdminService {
     description?: string;
     sort_order?: number;
     is_foundational?: boolean;
+    is_student_only?: boolean;
   }): Promise<any> {
     return this.http.post(ApiEndpoints.ADMIN.MODULE_CREATE, payload);
   }
@@ -613,6 +614,7 @@ export class AdminService {
     description: string;
     sort_order: number;
     is_foundational: boolean;
+    is_student_only: boolean;
   }>): Promise<any> {
     return this.http.patch(ApiEndpoints.ADMIN.MODULE_UPDATE(id), payload);
   }

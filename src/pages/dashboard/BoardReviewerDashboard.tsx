@@ -17,7 +17,7 @@ import { Spinner } from '../../components/common/Spinner';
 
 export const BoardReviewerDashboard: React.FC = () => {
   const { user } = useAuth();
-  const { language } = useTranslation();
+  const { t } = useTranslation();
 
   const [stats, setStats] = useState<ReviewerStatsDTO | null>(null);
   const [queue, setQueue] = useState<ReviewerQueueItemDTO[]>([]);
@@ -51,8 +51,8 @@ export const BoardReviewerDashboard: React.FC = () => {
       await ReviewerService.getInstance().certifySession(selectedSession.session_id, action, remarks);
       alert(
         action === 'APPROVE'
-          ? (language === 'rw' ? 'Ikizamini cyemejwe neza!' : 'Official Score Certified!')
-          : (language === 'rw' ? 'Ikizamini cyanzwe kubera amakosa y\'uburiganya.' : 'Session Disqualified for violations.')
+          ? t('dashboard.reviewer.approvedSuccess')
+          : t('dashboard.reviewer.disqualifiedSuccess')
       );
       // Remove from active queue
       setQueue((prev) => prev.filter((item) => item.session_id !== selectedSession.session_id));
@@ -69,7 +69,7 @@ export const BoardReviewerDashboard: React.FC = () => {
   };
 
   if (isLoading) {
-    return <Spinner message={language === 'rw' ? 'Birimo gufunguka...' : 'Loading Proctoring Review Console...'} />;
+    return <Spinner message={t('dashboard.reviewer.loadingConsole')} />;
   }
 
   return (
@@ -103,16 +103,17 @@ export const BoardReviewerDashboard: React.FC = () => {
               {stats?.reviewer_code || 'SIFO-REV-001'}
             </span>
             <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-              {stats?.accreditation_authority || 'Rwanda National Police Board'}
+              {stats?.accreditation_authority || t('dashboard.reviewer.defaultAuthority')}
             </span>
           </div>
           <h1 style={{ fontSize: '1.75rem', fontWeight: 800, margin: '4px 0' }}>
-            {user?.fullName} — {language === 'rw' ? 'Umusuzuma Mukuru w\'Ibizamini' : 'Integrity Examiner'}
+            {user?.fullName} — {t('dashboard.reviewer.examinerTitle')}
           </h1>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', margin: 0 }}>
-            {language === 'rw'
-              ? `Ibizamini bitegereje isuzuma: ${queue.length} • Byemejwe byose: ${stats?.total_certifications_approved || 0}`
-              : `Pending Audit Queue: ${queue.length} • Total Certified: ${stats?.total_certifications_approved || 0}`}
+            {t('dashboard.reviewer.queueSubtitle', {
+              count: queue.length,
+              total: stats?.total_certifications_approved || 0,
+            })}
           </p>
         </div>
       </div>
@@ -128,7 +129,7 @@ export const BoardReviewerDashboard: React.FC = () => {
           }}
         >
           <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-            {language === 'rw' ? 'Ibitegereje Isuzuma (Queue)' : 'Flagged Audit Queue'}
+            {t('dashboard.reviewer.flaggedQueueTitle')}
           </div>
           <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#d13838', marginTop: '4px' }}>
             {queue.length}
@@ -144,7 +145,7 @@ export const BoardReviewerDashboard: React.FC = () => {
           }}
         >
           <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-            {language === 'rw' ? 'Byemejwe Byose (Certified)' : 'Total Certified Scores'}
+            {t('dashboard.reviewer.certifiedScoresTitle')}
           </div>
           <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#058728', marginTop: '4px' }}>
             {stats?.total_certifications_approved || 0}
@@ -160,7 +161,7 @@ export const BoardReviewerDashboard: React.FC = () => {
           }}
         >
           <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-            {language === 'rw' ? 'Byanzwe kubera Amakosa' : 'Violations Confirmed'}
+            {t('dashboard.reviewer.violationsConfirmedTitle')}
           </div>
           <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#d13838', marginTop: '4px' }}>
             {stats?.total_violations_confirmed || 0}
@@ -176,7 +177,7 @@ export const BoardReviewerDashboard: React.FC = () => {
           }}
         >
           <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-            {language === 'rw' ? 'Ibizamini Byasuzumwe Yose' : 'Total Audits Completed'}
+            {t('dashboard.reviewer.totalAuditsTitle')}
           </div>
           <div style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-primary)', marginTop: '4px' }}>
             {stats?.total_reviews_completed || 0}
@@ -196,7 +197,7 @@ export const BoardReviewerDashboard: React.FC = () => {
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
           <ShieldAlert size={20} color="#d13838" />
           <h3 style={{ fontSize: '1.2rem', fontWeight: 700, margin: 0 }}>
-            {language === 'rw' ? "Ibizamini Byatsinzwe na AI Proctoring (Flagged Queue)" : "Proctoring Integrity Audit Queue"}
+            {t('dashboard.reviewer.adjudicationQueueTitle')}
           </h3>
         </div>
 
@@ -204,11 +205,11 @@ export const BoardReviewerDashboard: React.FC = () => {
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.88rem' }}>
             <thead>
               <tr style={{ borderBottom: '2px solid var(--border-subtle)', color: 'var(--text-secondary)' }}>
-                <th style={{ padding: '12px 14px' }}>{language === 'rw' ? 'Umunyeshuri' : 'Candidate'}</th>
-                <th style={{ padding: '12px 14px' }}>{language === 'rw' ? 'Ikizamini' : 'Exam Title'}</th>
-                <th style={{ padding: '12px 14px' }}>{language === 'rw' ? 'Amanota' : 'Score'}</th>
-                <th style={{ padding: '12px 14px' }}>{language === 'rw' ? 'Impamvu Yatumye Gifungwa' : 'Violation Reason'}</th>
-                <th style={{ padding: '12px 14px' }}>{language === 'rw' ? 'Igikorwa' : 'Action'}</th>
+                <th style={{ padding: '12px 14px' }}>{t('dashboard.reviewer.candidate')}</th>
+                <th style={{ padding: '12px 14px' }}>{t('dashboard.reviewer.examTitle')}</th>
+                <th style={{ padding: '12px 14px' }}>{t('dashboard.reviewer.score')}</th>
+                <th style={{ padding: '12px 14px' }}>{t('dashboard.reviewer.violationReason')}</th>
+                <th style={{ padding: '12px 14px' }}>{t('dashboard.reviewer.actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -218,7 +219,7 @@ export const BoardReviewerDashboard: React.FC = () => {
                     <td style={{ padding: '12px 14px' }}>
                       <div style={{ fontWeight: 700 }}>{item.candidate_name}</div>
                       <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                        {item.candidate_phone} • {item.student_id || 'B2C Candidate'}
+                        {item.candidate_phone} • {item.student_id || t('dashboard.reviewer.b2cCandidate')}
                       </div>
                     </td>
                     <td style={{ padding: '12px 14px' }}>{item.exam_title}</td>
@@ -243,10 +244,10 @@ export const BoardReviewerDashboard: React.FC = () => {
                       <button
                         onClick={() => setSelectedSession(item)}
                         className="btn btn-primary btn-sm"
-                        style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#003366', borderColor: '#003366' }}
+                        style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#0055A5', borderColor: '#0055A5' }}
                       >
                         <Eye size={14} />
-                        <span>{language === 'rw' ? 'Suzuma' : 'Inspect'}</span>
+                        <span>{t('dashboard.reviewer.inspect')}</span>
                       </button>
                     </td>
                   </tr>
@@ -254,7 +255,7 @@ export const BoardReviewerDashboard: React.FC = () => {
               ) : (
                 <tr>
                   <td colSpan={5} style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                    {language === 'rw' ? 'Nta bizamini biri muri queue y\'isuzuma.' : 'Audit queue is clear.'}
+                    {t('dashboard.reviewer.noPendingExams')}
                   </td>
                 </tr>
               )}
@@ -290,7 +291,7 @@ export const BoardReviewerDashboard: React.FC = () => {
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
               <h3 style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0 }}>
-                {language === 'rw' ? 'Isuzuma ry\'Umutekano w\'Ikizamini' : 'Proctoring Violation Audit'}
+                {t('dashboard.reviewer.modalTitle')}
               </h3>
               <button
                 onClick={() => setSelectedSession(null)}
@@ -303,7 +304,7 @@ export const BoardReviewerDashboard: React.FC = () => {
             <div style={{ background: 'var(--bg-surface-elevated)', padding: '16px', borderRadius: 'var(--radius-md)', marginBottom: '20px' }}>
               <div style={{ fontSize: '0.95rem', fontWeight: 700 }}>{selectedSession.candidate_name}</div>
               <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                {selectedSession.exam_title} • Amanota: {selectedSession.score_percentage}%
+                {selectedSession.exam_title} • {t('dashboard.reviewer.scoreLabel', { score: selectedSession.score_percentage })}
               </div>
               <div style={{ fontSize: '0.82rem', color: '#d13838', fontWeight: 700, marginTop: '8px' }}>
                 🚨 {selectedSession.flagged_reason}
@@ -314,17 +315,17 @@ export const BoardReviewerDashboard: React.FC = () => {
             <div style={{ marginBottom: '20px' }}>
               <label style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: '8px' }}>
                 <Camera size={14} style={{ display: 'inline', marginRight: '6px' }} />
-                {language === 'rw' ? 'Amafoto yafashwe na Camera mu gihe cy\'ikizamini:' : 'Webcam Snapshots Captured During Exam:'}
+                {t('dashboard.reviewer.webcamSnapshotsLabel')}
               </label>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
                 <div style={{ height: '100px', background: '#202124', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9aa0a6', fontSize: '0.75rem' }}>
-                  Snapshot 00:04:12 (Normal)
+                  {t('dashboard.reviewer.snapshotNormal', { time: '00:04:12' })}
                 </div>
                 <div style={{ height: '100px', background: '#3c1010', border: '1px solid #d13838', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#f87171', fontSize: '0.75rem', textAlign: 'center', padding: '4px' }}>
-                  Snapshot 00:12:45 (Face missing)
+                  {t('dashboard.reviewer.snapshotFaceMissing', { time: '00:12:45' })}
                 </div>
                 <div style={{ height: '100px', background: '#202124', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9aa0a6', fontSize: '0.75rem' }}>
-                  Snapshot 00:18:30 (Normal)
+                  {t('dashboard.reviewer.snapshotNormal', { time: '00:18:30' })}
                 </div>
               </div>
             </div>
@@ -332,13 +333,13 @@ export const BoardReviewerDashboard: React.FC = () => {
             {/* Examiner Remarks */}
             <div style={{ marginBottom: '20px' }}>
               <label style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>
-                {language === 'rw' ? 'Ibyo Umusuzuma Abivugaho (Mandatory Remarks):' : 'Official Examiner Audit Notes:'}
+                {t('dashboard.reviewer.remarksLabel')}
               </label>
               <textarea
                 rows={3}
                 value={remarks}
                 onChange={(e) => setRemarks(e.target.value)}
-                placeholder={language === 'rw' ? 'Andika icyemezo wafashe n\'impamvu...' : 'State findings and justification...'}
+                placeholder={t('dashboard.reviewer.remarksPlaceholder')}
                 style={{
                   width: '100%',
                   padding: '10px',
@@ -361,7 +362,7 @@ export const BoardReviewerDashboard: React.FC = () => {
                 style={{ color: '#d13838', borderColor: '#d13838' }}
               >
                 <XCircle size={16} />
-                <span>{language === 'rw' ? 'Kwangira Ikizamini (Disqualify)' : 'Disqualify Session'}</span>
+                <span>{t('dashboard.reviewer.disqualifyBtn')}</span>
               </button>
 
               <button
@@ -372,7 +373,7 @@ export const BoardReviewerDashboard: React.FC = () => {
                 style={{ background: '#058728', borderColor: '#058728' }}
               >
                 <CheckCircle2 size={16} />
-                <span>{language === 'rw' ? 'Kwemeza Amanota (Certify)' : 'Certify Official Grade'}</span>
+                <span>{t('dashboard.reviewer.certifyBtn')}</span>
               </button>
             </div>
           </div>

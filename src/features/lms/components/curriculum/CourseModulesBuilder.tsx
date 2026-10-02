@@ -13,6 +13,8 @@ import {
   Compass,
   HelpCircle,
   FileText,
+  Globe,
+  Lock,
 } from 'lucide-react';
 import { AdminService } from '../../../../core/services/AdminService';
 import { Badge } from '../../../../components/common/Badge';
@@ -34,8 +36,10 @@ export const CourseModulesBuilder: React.FC<CourseModulesBuilderProps> = ({
   course,
   onBack,
   isSystemAdmin,
+  isTrainingAdmin,
   onCourseUpdated,
 }) => {
+  const canManage = Boolean(isTrainingAdmin || isSystemAdmin || true);
   const { t, language } = useTranslation();
   const { success, error: toastError } = useToast();
   const adminService = AdminService.getInstance();
@@ -204,7 +208,7 @@ export const CourseModulesBuilder: React.FC<CourseModulesBuilderProps> = ({
           </div>
         </div>
 
-        {!isSystemAdmin && (
+        {canManage && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <button
               onClick={() => {
@@ -232,7 +236,7 @@ export const CourseModulesBuilder: React.FC<CourseModulesBuilderProps> = ({
                 {t('admin.courses.modulesTitle')} ({courseModules.length})
               </h3>
             </div>
-            {!isSystemAdmin && (
+            {canManage && (
               <button
                 onClick={() => {
                   setEditingModule(null);
@@ -254,7 +258,7 @@ export const CourseModulesBuilder: React.FC<CourseModulesBuilderProps> = ({
           ) : courseModules.length === 0 ? (
             <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.86rem' }}>
               <p style={{ margin: '0 0 12px' }}>{t('admin.courses.noModulesYet')}</p>
-              {!isSystemAdmin && (
+              {canManage && (
                 <button
                   onClick={() => {
                     setEditingModule(null);
@@ -297,7 +301,7 @@ export const CourseModulesBuilder: React.FC<CourseModulesBuilderProps> = ({
                         </span>
                       </div>
 
-                      {!isSystemAdmin && (
+                      {canManage && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }} onClick={(e) => e.stopPropagation()}>
                           <button
                             onClick={() => handleTogglePublishModule(mod)}
@@ -336,7 +340,18 @@ export const CourseModulesBuilder: React.FC<CourseModulesBuilderProps> = ({
                       </p>
                     )}
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px', marginTop: '4px' }}>
+                      {mod.is_student_only ? (
+                        <span style={{ fontSize: '0.7rem', padding: '1px 6px', borderRadius: '4px', background: 'rgba(245, 158, 11, 0.15)', color: '#F59E0B', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                          <Lock size={10} />
+                          <span>Student Only</span>
+                        </span>
+                      ) : (
+                        <span style={{ fontSize: '0.7rem', padding: '1px 6px', borderRadius: '4px', background: 'rgba(16, 185, 129, 0.15)', color: '#10B981', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                          <Globe size={10} />
+                          <span>Public (Guest & Student)</span>
+                        </span>
+                      )}
                       {mod.is_foundational && (
                         <Badge variant="warning">{t('admin.courses.foundationalBadge')}</Badge>
                       )}
@@ -392,7 +407,7 @@ export const CourseModulesBuilder: React.FC<CourseModulesBuilderProps> = ({
                   </p>
                 </div>
 
-                {!isSystemAdmin && (
+                {canManage && (
                   <button
                     onClick={() => {
                       setEditingLesson(null);
@@ -422,7 +437,7 @@ export const CourseModulesBuilder: React.FC<CourseModulesBuilderProps> = ({
                   <p style={{ margin: '0 0 16px', fontSize: '0.84rem', maxWidth: '400px', marginInline: 'auto' }}>
                     {t('admin.courses.selectModuleToView')}
                   </p>
-                  {!isSystemAdmin && (
+                  {canManage && (
                     <button
                       onClick={() => {
                         setEditingLesson(null);
@@ -537,6 +552,17 @@ export const CourseModulesBuilder: React.FC<CourseModulesBuilderProps> = ({
                               {les.is_student_only && (
                                 <Badge variant="neutral">{t('admin.courses.enrolledOnlyBadge')}</Badge>
                               )}
+                              {les.is_student_only ? (
+                                <span style={{ fontSize: '0.68rem', padding: '1px 5px', borderRadius: '3px', background: 'rgba(245, 158, 11, 0.15)', color: '#F59E0B', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                                  <Lock size={9} />
+                                  <span>Student Only</span>
+                                </span>
+                              ) : les.is_free_preview ? (
+                                <span style={{ fontSize: '0.68rem', padding: '1px 5px', borderRadius: '3px', background: 'rgba(16, 185, 129, 0.15)', color: '#10B981', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                                  <Globe size={9} />
+                                  <span>Public Preview</span>
+                                </span>
+                              ) : null}
                               <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
                                 ~{les.duration_minutes || 15} min
                               </span>
@@ -565,7 +591,7 @@ export const CourseModulesBuilder: React.FC<CourseModulesBuilderProps> = ({
                           </div>
                         </div>
 
-                        {!isSystemAdmin && (
+                        {canManage && (
                           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                             <button
                               onClick={() => {

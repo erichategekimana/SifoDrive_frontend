@@ -12,19 +12,25 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { useTranslation } from '../../context/I18nContext';
 import { StudentAccountService, type ExamEligibilityDTO, type StudentProfileDTO } from '../../core/services/StudentAccountService';
-import { LmsService, type ProgressSummaryDTO } from '../../core/services/LmsService';
+import { LmsService } from '../../core/services/LmsService';
 import { LiveClassService } from '../../core/services/LiveClassService';
 import { LiveClass } from '../../core/models/LiveClass';
 import { Spinner } from '../../components/common/Spinner';
+import { TutorLmsService, type CohortActivityItem } from '../../core/services/TutorLmsService';
+import { StudentSubmitActivityModal } from '../../features/lms/components/student/StudentSubmitActivityModal';
+
+import { Course } from '../../core/models/Course';
 
 export const StudentCanvasDashboard: React.FC = () => {
   const { user } = useAuth();
-  const { language } = useTranslation();
+  const { t } = useTranslation();
 
   const [eligibility, setEligibility] = useState<ExamEligibilityDTO | null>(null);
   const [studentProfile, setStudentProfile] = useState<StudentProfileDTO | null>(null);
-  const [progress, setProgress] = useState<ProgressSummaryDTO | null>(null);
   const [upcomingClasses, setUpcomingClasses] = useState<LiveClass[]>([]);
+  const [publishedCourses, setPublishedCourses] = useState<Course[]>([]);
+  const [cohortActivities, setCohortActivities] = useState<CohortActivityItem[]>([]);
+  const [selectedActivityForSubmit, setSelectedActivityForSubmit] = useState<CohortActivityItem | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   // Canvas UI Interactive States
@@ -36,16 +42,18 @@ export const StudentCanvasDashboard: React.FC = () => {
   useEffect(() => {
     const loadAll = async () => {
       try {
-        const [eligData, profData, progData, classesData] = await Promise.all([
+        const [eligData, profData, classesData, coursesData, activitiesData] = await Promise.all([
           StudentAccountService.getInstance().getEligibility(),
           StudentAccountService.getInstance().getProfile(),
-          LmsService.getInstance().getProgressSummary(),
           LiveClassService.getInstance().getClasses(),
+          LmsService.getInstance().getCourses(),
+          TutorLmsService.getInstance().getStudentCohortActivities().catch(() => []),
         ]);
         setEligibility(eligData);
         setStudentProfile(profData);
-        setProgress(progData);
         setUpcomingClasses(classesData);
+        setPublishedCourses(coursesData);
+        setCohortActivities(activitiesData || []);
       } catch (err) {
         console.error('Failed to load student canvas dashboard:', err);
       } finally {
@@ -55,8 +63,17 @@ export const StudentCanvasDashboard: React.FC = () => {
     loadAll();
   }, []);
 
+  const refreshActivities = async () => {
+    try {
+      const data = await TutorLmsService.getInstance().getStudentCohortActivities();
+      setCohortActivities(data || []);
+    } catch (err) {
+      console.error('Failed to refresh activities:', err);
+    }
+  };
+
   if (isLoading) {
-    return <Spinner message={language === 'rw' ? 'Birimo gufunguka...' : 'Loading Canvas Student Hub...'} />;
+    return <Spinner message={t('dashboard.student.loadingHub')} />;
   }
 
   const nextClass = upcomingClasses.find((c) => c.isJoinable()) || upcomingClasses[0];
@@ -80,26 +97,27 @@ export const StudentCanvasDashboard: React.FC = () => {
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <h1 style={{ fontSize: '1.75rem', fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>
-              {language === 'rw' ? `Muraho, ${user?.fullName || 'Umunyeshuri'}!` : `Hello, ${user?.fullName || 'Student'}!`}
+              {t('dashboard.student.greeting', { name: user?.fullName || 'Student' })}
             </h1>
             <span
               style={{
-                background: 'rgba(3, 116, 181, 0.12)',
-                color: '#0374b5',
+                background: 'rgba(0, 85, 165, 0.12)',
+                color: '#0055A5',
                 padding: '4px 12px',
                 borderRadius: 'var(--radius-full)',
                 fontSize: '0.78rem',
                 fontWeight: 700,
-                border: '1px solid rgba(3, 116, 181, 0.25)',
+                border: '1px solid rgba(0, 85, 165, 0.25)',
               }}
             >
               {studentProfile?.license_category ? `Category ${studentProfile.license_category}` : 'Category B'}
             </span>
           </div>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '6px', marginBottom: 0 }}>
-            {language === 'rw'
-              ? `Nimero y'umunyeshuri: ${user?.studentId || 'SIFO-STU-2026-0042'} • Iminsi yikurikiranya yo kwiga: ${studentProfile?.current_streak_days || 5} 🔥`
-              : `Student ID: ${user?.studentId || 'SIFO-STU-2026-0042'} • Daily Learning Streak: ${studentProfile?.current_streak_days || 5} days 🔥`}
+            {t('dashboard.student.headerSubtitle', {
+              id: user?.studentId || 'SIFO-STU-2026-0042',
+              streak: studentProfile?.current_streak_days || 5,
+            })}
           </p>
         </div>
 
@@ -108,10 +126,10 @@ export const StudentCanvasDashboard: React.FC = () => {
           <Link
             to="/courses"
             className="btn btn-primary btn-md"
-            style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#003366', borderColor: '#003366' }}
+            style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#0055A5', borderColor: '#0055A5' }}
           >
             <Rocket size={18} />
-            <span>{language === 'rw' ? 'Tangira Ikizamini cya Polisi' : 'Start Mock Police Exam'}</span>
+            <span>{t('dashboard.student.startMockExamBtn')}</span>
           </Link>
         </div>
       </div>
@@ -127,13 +145,13 @@ export const StudentCanvasDashboard: React.FC = () => {
             fontSize: '1rem',
             fontWeight: 700,
             cursor: 'pointer',
-            color: activeTab === 'dashboard' ? '#0374b5' : 'var(--text-secondary)',
-            borderBottom: activeTab === 'dashboard' ? '3px solid #0374b5' : '3px solid transparent',
+            color: activeTab === 'dashboard' ? '#0055A5' : 'var(--text-secondary)',
+            borderBottom: activeTab === 'dashboard' ? '3px solid #0055A5' : '3px solid transparent',
             marginBottom: '-2px',
             transition: 'all var(--transition-fast)',
           }}
         >
-          {language === 'rw' ? 'Imbonerahamwe (Dashboard)' : 'Dashboard'}
+          {t('dashboard.student.tabDashboard')}
         </button>
         <button
           onClick={() => setActiveTab('courses')}
@@ -144,13 +162,13 @@ export const StudentCanvasDashboard: React.FC = () => {
             fontSize: '1rem',
             fontWeight: 700,
             cursor: 'pointer',
-            color: activeTab === 'courses' ? '#0374b5' : 'var(--text-secondary)',
-            borderBottom: activeTab === 'courses' ? '3px solid #0374b5' : '3px solid transparent',
+            color: activeTab === 'courses' ? '#0055A5' : 'var(--text-secondary)',
+            borderBottom: activeTab === 'courses' ? '3px solid #0055A5' : '3px solid transparent',
             marginBottom: '-2px',
             transition: 'all var(--transition-fast)',
           }}
         >
-          {language === 'rw' ? 'Amasomo Yanjye (Courses)' : 'Courses'}
+          {t('dashboard.student.tabCourses')}
         </button>
       </div>
 
@@ -169,11 +187,9 @@ export const StudentCanvasDashboard: React.FC = () => {
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <Award size={20} color="#0374b5" />
+                <Award size={20} color="#0055A5" />
                 <h3 style={{ fontSize: '1.1rem', fontWeight: 700, margin: 0 }}>
-                  {language === 'rw'
-                    ? "Ibisabwa Kwiyandikisha ku Kizamini cya Polisi (Exam Eligibility)"
-                    : "National Police Exam Eligibility Pre-Flight Check"}
+                  {t('dashboard.student.eligibilityTitle')}
                 </h3>
               </div>
               <span
@@ -188,12 +204,8 @@ export const StudentCanvasDashboard: React.FC = () => {
                 }}
               >
                 {eligibility?.eligible
-                  ? language === 'rw'
-                    ? 'Wujuje Ibisabwa (Eligible)'
-                    : 'Eligible for Exam'
-                  : language === 'rw'
-                  ? 'Birasigaye (Pending Criteria)'
-                  : 'Pending Prerequisites'}
+                  ? t('dashboard.student.eligible')
+                  : t('dashboard.student.pendingCriteria')}
               </span>
             </div>
 
@@ -209,14 +221,14 @@ export const StudentCanvasDashboard: React.FC = () => {
                 }}
               >
                 <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '6px' }}>
-                  {language === 'rw' ? "1. Kwishyura Ishuri (Tuition)" : "1. Tuition Payment"}
+                  {t('dashboard.student.tuitionPayment')}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <CheckCircle2 size={16} color={eligibility?.criteria?.tuition_paid ? '#058728' : '#d13838'} />
                   <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>
                     {eligibility?.criteria?.tuition_paid
-                      ? language === 'rw' ? 'Yarishyuwe' : 'Paid'
-                      : language === 'rw' ? 'Bitarishyurwa' : 'Unpaid'}
+                      ? t('dashboard.student.paid')
+                      : t('dashboard.student.unpaid')}
                   </span>
                 </div>
               </div>
@@ -231,7 +243,7 @@ export const StudentCanvasDashboard: React.FC = () => {
                 }}
               >
                 <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '6px' }}>
-                  {language === 'rw' ? "2. Kwitabira Amasomo (≥ 75%)" : "2. Live Attendance (≥ 75%)"}
+                  {t('dashboard.student.liveAttendanceRequirement')}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <CheckCircle2
@@ -254,12 +266,12 @@ export const StudentCanvasDashboard: React.FC = () => {
                 }}
               >
                 <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '6px' }}>
-                  {language === 'rw' ? "3. Amasomo Shingiro (100%)" : "3. Foundational LMS (100%)"}
+                  {t('dashboard.student.foundationalModulesRequirement')}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <CheckCircle2
                     size={16}
-                    color={(eligibility?.criteria?.module_completion || 0) >= 1.0 ? '#058728' : '#0374b5'}
+                    color={(eligibility?.criteria?.module_completion || 0) >= 1.0 ? '#058728' : '#0055A5'}
                   />
                   <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>
                     {Math.round((eligibility?.criteria?.module_completion || 0) * 100)}%
@@ -291,7 +303,7 @@ export const StudentCanvasDashboard: React.FC = () => {
               }}
             >
               <h2 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0 }}>
-                {language === 'rw' ? 'Imirimo yo gukora (Course work)' : 'Course work'}
+                {t('dashboard.student.courseWork')}
               </h2>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
@@ -304,7 +316,7 @@ export const StudentCanvasDashboard: React.FC = () => {
                     style={{ accentColor: '#058728', width: '16px', height: '16px' }}
                   />
                   <span style={{ color: 'var(--text-secondary)' }}>
-                    {language === 'rw' ? 'Erekana ibiteranyo' : 'Show summary counts'}
+                    {t('dashboard.student.showSummaryCounts')}
                   </span>
                 </label>
 
@@ -321,7 +333,7 @@ export const StudentCanvasDashboard: React.FC = () => {
                     color: 'var(--text-primary)',
                   }}
                 >
-                  <option value="ALL">{language === 'rw' ? 'Amasomo yose' : 'All Courses'}</option>
+                  <option value="ALL">{t('dashboard.student.allCourses')}</option>
                   <option value="CAT_B">Amategeko y'Umuhanda (Cat B)</option>
                   <option value="SIGNS">Ibyapa byo ku Muhanda (Road Signs)</option>
                 </select>
@@ -335,17 +347,17 @@ export const StudentCanvasDashboard: React.FC = () => {
                 <div
                   style={{
                     background: '#e8f3fb',
-                    border: '1px solid rgba(3, 116, 181, 0.25)',
+                    border: '1px solid rgba(0, 85, 165, 0.25)',
                     borderRadius: 'var(--radius-md)',
                     padding: '16px',
                     textAlign: 'center',
                   }}
                 >
-                  <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#0374b5' }}>
-                    {language === 'rw' ? 'Biteganyijwe (Due)' : 'Due'}
+                  <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#0055A5' }}>
+                    {t('dashboard.student.due')}
                   </div>
-                  <div style={{ fontSize: '2rem', fontWeight: 800, color: '#0374b5', marginTop: '4px' }}>
-                    3
+                  <div style={{ fontSize: '2rem', fontWeight: 800, color: '#0055A5', marginTop: '4px' }}>
+                    {cohortActivities.filter((a) => !a.my_submission).length}
                   </div>
                 </div>
 
@@ -360,10 +372,10 @@ export const StudentCanvasDashboard: React.FC = () => {
                   }}
                 >
                   <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#d13838' }}>
-                    {language === 'rw' ? 'Bitaratanzwe (Missing)' : 'Missing'}
+                    {t('dashboard.student.missing')}
                   </div>
                   <div style={{ fontSize: '2rem', fontWeight: 800, color: '#d13838', marginTop: '4px' }}>
-                    0
+                    {cohortActivities.filter((a) => !a.my_submission && a.due_date && new Date(a.due_date) < new Date()).length}
                   </div>
                 </div>
 
@@ -378,198 +390,177 @@ export const StudentCanvasDashboard: React.FC = () => {
                   }}
                 >
                   <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#058728' }}>
-                    {language === 'rw' ? 'Byatanzwe (Submitted)' : 'Submitted'}
+                    {t('dashboard.student.submitted')}
                   </div>
                   <div style={{ fontSize: '2rem', fontWeight: 800, color: '#058728', marginTop: '4px' }}>
-                    {progress?.quizzes_taken || 2}
+                    {cohortActivities.filter((a) => !!a.my_submission).length}
                   </div>
                 </div>
               </div>
             )}
 
-            {/* Assignments List (Canvas Look: Clickable blue title, course tag, points, due pill) */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {/* Item 1 */}
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '14px 18px',
-                  borderRadius: 'var(--radius-md)',
-                  border: '1px solid var(--border-subtle)',
-                  background: 'var(--bg-surface-elevated)',
-                  transition: 'background var(--transition-fast)',
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                  <div
-                    style={{
-                      width: '36px',
-                      height: '36px',
-                      borderRadius: 'var(--radius-md)',
-                      background: 'rgba(3, 116, 181, 0.1)',
-                      color: '#0374b5',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    <Rocket size={18} />
-                  </div>
-                  <div>
-                    <Link
-                      to="/courses"
-                      style={{
-                        fontSize: '0.95rem',
-                        fontWeight: 700,
-                        color: '#0374b5',
-                        textDecoration: 'none',
-                      }}
-                    >
-                      {language === 'rw'
-                        ? "Ikizamini cy'Amategeko y'Umuhanda - Igice cya 1"
-                        : "Traffic Regulations Quiz - Part 1"}
-                    </Link>
-                    <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                      Amategeko y'Umuhanda | Category B • 20 pts
-                    </div>
-                  </div>
-                </div>
+            {/* Assignments List (Dynamic Real Cohort Activities) */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {cohortActivities.length === 0 ? (
                 <div
                   style={{
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-subtle)',
-                    padding: '4px 10px',
-                    borderRadius: 'var(--radius-full)',
-                    fontSize: '0.75rem',
+                    padding: '36px',
+                    textAlign: 'center',
                     color: 'var(--text-secondary)',
+                    background: 'var(--bg-surface-elevated)',
+                    borderRadius: 'var(--radius-md)',
+                    border: '1px dashed var(--border-subtle)',
                   }}
                 >
-                  30/10/2026 11:59 PM
-                </div>
-              </div>
-
-              {/* Item 2 */}
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '14px 18px',
-                  borderRadius: 'var(--radius-md)',
-                  border: '1px solid var(--border-subtle)',
-                  background: 'var(--bg-surface-elevated)',
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                  <div
-                    style={{
-                      width: '36px',
-                      height: '36px',
-                      borderRadius: 'var(--radius-md)',
-                      background: 'rgba(5, 135, 40, 0.1)',
-                      color: '#058728',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    <FileText size={18} />
+                  <FileText size={28} color="var(--text-muted)" style={{ margin: '0 auto 8px' }} />
+                  <div style={{ fontWeight: 600, color: '#ffffff', fontSize: '0.9rem' }}>
+                    No cohort activities or practical drills assigned yet
                   </div>
-                  <div>
-                    <Link
-                      to="/road-signs"
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                    Tasks, driving drills, and case studies dispatched by your cohort facilitators will appear here.
+                  </div>
+                </div>
+              ) : (
+                cohortActivities.map((act) => {
+                  const isGraded = act.my_submission?.status === 'GRADED';
+                  const isSubmitted = !!act.my_submission;
+                  const isOverdue = !isSubmitted && act.due_date && new Date(act.due_date) < new Date();
+
+                  return (
+                    <div
+                      key={act.id}
                       style={{
-                        fontSize: '0.95rem',
-                        fontWeight: 700,
-                        color: '#0374b5',
-                        textDecoration: 'none',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '8px',
+                        padding: '16px 20px',
+                        borderRadius: 'var(--radius-md)',
+                        border: `1px solid ${isGraded ? 'rgba(5, 135, 40, 0.3)' : isOverdue ? 'rgba(209, 56, 56, 0.3)' : 'var(--border-subtle)'}`,
+                        background: 'var(--bg-surface-elevated)',
+                        transition: 'background var(--transition-fast)',
                       }}
                     >
-                      {language === 'rw'
-                        ? "Isuzuma ry'Ibyapa by'Umuhanda (Road Signs Mastery)"
-                        : "Road Signs Comprehensive Assessment"}
-                    </Link>
-                    <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                      Ibyapa byo mu Rwanda • 100 pts
-                    </div>
-                  </div>
-                </div>
-                <div
-                  style={{
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-subtle)',
-                    padding: '4px 10px',
-                    borderRadius: 'var(--radius-full)',
-                    fontSize: '0.75rem',
-                    color: 'var(--text-secondary)',
-                  }}
-                >
-                  02/11/2026 11:59 PM
-                </div>
-              </div>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                          <div
+                            style={{
+                              width: '38px',
+                              height: '38px',
+                              borderRadius: 'var(--radius-md)',
+                              background:
+                                act.activity_type === 'PRACTICAL_DRILL'
+                                  ? 'rgba(0, 85, 165, 0.12)'
+                                  : act.activity_type === 'CASE_STUDY'
+                                  ? 'rgba(124, 58, 237, 0.12)'
+                                  : 'rgba(5, 135, 40, 0.12)',
+                              color:
+                                act.activity_type === 'PRACTICAL_DRILL'
+                                  ? '#0055A5'
+                                  : act.activity_type === 'CASE_STUDY'
+                                  ? '#a855f7'
+                                  : '#058728',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                            }}
+                          >
+                            {act.activity_type === 'PRACTICAL_DRILL' ? (
+                              <Rocket size={18} />
+                            ) : act.activity_type === 'CASE_STUDY' ? (
+                              <Award size={18} />
+                            ) : (
+                              <FileText size={18} />
+                            )}
+                          </div>
+                          <div>
+                            <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#ffffff' }}>
+                              {act.title}
+                            </div>
+                            <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                              {act.course_title || 'Cohort Course'} • {act.max_score} pts (Pass: {act.pass_score})
+                            </div>
+                          </div>
+                        </div>
 
-              {/* Item 3 */}
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '14px 18px',
-                  borderRadius: 'var(--radius-md)',
-                  border: '1px solid var(--border-subtle)',
-                  background: 'var(--bg-surface-elevated)',
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                  <div
-                    style={{
-                      width: '36px',
-                      height: '36px',
-                      borderRadius: 'var(--radius-md)',
-                      background: 'rgba(234, 88, 12, 0.1)',
-                      color: '#ea580c',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    <Video size={18} />
-                  </div>
-                  <div>
-                    <Link
-                      to="/live-classes"
-                      style={{
-                        fontSize: '0.95rem',
-                        fontWeight: 700,
-                        color: '#0374b5',
-                        textDecoration: 'none',
-                      }}
-                    >
-                      {language === 'rw'
-                        ? "Isomo ry'Imbonankubone: Amategeko yo gutambuka mbere (Priority Rules)"
-                        : "Live Theory Session: Right of Way & Priority"}
-                    </Link>
-                    <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                      Google Meet Theory • Facilitator: Aline Uwase
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          {act.due_date && (
+                            <div
+                              style={{
+                                background: isOverdue ? 'rgba(209, 56, 56, 0.1)' : 'var(--bg-surface)',
+                                border: `1px solid ${isOverdue ? 'rgba(209, 56, 56, 0.3)' : 'var(--border-subtle)'}`,
+                                padding: '4px 10px',
+                                borderRadius: 'var(--radius-full)',
+                                fontSize: '0.75rem',
+                                color: isOverdue ? '#ef4444' : 'var(--text-secondary)',
+                                fontWeight: isOverdue ? 700 : 500,
+                              }}
+                            >
+                              {isOverdue ? 'Overdue: ' : 'Due: '}
+                              {new Date(act.due_date).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                            </div>
+                          )}
+
+                          {isGraded ? (
+                            <span
+                              style={{
+                                background: 'rgba(5, 135, 40, 0.15)',
+                                color: '#4ade80',
+                                border: '1px solid rgba(5, 135, 40, 0.3)',
+                                padding: '4px 10px',
+                                borderRadius: 'var(--radius-full)',
+                                fontSize: '0.78rem',
+                                fontWeight: 800,
+                              }}
+                            >
+                              Score: {act.my_submission?.score} / {act.max_score}
+                            </span>
+                          ) : isSubmitted ? (
+                            <span
+                              style={{
+                                background: 'rgba(0, 85, 165, 0.15)',
+                                color: '#38bdf8',
+                                border: '1px solid rgba(0, 85, 165, 0.3)',
+                                padding: '4px 10px',
+                                borderRadius: 'var(--radius-full)',
+                                fontSize: '0.78rem',
+                                fontWeight: 700,
+                              }}
+                            >
+                              Submitted (Pending Grade)
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => setSelectedActivityForSubmit(act)}
+                              className="btn btn-primary btn-sm"
+                              style={{ fontSize: '0.78rem', padding: '5px 12px' }}
+                            >
+                              Submit Activity
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Instructor Feedback Display if Available */}
+                      {act.my_submission?.feedback && (
+                        <div
+                          style={{
+                            marginTop: '4px',
+                            padding: '8px 12px',
+                            borderRadius: 'var(--radius-sm)',
+                            background: 'rgba(0, 85, 165, 0.08)',
+                            borderLeft: '3px solid #0055A5',
+                            fontSize: '0.8rem',
+                            color: 'var(--text-secondary)',
+                          }}
+                        >
+                          <strong style={{ color: '#38bdf8' }}>Instructor Feedback: </strong>
+                          {act.my_submission.feedback}
+                        </div>
+                      )}
                     </div>
-                  </div>
-                </div>
-                <div
-                  style={{
-                    background: 'rgba(5, 135, 40, 0.1)',
-                    border: '1px solid rgba(5, 135, 40, 0.25)',
-                    padding: '4px 10px',
-                    borderRadius: 'var(--radius-full)',
-                    fontSize: '0.75rem',
-                    color: '#058728',
-                    fontWeight: 700,
-                  }}
-                >
-                  {language === 'rw' ? 'Uyu Munsi 18:00' : 'Today 18:00'}
-                </div>
-              </div>
+                  );
+                })
+              )}
             </div>
           </div>
 
@@ -584,7 +575,7 @@ export const StudentCanvasDashboard: React.FC = () => {
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
               <h3 style={{ fontSize: '1.2rem', fontWeight: 700, margin: 0 }}>
-                {language === 'rw' ? 'Amasomo n\'Amanota (Course Grades)' : 'Course Grades'}
+                {t('dashboard.student.courseGrades')}
               </h3>
               <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.85rem' }}>
                 <input
@@ -594,72 +585,83 @@ export const StudentCanvasDashboard: React.FC = () => {
                   style={{ accentColor: '#058728', width: '16px', height: '16px' }}
                 />
                 <span style={{ color: 'var(--text-secondary)' }}>
-                  {language === 'rw' ? 'Erekana amanota yose' : 'Show all grades'}
+                  {t('dashboard.student.showAllGrades')}
                 </span>
               </label>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
-              {/* Course Card 1 */}
-              <div
-                style={{
-                  borderRadius: 'var(--radius-lg)',
-                  border: '1px solid var(--border-subtle)',
-                  overflow: 'hidden',
-                  background: 'var(--bg-surface-elevated)',
-                  position: 'relative',
-                }}
-              >
-                <div
-                  style={{
-                    height: '110px',
-                    background: 'linear-gradient(135deg, #003366 0%, #0374b5 100%)',
-                    padding: '16px',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'flex-start',
-                  }}
-                >
-                  <span
-                    style={{
-                      background: 'rgba(255, 255, 255, 0.2)',
-                      backdropFilter: 'blur(4px)',
-                      color: '#ffffff',
-                      padding: '2px 8px',
-                      borderRadius: 'var(--radius-sm)',
-                      fontSize: '0.72rem',
-                      fontWeight: 700,
-                    }}
-                  >
-                    Category B
-                  </span>
-                  <div
-                    style={{
-                      background: '#ffffff',
-                      color: '#003366',
-                      fontWeight: 800,
-                      fontSize: '0.85rem',
-                      padding: '4px 10px',
-                      borderRadius: 'var(--radius-full)',
-                      boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-                    }}
-                  >
-                    {progress?.average_quiz_score ? `${progress.average_quiz_score}%` : '85%'}
-                  </div>
-                </div>
-                <div style={{ padding: '16px' }}>
-                  <h4 style={{ margin: '0 0 6px 0', fontSize: '1rem', fontWeight: 700 }}>
-                    <Link to="/courses" style={{ color: 'var(--text-primary)', textDecoration: 'none' }}>
-                      {language === 'rw' ? "Amategeko y'Umuhanda mu Rwanda" : "Rwanda Road Regulations"}
-                    </Link>
-                  </h4>
-                  <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                    SIFO-MOD-01 • 15 Lessons
-                  </p>
-                </div>
-              </div>
+              {publishedCourses.map((c, idx) => {
+                const gradients = [
+                  'linear-gradient(135deg, #0055A5 0%, #0374b5 100%)',
+                  'linear-gradient(135deg, #7C3AED 0%, #9333EA 100%)',
+                  'linear-gradient(135deg, #0284C7 0%, #0EA5E9 100%)',
+                ];
+                const grad = gradients[idx % gradients.length];
 
-              {/* Course Card 2 */}
+                return (
+                  <div
+                    key={c.id}
+                    style={{
+                      borderRadius: 'var(--radius-lg)',
+                      border: '1px solid var(--border-subtle)',
+                      overflow: 'hidden',
+                      background: 'var(--bg-surface-elevated)',
+                      position: 'relative',
+                    }}
+                  >
+                    <div
+                      style={{
+                        height: '110px',
+                        background: grad,
+                        padding: '16px',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'flex-start',
+                      }}
+                    >
+                      <span
+                        style={{
+                          background: 'rgba(255, 255, 255, 0.2)',
+                          backdropFilter: 'blur(4px)',
+                          color: '#ffffff',
+                          padding: '2px 8px',
+                          borderRadius: 'var(--radius-sm)',
+                          fontSize: '0.72rem',
+                          fontWeight: 700,
+                        }}
+                      >
+                        {c.code || 'THEORY'}
+                      </span>
+                      <div
+                        style={{
+                          background: '#ffffff',
+                          color: '#0055A5',
+                          fontWeight: 800,
+                          fontSize: '0.85rem',
+                          padding: '4px 10px',
+                          borderRadius: 'var(--radius-full)',
+                          boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                        }}
+                      >
+                        {c.progressPercentage}%
+                      </div>
+                    </div>
+                    <div style={{ padding: '16px' }}>
+                      <h4 style={{ margin: '0 0 6px 0', fontSize: '1rem', fontWeight: 700 }}>
+                        <Link to={`/courses/${c.id}`} style={{ color: 'var(--text-primary)', textDecoration: 'none' }}>
+                          {c.title}
+                        </Link>
+                      </h4>
+                      <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                        {c.modulesCount} Modules • {c.estimatedHours || 12}h Theory
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Road Signs Reference Card */}
               <div
                 style={{
                   borderRadius: 'var(--radius-lg)',
@@ -690,7 +692,7 @@ export const StudentCanvasDashboard: React.FC = () => {
                       fontWeight: 700,
                     }}
                   >
-                    {language === 'rw' ? 'Ibyapa' : 'Road Signs'}
+                    {t('dashboard.student.roadSigns')}
                   </span>
                   <div
                     style={{
@@ -703,17 +705,17 @@ export const StudentCanvasDashboard: React.FC = () => {
                       boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
                     }}
                   >
-                    90%
+                    Interactive
                   </div>
                 </div>
                 <div style={{ padding: '16px' }}>
                   <h4 style={{ margin: '0 0 6px 0', fontSize: '1rem', fontWeight: 700 }}>
                     <Link to="/road-signs" style={{ color: 'var(--text-primary)', textDecoration: 'none' }}>
-                      {language === 'rw' ? "Ibyapa byose byo mu Rwanda" : "Complete Rwanda Road Signs"}
+                      {t('dashboard.student.course2Title')}
                     </Link>
                   </h4>
                   <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                    SIFO-SIGNS-02 • 120 Interactive Signs
+                    Rwandan Road Signs & Markings Library
                   </p>
                 </div>
               </div>
@@ -734,10 +736,10 @@ export const StudentCanvasDashboard: React.FC = () => {
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
               <h3 style={{ fontSize: '1.05rem', fontWeight: 700, margin: 0 }}>
-                {language === 'rw' ? 'Ibitangazwa (Announcements)' : 'Announcements'}
+                {t('dashboard.student.announcements')}
               </h3>
               <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                {language === 'rw' ? 'Bitarasomwa (1)' : 'Unread (1)'}
+                {t('dashboard.student.unreadCount', { count: 1 })}
               </span>
             </div>
 
@@ -747,7 +749,7 @@ export const StudentCanvasDashboard: React.FC = () => {
                   padding: '12px',
                   borderRadius: 'var(--radius-md)',
                   background: 'var(--bg-surface-elevated)',
-                  borderLeft: '4px solid #0374b5',
+                  borderLeft: '4px solid #0055A5',
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
@@ -756,7 +758,7 @@ export const StudentCanvasDashboard: React.FC = () => {
                       width: '24px',
                       height: '24px',
                       borderRadius: '50%',
-                      background: '#003366',
+                      background: '#0055A5',
                       color: '#ffffff',
                       fontSize: '0.7rem',
                       fontWeight: 700,
@@ -771,15 +773,11 @@ export const StudentCanvasDashboard: React.FC = () => {
                     Sifo Drive Academy
                   </span>
                 </div>
-                <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#0374b5' }}>
-                  {language === 'rw'
-                    ? "Gahunda y'ibizamini bya Polisi y'uku Kwezi"
-                    : "Police Theory Exam Schedule This Month"}
+                <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#0055A5' }}>
+                  {t('dashboard.student.announcement1Title')}
                 </div>
                 <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: '4px 0 0 0', lineHeight: 1.4 }}>
-                  {language === 'rw'
-                    ? "Abanyeshuri bose bujuje 75% mu kwitabira amasomo barashobora kwiyandikisha..."
-                    : "All learners with ≥75% attendance can now request Irembo exam registration..."}
+                  {t('dashboard.student.announcement1Desc')}
                 </p>
               </div>
             </div>
@@ -788,23 +786,23 @@ export const StudentCanvasDashboard: React.FC = () => {
           {/* 2. Upcoming Live Class Widget with Instant 1-Click Join */}
           <div
             style={{
-              background: 'linear-gradient(135deg, rgba(0, 51, 102, 0.08) 0%, rgba(3, 116, 181, 0.12) 100%)',
+              background: 'linear-gradient(135deg, rgba(0, 85, 165, 0.08) 0%, rgba(3, 116, 181, 0.12) 100%)',
               borderRadius: 'var(--radius-lg)',
-              border: '1px solid rgba(3, 116, 181, 0.3)',
+              border: '1px solid rgba(0, 85, 165, 0.3)',
               padding: '20px',
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-              <Video size={18} color="#0374b5" />
-              <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#0374b5', textTransform: 'uppercase' }}>
-                {language === 'rw' ? "Ishuri ry'Imbonankubone" : "Upcoming Live Lecture"}
+              <Video size={18} color="#0055A5" />
+              <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#0055A5', textTransform: 'uppercase' }}>
+                {t('dashboard.student.upcomingLiveLecture')}
               </span>
             </div>
             <h4 style={{ fontSize: '1rem', fontWeight: 800, margin: '4px 0 8px 0' }}>
-              {nextClass?.title || (language === 'rw' ? "Amategeko yo Gutambuka no Guhagarara" : "Priority & Stopping Rules")}
+              {nextClass?.title || t('dashboard.student.defaultTopic')}
             </h4>
             <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: '0 0 16px 0' }}>
-              {language === 'rw' ? "Mwalimu: Aline Uwase • Uyu munsi saa 18:00" : "Instructor: Aline Uwase • Today at 18:00"}
+              {t('dashboard.student.instructorSubtitle', { instructor: 'Aline Uwase', time: '18:00' })}
             </p>
             <a
               href={nextClass?.googleMeetUrl || 'https://meet.google.com/sifo-class-theory'}
@@ -814,7 +812,7 @@ export const StudentCanvasDashboard: React.FC = () => {
               style={{ width: '100%', justifyContent: 'center', background: '#058728', borderColor: '#058728' }}
             >
               <ExternalLink size={16} />
-              <span>{language === 'rw' ? "Injira mu Ishuri (Google Meet)" : "Join Google Meet"}</span>
+              <span>{t('dashboard.student.joinGoogleMeetBtn')}</span>
             </a>
           </div>
 
@@ -828,14 +826,14 @@ export const StudentCanvasDashboard: React.FC = () => {
             }}
           >
             <h3 style={{ fontSize: '1.05rem', fontWeight: 700, margin: '0 0 14px 0' }}>
-              {language === 'rw' ? 'Ibyo gukora (To Do)' : 'To Do'}
+              {t('dashboard.student.toDo')}
             </h3>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div>
-                  <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#0374b5' }}>
-                    {language === 'rw' ? "Kwitoza Igisate cya 2" : "Practice Mock Quiz 2"}
+                  <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#0055A5' }}>
+                    {t('dashboard.student.todoItem1')}
                   </div>
                   <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
                     20 pts • Oct 30 at 11:59 PM
@@ -851,8 +849,8 @@ export const StudentCanvasDashboard: React.FC = () => {
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div>
-                  <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#0374b5' }}>
-                    {language === 'rw' ? "Gusoma Icyapa cy'Umuvuduko" : "Review Speed Limit Signs"}
+                  <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#0055A5' }}>
+                    {t('dashboard.student.todoItem2')}
                   </div>
                   <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
                     Road Signs • Nov 2 at 11:59 PM
@@ -878,7 +876,7 @@ export const StudentCanvasDashboard: React.FC = () => {
             }}
           >
             <h3 style={{ fontSize: '1.05rem', fontWeight: 700, margin: '0 0 14px 0' }}>
-              {language === 'rw' ? 'Ibiheruka Gusuzumwa (Recent Feedback)' : 'Recent Feedback'}
+              {t('dashboard.student.recentFeedback')}
             </h3>
 
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0' }}>
@@ -886,7 +884,7 @@ export const StudentCanvasDashboard: React.FC = () => {
                 <CheckCircle2 size={16} color="#058728" />
                 <div>
                   <div style={{ fontSize: '0.85rem', fontWeight: 600 }}>
-                    {language === 'rw' ? "Itegeko ry'Umuhanda Q1" : "Road Rules Quiz 1"}
+                    {t('dashboard.student.recentFeedbackItem1')}
                   </div>
                   <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
                     Amategeko y'Umuhanda
@@ -900,6 +898,13 @@ export const StudentCanvasDashboard: React.FC = () => {
           </div>
         </div>
       </div>
+
+      <StudentSubmitActivityModal
+        isOpen={!!selectedActivityForSubmit}
+        activity={selectedActivityForSubmit}
+        onClose={() => setSelectedActivityForSubmit(null)}
+        onSuccess={refreshActivities}
+      />
     </div>
   );
 };
