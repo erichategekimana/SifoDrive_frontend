@@ -8,32 +8,36 @@ export const Sidebar: React.FC = () => {
   const { user } = useAuth();
   const { t } = useTranslation();
 
-  const navItems = [
-    { to: '/dashboard', label: t('nav.overview'), icon: <LayoutDashboard size={18} /> },
-    ...(user?.isTutor()
-      ? [{ to: '/tutor', label: 'Tutor Console', icon: <Video size={18} color="#0374b5" /> }]
-      : []),
-    ...(user?.isEnterpriseAdmin()
-      ? [{ to: '/enterprise', label: 'School Lab Hub', icon: <Shield size={18} color="#058728" /> }]
-      : []),
-    ...(user?.isBoardReviewer()
-      ? [{ to: '/board-reviewer', label: 'Proctoring Audit', icon: <Shield size={18} color="#d13838" /> }]
-      : []),
-    ...(user?.isAgent()
-      ? [{ to: '/agent', label: 'Agent Kiosk', icon: <Award size={18} color="#ea580c" /> }]
-      : []),
-    { to: '/courses', label: t('nav.courses'), icon: <BookOpen size={18} /> },
-    { to: '/road-signs', label: t('nav.roadSigns'), icon: <Compass size={18} /> },
-    { to: '/live-classes', label: t('nav.liveClasses'), icon: <Video size={18} /> },
-    { to: '/booking', label: t('nav.booking'), icon: <Calendar size={18} /> },
-    { to: '/profile', label: t('nav.myProfile'), icon: <UserCheck size={18} /> },
-    ...(user?.isSystemAdmin()
-      ? [{ to: '/admin', label: 'Admin Console', icon: <Shield size={18} color="#ef4444" /> }]
-      : []),
-    ...(user?.isTrainingAdmin()
-      ? [{ to: '/admin', label: 'Training Console', icon: <Shield size={18} color="#f59e0b" /> }]
-      : []),
-  ];
+  const isBoardReviewer = user?.isBoardReviewer();
+
+  const navItems = isBoardReviewer
+    ? [
+        { to: '/dashboard', label: 'Exam Review Console', icon: <Award size={18} color="#0055A5" /> },
+        { to: '/profile', label: t('nav.myProfile'), icon: <UserCheck size={18} /> },
+      ]
+    : [
+        { to: '/dashboard', label: t('nav.overview'), icon: <LayoutDashboard size={18} /> },
+        ...(user?.isTutor()
+          ? [{ to: '/tutor', label: 'Cohort LMS Studio', icon: <BookOpen size={18} /> }]
+          : []),
+        ...(user?.isEnterpriseAdmin()
+          ? [{ to: '/enterprise', label: 'School Lab Hub', icon: <Shield size={18} color="#058728" /> }]
+          : []),
+        ...(user?.isAgent()
+          ? [{ to: '/agent', label: 'Agent Kiosk', icon: <Award size={18} color="#ea580c" /> }]
+          : []),
+        { to: '/courses', label: t('nav.courses'), icon: <BookOpen size={18} /> },
+        { to: '/road-signs', label: t('nav.roadSigns'), icon: <Compass size={18} /> },
+        { to: '/live-classes', label: t('nav.liveClasses'), icon: <Video size={18} /> },
+        { to: '/booking', label: t('nav.booking'), icon: <Calendar size={18} /> },
+        { to: '/profile', label: t('nav.myProfile'), icon: <UserCheck size={18} /> },
+        ...(user?.isSystemAdmin()
+          ? [{ to: '/admin', label: 'Admin Console', icon: <Shield size={18} color="#ef4444" /> }]
+          : []),
+        ...(user?.isTrainingAdmin()
+          ? [{ to: '/admin', label: 'Training Console', icon: <Shield size={18} color="#f59e0b" /> }]
+          : []),
+      ];
 
   return (
     <aside

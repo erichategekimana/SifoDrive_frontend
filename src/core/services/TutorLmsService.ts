@@ -3,15 +3,17 @@ import { ApiEndpoints } from '../api/ApiEndpoints';
 
 export interface AssignedCurriculumRef {
   id: string;
-  name: string;
-  code: string;
+  name?: string;
+  title?: string;
+  code?: string;
 }
 
 export interface AssignedCourseRef {
   id: string;
-  title: string;
-  code: string;
-  curriculum_id: string;
+  title?: string;
+  name?: string;
+  code?: string;
+  curriculum_id?: string;
 }
 
 export interface TutorAdminSummary {
@@ -31,10 +33,30 @@ export interface CohortSelectorItem {
   id: string;
   name: string;
   code: string;
+  identifier?: string;
+  status?: string;
+  max_capacity?: number;
+  schedule_description?: string;
   start_date: string;
   end_date: string;
   is_active: boolean;
   student_count: number;
+}
+
+export interface CohortDeadlineItem {
+  id: string;
+  type: 'QUIZ' | 'ACTIVITY';
+  title: string;
+  cohort_id: string;
+  cohort_name: string;
+  cohort_identifier: string;
+  course_id: string;
+  course_title: string;
+  due_date: string | null;
+  is_extended?: boolean;
+  submissions_count?: number;
+  total_students?: number;
+  status: 'OPEN' | 'UPCOMING' | 'PASSED';
 }
 
 export interface CohortCourseItem {
@@ -144,11 +166,21 @@ export class TutorLmsService {
     return this.http.get<TutorAdminSummary[]>(ApiEndpoints.LMS.ADMIN_TUTORS);
   }
 
+  public async getTutorCurricula(tutorId: string): Promise<any[]> {
+    const url = ApiEndpoints.LMS.ADMIN_TUTOR_CURRICULA(tutorId);
+    return this.http.get<any[]>(url);
+  }
+
   public async assignCurricula(tutorId: string, curriculumIds: string[]): Promise<{ message: string; assigned_curricula_ids: string[] }> {
     const url = ApiEndpoints.LMS.ADMIN_TUTOR_CURRICULA(tutorId);
     return this.http.post<{ message: string; assigned_curricula_ids: string[] }>(url, {
       curriculum_ids: curriculumIds,
     });
+  }
+
+  public async getTutorCourses(tutorId: string): Promise<any[]> {
+    const url = ApiEndpoints.LMS.ADMIN_TUTOR_COURSES(tutorId);
+    return this.http.get<any[]>(url);
   }
 
   public async assignCourses(tutorId: string, courseIds: string[]): Promise<{ message: string; assigned_course_ids: string[] }> {
@@ -162,6 +194,16 @@ export class TutorLmsService {
 
   public async getTutorCohorts(): Promise<CohortSelectorItem[]> {
     return this.http.get<CohortSelectorItem[]>(ApiEndpoints.LMS.TUTOR_COHORTS);
+  }
+
+  public async getTutorDeadlines(): Promise<CohortDeadlineItem[]> {
+    try {
+      const res = await this.http.get<any>(ApiEndpoints.LMS.TUTOR_DEADLINES);
+      const data = res?.data || res || [];
+      return Array.isArray(data) ? data : [];
+    } catch {
+      return [];
+    }
   }
 
   public async getCohortCourses(cohortId: string): Promise<CohortCourseItem[]> {

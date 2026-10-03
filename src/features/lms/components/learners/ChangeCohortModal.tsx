@@ -130,7 +130,7 @@ export const ChangeCohortModal: React.FC<ChangeCohortModalProps> = ({
               <option value="">-- Unassigned (Remove from Cohort) --</option>
               {cohorts.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.name} ({c.code || 'COHORT'}) — {c.student_count || 0}/{c.max_capacity || 50} enrolled
+                  {c.identifier ? `[#${c.identifier}] ` : ''}{c.name} ({c.code || 'COHORT'}) — {c.student_count || 0}/{c.max_capacity || 60} enrolled
                 </option>
               ))}
             </select>

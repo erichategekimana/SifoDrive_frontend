@@ -10,7 +10,7 @@ import { RegisterPage } from '../pages/public/RegisterPage';
 
 // Protected Pages & Role Consoles
 import { DashboardDispatcher } from '../pages/dashboard/DashboardDispatcher';
-import { TutorDashboard } from '../pages/dashboard/TutorDashboard';
+import { TutorStudioPage } from '../pages/dashboard/TutorStudioPage';
 import { EnterpriseDashboard } from '../pages/dashboard/EnterpriseDashboard';
 import { BoardReviewerDashboard } from '../pages/dashboard/BoardReviewerDashboard';
 import { AgentDashboard } from '../pages/dashboard/AgentDashboard';
@@ -67,7 +67,7 @@ export const AppRoutes: React.FC = () => {
           <Route path="/groups/:id" element={<GroupsView />} />
           <Route path="/calendar" element={<CalendarView />} />
           <Route path="/help" element={<HelpView />} />
-          <Route path="/tutor" element={<TutorDashboard />} />
+          <Route path="/tutor" element={<TutorStudioPage />} />
           <Route path="/enterprise" element={<EnterpriseDashboard />} />
           <Route path="/board-reviewer" element={<BoardReviewerDashboard />} />
           <Route path="/agent" element={<AgentDashboard />} />

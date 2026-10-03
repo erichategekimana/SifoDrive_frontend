@@ -99,6 +99,8 @@ export interface CohortItem {
   description?: string;
   start_date?: string;
   end_date?: string;
+  status?: 'queue' | 'open' | 'closed' | 'ended';
+  identifier?: string;
   is_active: boolean;
   max_capacity?: number;
   student_count?: number;
@@ -778,6 +780,7 @@ export class AdminService {
     code?: string;
     max_capacity?: number;
     schedule_description?: string;
+    status?: 'queue' | 'open' | 'closed' | 'ended';
   }): Promise<any> {
     return this.http.post(ApiEndpoints.ADMIN.COHORTS, payload);
   }
@@ -785,6 +788,11 @@ export class AdminService {
   public async updateCohort(id: string, payload: Partial<CohortItem>): Promise<any> {
     logger.info(`Updating cohort ${id}`);
     return this.http.patch(ApiEndpoints.ADMIN.COHORT_DETAIL(id), payload);
+  }
+
+  public async setCohortStatus(id: string, status: 'queue' | 'open' | 'closed' | 'ended'): Promise<any> {
+    logger.info(`Setting cohort ${id} status to ${status}`);
+    return this.http.post(ApiEndpoints.ADMIN.COHORT_SET_STATUS(id), { status });
   }
 
   public async assignTutorsToCohort(cohortId: string, tutorIds: string[], action: 'assign' | 'unassign' = 'assign'): Promise<any> {
@@ -1152,6 +1160,7 @@ export interface ExamSessionItem {
   student_name: string;
   student_phone: string;
   student_id_number?: string;
+  student_code?: string;
   cohort?: string | null;
   cohort_name?: string | null;
   track: 'B2C' | 'B2B';
@@ -1174,6 +1183,7 @@ export interface ExamSessionItem {
   passing_score: number;
   percentage?: number | null;
   passed?: boolean | null;
+  violation_count?: number;
   started_at?: string | null;
   submitted_at?: string | null;
   board_decision?: string;
@@ -1215,9 +1225,12 @@ export interface SessionQuestionDetailItem {
 export interface ProctoringEventItem {
   id: string;
   event_type: string;
-  timestamp: string;
+  timestamp?: string;
+  created_at?: string;
   snapshot_image?: string | null;
   flagged_reason?: string;
+  is_violation?: boolean;
+  metadata?: any;
 }
 
 export interface ExamSessionDetailItem extends ExamSessionItem {

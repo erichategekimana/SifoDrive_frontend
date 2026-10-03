@@ -89,6 +89,7 @@ export const ApiEndpoints = {
 
     // Tutor LMS Studio: Cohorts & Content
     TUTOR_COHORTS: `${API_BASE_URL}/lms/tutor/cohorts/`,
+    TUTOR_DEADLINES: `${API_BASE_URL}/lms/tutor/deadlines/`,
     TUTOR_COHORT_COURSES: (cohortId: string) => `${API_BASE_URL}/lms/tutor/cohorts/${cohortId}/courses/`,
     TUTOR_COHORT_MODULES: (cohortId: string, courseId: string) => `${API_BASE_URL}/lms/tutor/cohorts/${cohortId}/courses/${courseId}/modules/`,
     TUTOR_COHORT_MODULE_RELEASE: (cohortId: string, moduleId: string) => `${API_BASE_URL}/lms/tutor/cohorts/${cohortId}/modules/${moduleId}/release/`,
@@ -181,6 +182,7 @@ export const ApiEndpoints = {
     // Live Classes & Cohort Dispatch
     COHORTS: `${API_BASE_URL}/live-classes/cohorts/`,
     COHORT_DETAIL: (id: string) => `${API_BASE_URL}/live-classes/cohorts/${id}/`,
+    COHORT_SET_STATUS: (id: string) => `${API_BASE_URL}/live-classes/cohorts/${id}/set-status/`,
     COHORT_ASSIGN_STUDENTS: (id: string) => `${API_BASE_URL}/live-classes/cohorts/${id}/assign-students/`,
     COHORT_ASSIGN_TUTORS: (id: string) => `${API_BASE_URL}/live-classes/cohorts/${id}/assign-tutors/`,
     CLASSES: `${API_BASE_URL}/live-classes/classes/`,

@@ -1,8 +1,7 @@
 import React, { useState, useMemo } from 'react';
-import { Search, Plus, Users, Power, PowerOff } from 'lucide-react';
+import { Search, Plus, Users, Power, PowerOff, Radio, Lock, Clock, CheckCircle2 } from 'lucide-react';
 import { AdminService } from '../../../core/services/AdminService';
 import type { CohortItem, AdminUserItem } from '../../../core/services/AdminService';
-import { Badge } from '../../../components/common/Badge';
 import { useToast } from '../../../context/ToastContext';
 import { CreateCohortModal } from './cohorts/CreateCohortModal';
 import { AssignTutorsModal } from './cohorts/AssignTutorsModal';
@@ -33,6 +32,7 @@ export const CohortsSection: React.FC<CohortsSectionProps> = ({
       return (
         c.name?.toLowerCase().includes(q) ||
         c.code?.toLowerCase().includes(q) ||
+        c.identifier?.toLowerCase().includes(q) ||
         c.description?.toLowerCase().includes(q)
       );
     });
@@ -40,6 +40,152 @@ export const CohortsSection: React.FC<CohortsSectionProps> = ({
 
   const handleOpenAssignTutorsModal = (cohort: CohortItem) => {
     setSelectedCohortForTutors(cohort);
+  };
+
+  const handleSetCohortStatus = async (cohort: CohortItem, newStatus: 'queue' | 'open' | 'closed' | 'ended') => {
+    if (newStatus === 'open') {
+      const today = new Date().toISOString().slice(0, 10);
+      if (cohort.end_date && cohort.end_date < today) {
+        warning(`Cannot open cohort "${cohort.name}" because its scheduled end date has already passed.`);
+        return;
+      }
+      if ((cohort.student_count || 0) >= (cohort.max_capacity || 60)) {
+        warning(`Cannot open cohort "${cohort.name}" because it has reached its maximum capacity.`);
+        return;
+      }
+    }
+
+    setIsSubmitting(true);
+    try {
+      await adminService.setCohortStatus(cohort.id, newStatus);
+      if (newStatus === 'open') {
+        success(`Cohort "${cohort.name}" is now OPEN. It is the default cohort for all new student registrations.`);
+      } else if (newStatus === 'closed') {
+        success(`Cohort "${cohort.name}" intake has been CLOSED.`);
+      } else if (newStatus === 'queue') {
+        success(`Cohort "${cohort.name}" placed in QUEUE.`);
+      } else {
+        success(`Cohort "${cohort.name}" marked as ${newStatus.toUpperCase()}.`);
+      }
+      refetch();
+    } catch (err: any) {
+      const msg =
+        err?.response?.data?.status ||
+        err?.response?.data?.detail ||
+        err?.message ||
+        'Failed to update cohort status.';
+      toastError(typeof msg === 'string' ? msg : JSON.stringify(msg));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const renderCohortStatusBadge = (co: CohortItem) => {
+    const status = co.status || (co.is_active ? 'open' : 'closed');
+
+    if (status === 'open') {
+      return (
+        <span
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '4px 10px',
+            borderRadius: '9999px',
+            fontSize: '0.74rem',
+            fontWeight: 700,
+            letterSpacing: '0.04em',
+            background: 'rgba(34, 197, 94, 0.15)',
+            color: '#4ade80',
+            border: '1px solid rgba(34, 197, 94, 0.35)',
+            boxShadow: '0 0 10px rgba(34, 197, 94, 0.2)',
+          }}
+          title="Active intake — default cohort for new student registrations"
+        >
+          <span
+            style={{
+              width: '7px',
+              height: '7px',
+              borderRadius: '50%',
+              background: '#4ade80',
+              boxShadow: '0 0 8px #4ade80',
+            }}
+          />
+          OPEN (DEFAULT)
+        </span>
+      );
+    }
+
+    if (status === 'queue') {
+      return (
+        <span
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '5px',
+            padding: '4px 10px',
+            borderRadius: '9999px',
+            fontSize: '0.74rem',
+            fontWeight: 700,
+            letterSpacing: '0.04em',
+            background: 'rgba(234, 179, 8, 0.12)',
+            color: '#facc15',
+            border: '1px solid rgba(234, 179, 8, 0.3)',
+          }}
+          title="In queue — waiting to open"
+        >
+          <Clock size={12} />
+          QUEUE
+        </span>
+      );
+    }
+
+    if (status === 'ended') {
+      return (
+        <span
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '5px',
+            padding: '4px 10px',
+            borderRadius: '9999px',
+            fontSize: '0.74rem',
+            fontWeight: 700,
+            letterSpacing: '0.04em',
+            background: 'rgba(168, 85, 247, 0.12)',
+            color: '#c084fc',
+            border: '1px solid rgba(168, 85, 247, 0.3)',
+          }}
+          title="Scheduled duration completed"
+        >
+          <CheckCircle2 size={12} />
+          ENDED
+        </span>
+      );
+    }
+
+    // Default: 'closed'
+    return (
+      <span
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '5px',
+          padding: '4px 10px',
+          borderRadius: '9999px',
+          fontSize: '0.74rem',
+          fontWeight: 700,
+          letterSpacing: '0.04em',
+          background: 'rgba(148, 163, 184, 0.12)',
+          color: '#94a3b8',
+          border: '1px solid rgba(148, 163, 184, 0.25)',
+        }}
+        title="Intake closed — capacity reached or closed by admin"
+      >
+        <Lock size={12} />
+        CLOSED
+      </span>
+    );
   };
 
   const handleToggleCohortActive = async (cohort: CohortItem) => {
@@ -150,14 +296,34 @@ export const CohortsSection: React.FC<CohortsSectionProps> = ({
             <tbody>
               {filteredCohorts.map((co) => {
                 const studentCount = co.student_count || 0;
-                const maxCap = co.max_capacity || 50;
+                const maxCap = co.max_capacity || 60;
                 const assignedTutorsList = co.assigned_tutors || [];
                 const ongoingCount = co.ongoing_student_count ?? 0;
 
                 return (
                   <tr key={co.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                     <td style={{ padding: '14px 16px', fontWeight: 800, color: 'var(--primary-light)', fontFamily: 'monospace' }}>
-                      {co.code || 'COHORT'}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span>{co.code || 'COHORT'}</span>
+                        {co.identifier && (
+                          <span
+                            style={{
+                              fontSize: '0.72rem',
+                              padding: '2px 7px',
+                              borderRadius: '4px',
+                              background: 'rgba(56, 189, 248, 0.12)',
+                              color: '#38bdf8',
+                              border: '1px solid rgba(56, 189, 248, 0.3)',
+                              fontFamily: 'monospace',
+                              fontWeight: 700,
+                              letterSpacing: '0.04em',
+                            }}
+                            title={`3-Digit Identifier: ${co.identifier}`}
+                          >
+                            #{co.identifier}
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td style={{ padding: '14px 16px', fontWeight: 700, color: '#ffffff' }}>
                       <div>{co.name}</div>
@@ -168,11 +334,7 @@ export const CohortsSection: React.FC<CohortsSectionProps> = ({
                       )}
                     </td>
                     <td style={{ padding: '14px 16px' }}>
-                      {co.is_active ? (
-                        <Badge variant="success">ACTIVE</Badge>
-                      ) : (
-                        <Badge variant="neutral">INACTIVE</Badge>
-                      )}
+                      {renderCohortStatusBadge(co)}
                     </td>
                     <td style={{ padding: '14px 16px', color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
                       {co.start_date} to {co.end_date || 'Open'}
@@ -218,7 +380,50 @@ export const CohortsSection: React.FC<CohortsSectionProps> = ({
                       )}
                     </td>
                     <td style={{ padding: '14px 16px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                        {co.status === 'open' ? (
+                          <button
+                            onClick={() => handleSetCohortStatus(co, 'closed')}
+                            disabled={isSubmitting}
+                            className="btn btn-secondary btn-sm"
+                            style={{
+                              fontSize: '0.75rem',
+                              padding: '4px 10px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '5px',
+                              color: '#f87171',
+                              borderColor: 'rgba(239, 68, 68, 0.3)',
+                            }}
+                            title="Close intake for this cohort"
+                          >
+                            <Lock size={12} />
+                            <span>Close Intake</span>
+                          </button>
+                        ) : co.status !== 'ended' ? (
+                          <button
+                            onClick={() => handleSetCohortStatus(co, 'open')}
+                            disabled={isSubmitting || studentCount >= maxCap}
+                            className="btn btn-primary btn-sm"
+                            style={{
+                              fontSize: '0.75rem',
+                              padding: '4px 10px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '5px',
+                              opacity: studentCount >= maxCap ? 0.6 : 1,
+                            }}
+                            title={
+                              studentCount >= maxCap
+                                ? 'Cohort has reached maximum capacity'
+                                : 'Set this cohort as Open (default for all new student registrations)'
+                            }
+                          >
+                            <Radio size={12} />
+                            <span>Set as Open</span>
+                          </button>
+                        ) : null}
+
                         <button
                           onClick={() => handleOpenAssignTutorsModal(co)}
                           className="btn btn-secondary btn-sm"

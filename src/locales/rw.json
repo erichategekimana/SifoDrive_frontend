@@ -255,7 +255,15 @@
       "meetingSavedSuccess": "Ihuza rya Google Meet ryahinduwe neza!",
       "loadingConsole": "Birimo gufunguka...",
       "allCohorts": "Amatsinda Yose",
-      "openProfile": "Reba Umwirondoro"
+      "openProfile": "Reba Umwirondoro",
+      "tabDashboard": "Imbonerahamwe (Dashboard)",
+      "tabStudio": "LMS Studio y'Amatsinda",
+      "assignedCohortsTitle": "Amatsinda Ushinzwe",
+      "learnerProgressTitle": "Iterambere ry'Abanyeshuri",
+      "upcomingClassesTitle": "Amasomo y'Imbonankubone Ateganyijwe",
+      "approachingDeadlinesTitle": "Ibizamini & Imyitozo Byegereje",
+      "announcementsTitle": "Amatangazo",
+      "ticketsTitle": "Ibibazo by'Abanyeshuri & Amatike"
     },
     "enterprise": {
       "badge": "Ibiro by'Ishuri ryo Gutwara",

@@ -323,36 +323,39 @@ export const InspectSessionModal: React.FC<InspectSessionModalProps> = ({
                   background: 'var(--bg-surface-elevated)',
                 }}
               >
-                {inspectDetail.questions && inspectDetail.questions.length > 0 ? (
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
-                    <thead>
-                      <tr style={{ borderBottom: '1px solid var(--border-subtle)', textAlign: 'left' }}>
-                        <th style={{ padding: '8px 12px', color: 'var(--text-muted)', fontWeight: 600 }}>#</th>
-                        <th style={{ padding: '8px 12px', color: 'var(--text-muted)', fontWeight: 600 }}>Question</th>
-                        <th style={{ padding: '8px 12px', color: 'var(--text-muted)', fontWeight: 600 }}>Selected</th>
-                        <th style={{ padding: '8px 12px', color: 'var(--text-muted)', fontWeight: 600 }}>Key</th>
-                        <th style={{ padding: '8px 12px', color: 'var(--text-muted)', fontWeight: 600, textAlign: 'right' }}>Result</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {inspectDetail.questions.map((q) => (
-                        <tr key={q.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                          <td style={{ padding: '8px 12px', color: 'var(--text-muted)' }}>{q.sequence_number}</td>
-                          <td style={{ padding: '8px 12px', color: 'var(--text-primary)' }}>{q.question_text}</td>
-                          <td style={{ padding: '8px 12px', color: 'var(--text-secondary)', fontWeight: 600 }}>{q.selected_option || '—'}</td>
-                          <td style={{ padding: '8px 12px', color: 'var(--text-secondary)' }}>{q.correct_option}</td>
-                          <td style={{ padding: '8px 12px', textAlign: 'right', color: 'var(--text-secondary)', fontWeight: 500 }}>
-                            {q.is_correct ? 'Correct' : 'Incorrect'}
-                          </td>
+                {(() => {
+                  const questionsList = (inspectDetail as any).session_questions || inspectDetail.questions || [];
+                  return questionsList.length > 0 ? (
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+                      <thead>
+                        <tr style={{ borderBottom: '1px solid var(--border-subtle)', textAlign: 'left' }}>
+                          <th style={{ padding: '8px 12px', color: 'var(--text-muted)', fontWeight: 600 }}>#</th>
+                          <th style={{ padding: '8px 12px', color: 'var(--text-muted)', fontWeight: 600 }}>Question</th>
+                          <th style={{ padding: '8px 12px', color: 'var(--text-muted)', fontWeight: 600 }}>Selected</th>
+                          <th style={{ padding: '8px 12px', color: 'var(--text-muted)', fontWeight: 600 }}>Key</th>
+                          <th style={{ padding: '8px 12px', color: 'var(--text-muted)', fontWeight: 600, textAlign: 'right' }}>Result</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                ) : (
-                  <div style={{ padding: '16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
-                    No question breakdown available.
-                  </div>
-                )}
+                      </thead>
+                      <tbody>
+                        {questionsList.map((q: any) => (
+                          <tr key={q.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                            <td style={{ padding: '8px 12px', color: 'var(--text-muted)' }}>{q.sequence_number}</td>
+                            <td style={{ padding: '8px 12px', color: 'var(--text-primary)' }}>{q.question_text}</td>
+                            <td style={{ padding: '8px 12px', color: 'var(--text-secondary)', fontWeight: 600 }}>{q.selected_option || '—'}</td>
+                            <td style={{ padding: '8px 12px', color: 'var(--text-secondary)' }}>{q.correct_option}</td>
+                            <td style={{ padding: '8px 12px', textAlign: 'right', color: 'var(--text-secondary)', fontWeight: 500 }}>
+                              {q.is_correct ? 'Correct' : 'Incorrect'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ) : (
+                    <div style={{ padding: '16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+                      No question breakdown available.
+                    </div>
+                  );
+                })()}
               </div>
             </div>
 

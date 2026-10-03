@@ -19,8 +19,9 @@ export const CreateCohortModal: React.FC<CreateCohortModalProps> = ({
   const [newCohortCode, setNewCohortCode] = useState<string>('');
   const [newCohortStart, setNewCohortStart] = useState<string>('');
   const [newCohortEnd, setNewCohortEnd] = useState<string>('');
-  const [newCohortCapacity, setNewCohortCapacity] = useState<number>(50);
+  const [newCohortCapacity, setNewCohortCapacity] = useState<number>(60);
   const [newCohortSchedule, setNewCohortSchedule] = useState<string>('');
+  const [openImmediately, setOpenImmediately] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   const adminService = AdminService.getInstance();
@@ -41,15 +42,21 @@ export const CreateCohortModal: React.FC<CreateCohortModalProps> = ({
         code: newCohortCode.trim().toUpperCase() || undefined,
         start_date: newCohortStart,
         end_date: newCohortEnd,
-        max_capacity: Number(newCohortCapacity) || 50,
+        max_capacity: Number(newCohortCapacity) || 60,
         schedule_description: newCohortSchedule.trim() || undefined,
+        status: openImmediately ? 'open' : 'queue',
       });
-      success(`Created cohort "${newCohortName}".`);
+      success(
+        openImmediately
+          ? `Created and opened cohort "${newCohortName}" as default for new students.`
+          : `Created cohort "${newCohortName}" in queue.`
+      );
       setNewCohortName('');
       setNewCohortCode('');
       setNewCohortStart('');
       setNewCohortEnd('');
       setNewCohortSchedule('');
+      setOpenImmediately(false);
       onSuccess();
       onClose();
     } catch (err: any) {
@@ -244,7 +251,7 @@ export const CreateCohortModal: React.FC<CreateCohortModalProps> = ({
                 min={5}
                 max={200}
                 value={newCohortCapacity}
-                onChange={(e) => setNewCohortCapacity(parseInt(e.target.value) || 50)}
+                onChange={(e) => setNewCohortCapacity(parseInt(e.target.value) || 60)}
                 style={{
                   width: '100%',
                   padding: '10px 14px',
@@ -284,12 +291,61 @@ export const CreateCohortModal: React.FC<CreateCohortModalProps> = ({
             </div>
           </div>
 
+          <div
+            style={{
+              padding: '14px 16px',
+              borderRadius: 'var(--radius-lg)',
+              background: openImmediately ? 'rgba(34, 197, 94, 0.08)' : 'rgba(234, 179, 8, 0.06)',
+              border: `1px solid ${openImmediately ? 'rgba(34, 197, 94, 0.25)' : 'rgba(234, 179, 8, 0.2)'}`,
+              transition: 'all 0.2s ease',
+            }}
+          >
+            <label
+              style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: '10px',
+                cursor: 'pointer',
+                margin: 0,
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={openImmediately}
+                onChange={(e) => setOpenImmediately(e.target.checked)}
+                style={{
+                  marginTop: '3px',
+                  width: '16px',
+                  height: '16px',
+                  accentColor: 'var(--primary)',
+                  cursor: 'pointer',
+                }}
+              />
+              <div>
+                <div style={{ fontSize: '0.86rem', fontWeight: 700, color: openImmediately ? '#4ade80' : '#ffffff' }}>
+                  Open as default intake immediately
+                </div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '2px', lineHeight: 1.4 }}>
+                  {openImmediately ? (
+                    <span style={{ color: '#86efac' }}>
+                      ⚡ Only one cohort can be <strong>Open</strong> at a time. Activating this will automatically close any previous open cohort, and all new student registrations will enroll here.
+                    </span>
+                  ) : (
+                    <span>
+                      Newly created cohorts default to <strong>Queue</strong> status (inactive in line). You can open this cohort at any time from the Cohorts table.
+                    </span>
+                  )}
+                </div>
+              </div>
+            </label>
+          </div>
+
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '8px' }}>
             <button type="button" onClick={onClose} className="btn btn-secondary">
               Cancel
             </button>
             <button type="submit" disabled={isSubmitting} className="btn btn-primary">
-              {isSubmitting ? 'Creating...' : 'Create Cohort'}
+              {isSubmitting ? 'Creating...' : openImmediately ? 'Create & Open Intake' : 'Create in Queue'}
             </button>
           </div>
         </form>

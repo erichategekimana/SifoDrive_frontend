@@ -29,6 +29,8 @@ export interface TutorAssignedStudentDTO {
   exam_eligible: boolean;
   attendance_rate: number;
   module_completion: number;
+  cohort_name?: string | null;
+  cohort_identifier?: string | null;
 }
 
 export class TutorService {
@@ -51,19 +53,19 @@ export class TutorService {
       const res = await this.http.get<any>(ApiEndpoints.TUTOR.STATS);
       return res.data || res;
     } catch (err) {
-      logger.warn('Failed to load tutor stats from API, using fallback data', err);
+      logger.warn('Failed to load tutor stats from API', err);
       return {
-        tutor_code: 'SIFO-TUT-001',
-        title: 'Senior Traffic Law Instructor',
-        bio: 'Certified Rwanda National Police Traffic Regulations Instructor with 8+ years experience.',
-        specialization_categories: ['A', 'B', 'C'],
-        default_meeting_url: 'https://meet.google.com/sifo-class-theory',
+        tutor_code: '',
+        title: '',
+        bio: '',
+        specialization_categories: [],
+        default_meeting_url: '',
         is_available: true,
-        max_capacity: 50,
-        total_students: 24,
-        active_students: 22,
-        rating: 4.95,
-        teaching_hours: 148,
+        max_capacity: 0,
+        total_students: 0,
+        active_students: 0,
+        rating: 5.0,
+        teaching_hours: 0,
       };
     }
   }
@@ -71,47 +73,11 @@ export class TutorService {
   public async getAssignedStudents(): Promise<TutorAssignedStudentDTO[]> {
     try {
       const res = await this.http.get<any>(ApiEndpoints.TUTOR.STUDENTS);
-      return res.data || res || [];
+      const data = res.data || res || [];
+      return Array.isArray(data) ? data : [];
     } catch (err) {
-      logger.warn('Failed to load assigned students from API, using fallback list', err);
-      return [
-        {
-          id: 'stu-1',
-          full_name: 'Jean Paul Mugisha',
-          phone_number: '+250788123456',
-          student_id: 'SIFO-STU-2026-0042',
-          status: 'ACTIVE',
-          license_category: 'B',
-          current_streak_days: 7,
-          exam_eligible: true,
-          attendance_rate: 0.88,
-          module_completion: 1.0,
-        },
-        {
-          id: 'stu-2',
-          full_name: 'Aline Uwase',
-          phone_number: '+250788654321',
-          student_id: 'SIFO-STU-2026-0043',
-          status: 'ACTIVE',
-          license_category: 'B',
-          current_streak_days: 3,
-          exam_eligible: false,
-          attendance_rate: 0.65,
-          module_completion: 0.7,
-        },
-        {
-          id: 'stu-3',
-          full_name: 'Eric Nshimyumuremyi',
-          phone_number: '+250788777888',
-          student_id: 'SIFO-STU-2026-0045',
-          status: 'ACTIVE',
-          license_category: 'A',
-          current_streak_days: 12,
-          exam_eligible: true,
-          attendance_rate: 0.95,
-          module_completion: 1.0,
-        },
-      ];
+      logger.error('Failed to load assigned students from database:', err);
+      return [];
     }
   }
 

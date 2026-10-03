@@ -39,7 +39,7 @@
   "roles": {
     "guest": "Guest Learner (Preview)",
     "student": "Full Enrolled Student",
-    "tutor": "Theory Instructor",
+    "tutor": "Driving Rules Instructor",
     "agent": "Irembo Agent",
     "admin": "System Administrator"
   },
@@ -234,7 +234,7 @@
       "recentFeedbackItem1": "Road Rules Quiz 1"
     },
     "tutor": {
-      "badge": "Theory & Practical Instructor",
+      "badge": "Driving Rules Instructor",
       "startClassroom": "Start Live Classroom",
       "totalStudents": "Total Assigned Students",
       "activeToday": "Active Learners Today",
@@ -253,9 +253,16 @@
       "saveLink": "Save Link",
       "saving": "Saving...",
       "meetingSavedSuccess": "Google Meet URL updated successfully!",
-      "loadingConsole": "Loading Instructor Console...",
       "allCohorts": "All Cohorts",
-      "openProfile": "Open Profile"
+      "openProfile": "Open Profile",
+      "tabDashboard": "Dashboard",
+      "tabStudio": "Cohort LMS Studio",
+      "assignedCohortsTitle": "Assigned Cohorts",
+      "learnerProgressTitle": "Learner Progress",
+      "upcomingClassesTitle": "Upcoming Live Classes",
+      "approachingDeadlinesTitle": "Approaching Deadlines",
+      "announcementsTitle": "Announcements",
+      "ticketsTitle": "Student Inquiries & Tickets"
     },
     "enterprise": {
       "badge": "Driving School Hub",

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Plus, Award, BookOpen, Users, GraduationCap } from 'lucide-react';
 import type { AdminUserItem, LiveClassAdminItem, CohortItem, CurriculumItem } from '../../../core/services/AdminService';
 import { Badge } from '../../../components/common/Badge';
@@ -54,8 +54,31 @@ export const TutorsSection: React.FC<TutorsSectionProps> = ({
     await Promise.all([refetch(), fetchTutorSummaries()]);
   };
 
-  // Merge admin tutors with tutorSummaries
-  const displayTutors = tutorSummaries.length > 0 ? tutorSummaries : (tutors as unknown as TutorAdminSummary[]);
+  // Merge tutor list with detailed summaries by ID so tutor properties and assignments are never lost or misaligned
+  const displayTutors: TutorAdminSummary[] = useMemo(() => {
+    const summaryMap = new Map((tutorSummaries || []).map((s) => [s.id, s]));
+
+    if (tutorSummaries && tutorSummaries.length > 0) {
+      return tutorSummaries;
+    }
+
+    return (tutors || []).map((tut) => {
+      const summary = summaryMap.get(tut.id);
+      if (summary) return summary;
+      return {
+        id: tut.id,
+        full_name: `${tut.first_name || ''} ${tut.last_name || ''}`.trim() || tut.phone_number,
+        phone_number: tut.phone_number,
+        email: tut.email || null,
+        status: tut.status || 'ACTIVE',
+        assigned_curricula_count: 0,
+        assigned_courses_count: 0,
+        assigned_cohorts_count: 0,
+        assigned_curricula: [],
+        assigned_courses: [],
+      } as TutorAdminSummary;
+    });
+  }, [tutors, tutorSummaries]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -120,8 +143,8 @@ export const TutorsSection: React.FC<TutorsSectionProps> = ({
                       </td>
                       <td style={{ padding: '14px 16px' }}>
                         {assignedCurrs.length === 0 ? (
-                          <span style={{ color: '#f87171', fontSize: '0.78rem', fontWeight: 600 }}>
-                            ⚠️ None (Pending Accreditation)
+                          <span style={{ color: 'var(--text-muted)', fontSize: '0.82rem' }}>
+                            None
                           </span>
                         ) : (
                           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
@@ -137,7 +160,7 @@ export const TutorsSection: React.FC<TutorsSectionProps> = ({
                                   fontWeight: 600,
                                 }}
                               >
-                                {c.code || c.name}
+                                {c.code || c.name || c.title}
                               </span>
                             ))}
                           </div>
@@ -145,8 +168,8 @@ export const TutorsSection: React.FC<TutorsSectionProps> = ({
                       </td>
                       <td style={{ padding: '14px 16px' }}>
                         {assignedCourses.length === 0 ? (
-                          <span style={{ color: 'var(--text-muted)', fontSize: '0.78rem' }}>
-                            0 Courses assigned
+                          <span style={{ color: 'var(--text-muted)', fontSize: '0.82rem' }}>
+                            None
                           </span>
                         ) : (
                           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
@@ -162,7 +185,7 @@ export const TutorsSection: React.FC<TutorsSectionProps> = ({
                                   fontWeight: 600,
                                 }}
                               >
-                                {c.code || c.title}
+                                {c.code || c.title || c.name}
                               </span>
                             ))}
                           </div>
@@ -177,7 +200,10 @@ export const TutorsSection: React.FC<TutorsSectionProps> = ({
                       <td style={{ padding: '14px 16px', textAlign: 'right' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px' }}>
                           <button
-                            onClick={() => setSelectedTutorForCurricula(tut)}
+                            onClick={() => {
+                              const latest = tutorSummaries.find((s) => s.id === tut.id) || tut;
+                              setSelectedTutorForCurricula(latest);
+                            }}
                             className="btn btn-secondary btn-sm"
                             title="Accredit Curricula"
                             style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.78rem' }}
@@ -186,7 +212,10 @@ export const TutorsSection: React.FC<TutorsSectionProps> = ({
                             <span>Curricula</span>
                           </button>
                           <button
-                            onClick={() => setSelectedTutorForCourses(tut)}
+                            onClick={() => {
+                              const latest = tutorSummaries.find((s) => s.id === tut.id) || tut;
+                              setSelectedTutorForCourses(latest);
+                            }}
                             className="btn btn-secondary btn-sm"
                             title="Assign Courses"
                             style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.78rem' }}
@@ -195,7 +224,10 @@ export const TutorsSection: React.FC<TutorsSectionProps> = ({
                             <span>Courses</span>
                           </button>
                           <button
-                            onClick={() => setSelectedTutorForCohorts(tut)}
+                            onClick={() => {
+                              const latest = tutorSummaries.find((s) => s.id === tut.id) || tut;
+                              setSelectedTutorForCohorts(latest);
+                            }}
                             className="btn btn-secondary btn-sm"
                             title="Assign Cohorts"
                             style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.78rem' }}
@@ -311,6 +343,7 @@ export const TutorsSection: React.FC<TutorsSectionProps> = ({
       />
 
       <AssignCurriculaModal
+        key={selectedTutorForCurricula ? `curricula-${selectedTutorForCurricula.id}` : 'curricula-none'}
         isOpen={!!selectedTutorForCurricula}
         tutor={selectedTutorForCurricula}
         curricula={curricula}
@@ -319,6 +352,7 @@ export const TutorsSection: React.FC<TutorsSectionProps> = ({
       />
 
       <AssignCoursesModal
+        key={selectedTutorForCourses ? `courses-${selectedTutorForCourses.id}` : 'courses-none'}
         isOpen={!!selectedTutorForCourses}
         tutor={selectedTutorForCourses}
         courses={courses}
@@ -327,6 +361,7 @@ export const TutorsSection: React.FC<TutorsSectionProps> = ({
       />
 
       <AssignCohortsModal
+        key={selectedTutorForCohorts ? `cohorts-${selectedTutorForCohorts.id}` : 'cohorts-none'}
         isOpen={!!selectedTutorForCohorts}
         tutor={selectedTutorForCohorts}
         cohorts={cohorts}

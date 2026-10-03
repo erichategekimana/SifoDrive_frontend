@@ -21,42 +21,23 @@ export class LiveClassService {
   }
 
   /**
-   * Fetch scheduled live classes
+   * Fetch scheduled live classes from database
    */
-  public async getClasses(): Promise<LiveClass[]> {
+  public async getClasses(params?: { upcoming?: boolean; cohort?: string }): Promise<LiveClass[]> {
     logger.info('Fetching live classes schedule');
     try {
-      const data = await this.http.get<any>(ApiEndpoints.LIVE_CLASSES.LIST);
-      const results = Array.isArray(data) ? data : data.results || [];
+      let url = ApiEndpoints.LIVE_CLASSES.LIST;
+      const queryParts: string[] = [];
+      if (params?.upcoming) queryParts.push('upcoming=true');
+      if (params?.cohort) queryParts.push(`cohort=${encodeURIComponent(params.cohort)}`);
+      if (queryParts.length > 0) url += `?${queryParts.join('&')}`;
+
+      const data = await this.http.get<any>(url);
+      const results = Array.isArray(data) ? data : data?.results || [];
       return results.map((dto: LiveClassDTO) => new LiveClass(dto));
-    } catch {
-      // Return sample upcoming timetable if none seeded yet
-      return [
-        new LiveClass({
-          id: 'sample-lc-1',
-          title: 'Priority Rules at Roundabouts & Unregulated Junctions',
-          topic: 'Rwanda Highway Code Articles 12-24',
-          cohort_name: 'Weekday Morning Cohort (Kigali)',
-          tutor_name: 'Instructor Jean-Paul Habimana',
-          scheduled_date: new Date().toISOString().split('T')[0],
-          start_time: '10:00:00',
-          end_time: '11:30:00',
-          google_meet_url: 'https://meet.google.com/sifo-drive-live',
-          status: 'SCHEDULED',
-        }),
-        new LiveClass({
-          id: 'sample-lc-2',
-          title: 'Traffic Signs, Markings & Policeman Hand Signals',
-          topic: 'Mastering the 5 categories of Rwanda Road Signs',
-          cohort_name: 'Evening Fast-Track Batch',
-          tutor_name: 'Instructor Claudine Uwase',
-          scheduled_date: new Date(Date.now() + 86400000).toISOString().split('T')[0],
-          start_time: '18:00:00',
-          end_time: '19:30:00',
-          google_meet_url: 'https://meet.google.com/sifo-drive-live',
-          status: 'SCHEDULED',
-        }),
-      ];
+    } catch (err) {
+      logger.error('Failed to load live classes from database:', err);
+      return [];
     }
   }
 

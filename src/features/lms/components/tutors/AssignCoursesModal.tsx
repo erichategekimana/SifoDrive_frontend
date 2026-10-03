@@ -21,15 +21,40 @@ export const AssignCoursesModal: React.FC<AssignCoursesModalProps> = ({
   onClose,
   onSuccess,
 }) => {
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [selectedIds, setSelectedIds] = useState<string[]>(() => {
+    return (tutor?.assigned_courses || []).map((c) => c.id);
+  });
+  const [isLoadingAssignments, setIsLoadingAssignments] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const { success, error: toastError } = useToast();
 
   useEffect(() => {
-    if (tutor) {
+    let isMounted = true;
+    if (tutor && isOpen) {
       setSelectedIds((tutor.assigned_courses || []).map((c) => c.id));
+      setIsLoadingAssignments(true);
+
+      TutorLmsService.getInstance()
+        .getTutorCourses(tutor.id)
+        .then((res) => {
+          if (isMounted && Array.isArray(res)) {
+            const activeIds = res
+              .filter((a: any) => a.is_active)
+              .map((a: any) => (typeof a.course === 'string' ? a.course : a.course?.id || a.id));
+            setSelectedIds(activeIds);
+          }
+        })
+        .catch((err) => {
+          console.warn('Could not fetch live tutor courses:', err);
+        })
+        .finally(() => {
+          if (isMounted) setIsLoadingAssignments(false);
+        });
     }
-  }, [tutor]);
+    return () => {
+      isMounted = false;
+    };
+  }, [tutor?.id, isOpen]);
 
   const accreditedCurriculumIds = useMemo(() => {
     return new Set((tutor?.assigned_curricula || []).map((c) => c.id));
@@ -51,7 +76,7 @@ export const AssignCoursesModal: React.FC<AssignCoursesModalProps> = ({
     setIsSubmitting(true);
     try {
       await TutorLmsService.getInstance().assignCourses(tutor.id, selectedIds);
-      success(`Course assignments updated for ${tutor.full_name}`);
+      success(`Courses updated for ${tutor.full_name || tutor.phone_number}`);
       onSuccess();
       onClose();
     } catch (err: any) {
@@ -105,10 +130,10 @@ export const AssignCoursesModal: React.FC<AssignCoursesModalProps> = ({
             <BookOpen size={20} color="#0055A5" />
             <div>
               <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: '#ffffff' }}>
-                Assign Courses to Facilitator
+                Assign Courses
               </h3>
               <p style={{ margin: '2px 0 0', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                {tutor.full_name} ({tutor.phone_number})
+                {tutor.full_name || 'Instructor'} ({tutor.phone_number})
               </p>
             </div>
           </div>
@@ -140,7 +165,7 @@ export const AssignCoursesModal: React.FC<AssignCoursesModalProps> = ({
             color: 'var(--text-secondary)',
           }}
         >
-          <AlertTriangle size={16} color="#f59e0b" />
+          <AlertTriangle size={16} color="#f59e0b" style={{ flexShrink: 0 }} />
           <span>
             Strict Accreditation Rule: Courses can only be assigned if their parent curriculum is already accredited to this facilitator.
           </span>
@@ -148,7 +173,12 @@ export const AssignCoursesModal: React.FC<AssignCoursesModalProps> = ({
 
         {/* Course List */}
         <div style={{ padding: '20px 24px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          {publishedCourses.length === 0 ? (
+          {isLoadingAssignments ? (
+            <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+              <Spinner size={18} />
+              <span>Loading current course assignments...</span>
+            </div>
+          ) : publishedCourses.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--text-muted)' }}>
               No published courses found. Courses must be published under a published curriculum first.
             </div>
@@ -199,7 +229,7 @@ export const AssignCoursesModal: React.FC<AssignCoursesModalProps> = ({
                     {!isAccredited && (
                       <p style={{ margin: '4px 0 0', fontSize: '0.75rem', color: '#f87171', display: 'flex', alignItems: 'center', gap: '4px' }}>
                         <Lock size={12} />
-                        Parent curriculum not accredited to this facilitator. Accredit curriculum first.
+                        Parent curriculum not accredited.
                       </p>
                     )}
                   </div>
@@ -238,6 +268,7 @@ export const AssignCoursesModal: React.FC<AssignCoursesModalProps> = ({
             padding: '16px 24px',
             borderTop: '1px solid var(--border-subtle)',
             display: 'flex',
+            alignItems: 'center',
             justifyContent: 'flex-end',
             gap: '12px',
           }}
@@ -247,12 +278,21 @@ export const AssignCoursesModal: React.FC<AssignCoursesModalProps> = ({
           </button>
           <button
             onClick={handleSave}
-            disabled={isSubmitting}
+            disabled={isSubmitting || isLoadingAssignments}
             className="btn btn-primary btn-sm"
             style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
           >
-            {isSubmitting ? <Spinner size={16} /> : <Check size={16} />}
-            <span>Save Course Assignments</span>
+            {isSubmitting ? (
+              <>
+                <Spinner size={16} />
+                <span>Saving...</span>
+              </>
+            ) : (
+              <>
+                <Check size={16} />
+                <span>Save</span>
+              </>
+            )}
           </button>
         </div>
       </div>
@@ -260,3 +300,5 @@ export const AssignCoursesModal: React.FC<AssignCoursesModalProps> = ({
     document.body
   );
 };
+
+export default AssignCoursesModal;

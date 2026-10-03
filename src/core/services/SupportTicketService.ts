@@ -54,37 +54,12 @@ export class SupportTicketService {
         ApiEndpoints.LMS.SUPPORT_TICKETS
       );
       if (Array.isArray(res)) return res;
-      if (res && Array.isArray(res.results)) return res.results;
+      if (res && Array.isArray((res as any).data)) return (res as any).data;
+      if (res && Array.isArray((res as any).results)) return (res as any).results;
       return [];
     } catch (err) {
-      logger.warn('Failed to load tickets from server, using fallback sample tickets:', err);
-      return [
-        {
-          id: 'tkt-001',
-          recipient_role: 'TUTOR',
-          category: 'CONTENT_INQUIRY',
-          subject: "Icyapa cy'Umuvuduko muto usabwa",
-          message: 'Mwaramutse mwarimu, ntabwo nasobanukiwe itandukaniro ry\'icyapa cy\'ubururu cyanditseho 30.',
-          priority: 'MEDIUM',
-          status: 'RESOLVED',
-          assigned_to_name: 'Mwarimu Kamanzi',
-          response: 'Ubururu buranga icyapa cyo gutegeka. Bisobanura ko utagomba kugendera munsi ya 30 km/h.',
-          created_at: '2026-09-29T10:15:00Z',
-          resolved_at: '2026-09-29T14:30:00Z',
-        },
-        {
-          id: 'tkt-002',
-          recipient_role: 'TECH_SUPPORT',
-          category: 'TECHNICAL_ISSUE',
-          subject: 'Video ya Module 2 irimo gucikagurika',
-          message: 'Iyo ngeze kuri videwo ya kabiri y\'Amategeko y\'Umuhanda ntabwo irimo gufunguka neza.',
-          priority: 'HIGH',
-          status: 'IN_PROGRESS',
-          assigned_to_name: 'Support Desk Sifo',
-          response: 'Muraho! Twabibonye, itsinda ry\'ikoranabuhanga ririmo kubikosora mu minota 30.',
-          created_at: '2026-09-30T08:00:00Z',
-        },
-      ];
+      logger.error('Failed to load tickets from server:', err);
+      return [];
     }
   }
 
@@ -106,29 +81,11 @@ export class SupportTicketService {
         ApiEndpoints.LMS.SUPPORT_ANNOUNCEMENTS
       );
       if (Array.isArray(res)) return res;
+      if (res && Array.isArray((res as any).data)) return (res as any).data;
       return [];
     } catch (err) {
-      logger.warn('Failed to load announcements, returning fallback defaults:', err);
-      return [
-        {
-          id: 'ann-001',
-          title: "Gahunda y'Amasomo y'Imbonankubone (Live Google Meet Sessions)",
-          author: 'Training Admin & Instructors',
-          date: '2026-09-28',
-          category: 'TRAINING',
-          content: 'Amasomo yose y\'amatsinda azajya aba kuwa mbere no kuwa gatatu guhera 18:00 kugeza 20:00.',
-          is_pinned: true,
-        },
-        {
-          id: 'ann-002',
-          title: 'Kwandikisha Ikizamini cya Polisi kuri Irembo',
-          author: 'Tech Support Team',
-          date: '2026-09-25',
-          category: 'SYSTEM',
-          content: 'Banza wemeze ko wagejeje 85% mu bizamini by\'igerageza hano kuri Sifo Drive kugira ngo wemererwe.',
-          is_pinned: false,
-        },
-      ];
+      logger.error('Failed to load announcements:', err);
+      return [];
     }
   }
 

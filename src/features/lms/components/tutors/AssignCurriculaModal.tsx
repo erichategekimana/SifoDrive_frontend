@@ -22,15 +22,40 @@ export const AssignCurriculaModal: React.FC<AssignCurriculaModalProps> = ({
   onClose,
   onSuccess,
 }) => {
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [selectedIds, setSelectedIds] = useState<string[]>(() => {
+    return (tutor?.assigned_curricula || []).map((c) => c.id);
+  });
+  const [isLoadingAssignments, setIsLoadingAssignments] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const { success, error: toastError } = useToast();
 
   useEffect(() => {
-    if (tutor) {
+    let isMounted = true;
+    if (tutor && isOpen) {
       setSelectedIds((tutor.assigned_curricula || []).map((c) => c.id));
+      setIsLoadingAssignments(true);
+
+      TutorLmsService.getInstance()
+        .getTutorCurricula(tutor.id)
+        .then((res) => {
+          if (isMounted && Array.isArray(res)) {
+            const activeIds = res
+              .filter((a: any) => a.is_active)
+              .map((a: any) => (typeof a.curriculum === 'string' ? a.curriculum : a.curriculum?.id || a.id));
+            setSelectedIds(activeIds);
+          }
+        })
+        .catch((err) => {
+          console.warn('Could not fetch live tutor curricula:', err);
+        })
+        .finally(() => {
+          if (isMounted) setIsLoadingAssignments(false);
+        });
     }
-  }, [tutor]);
+    return () => {
+      isMounted = false;
+    };
+  }, [tutor?.id, isOpen]);
 
   if (!isOpen || !tutor) return null;
 
@@ -41,16 +66,10 @@ export const AssignCurriculaModal: React.FC<AssignCurriculaModalProps> = ({
   };
 
   const handleSave = async () => {
-    if (selectedIds.length === 0) {
-      if (!window.confirm('Warning: Approved active tutors must have at least one curriculum accredited. Are you sure you want to remove all curricula?')) {
-        return;
-      }
-    }
-
     setIsSubmitting(true);
     try {
       await TutorLmsService.getInstance().assignCurricula(tutor.id, selectedIds);
-      success(`Curricula accreditation updated for ${tutor.full_name}`);
+      success(`Curricula updated for ${tutor.full_name || tutor.phone_number}`);
       onSuccess();
       onClose();
     } catch (err: any) {
@@ -107,10 +126,10 @@ export const AssignCurriculaModal: React.FC<AssignCurriculaModalProps> = ({
             <Award size={20} color="#0055A5" />
             <div>
               <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: '#ffffff' }}>
-                Accredit Curricula to Facilitator
+                Accredit Curricula
               </h3>
               <p style={{ margin: '2px 0 0', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                {tutor.full_name} ({tutor.phone_number})
+                {tutor.full_name || 'Instructor'} ({tutor.phone_number})
               </p>
             </div>
           </div>
@@ -142,17 +161,22 @@ export const AssignCurriculaModal: React.FC<AssignCurriculaModalProps> = ({
             color: 'var(--text-secondary)',
           }}
         >
-          <AlertCircle size={16} color="#38bdf8" />
+          <AlertCircle size={16} color="#38bdf8" style={{ flexShrink: 0 }} />
           <span>
-            Facilitators must be accredited to a curriculum before they can be assigned courses belonging to it.
+            Accredit curricula to this instructor. Unchecking a curriculum will remove its accreditation and associated course assignments.
           </span>
         </div>
 
         {/* Curricula Checklist */}
         <div style={{ padding: '20px 24px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          {publishedCurricula.length === 0 ? (
+          {isLoadingAssignments ? (
+            <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+              <Spinner size={18} />
+              <span>Loading current accreditation...</span>
+            </div>
+          ) : publishedCurricula.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--text-muted)' }}>
-              No published curricula available to accredit. Curricula must be published by System Admin first.
+              No published curricula available. Curricula must be published by System Admin first.
             </div>
           ) : (
             publishedCurricula.map((curr) => {
@@ -214,6 +238,7 @@ export const AssignCurriculaModal: React.FC<AssignCurriculaModalProps> = ({
             padding: '16px 24px',
             borderTop: '1px solid var(--border-subtle)',
             display: 'flex',
+            alignItems: 'center',
             justifyContent: 'flex-end',
             gap: '12px',
           }}
@@ -223,12 +248,21 @@ export const AssignCurriculaModal: React.FC<AssignCurriculaModalProps> = ({
           </button>
           <button
             onClick={handleSave}
-            disabled={isSubmitting || publishedCurricula.length === 0}
+            disabled={isSubmitting || publishedCurricula.length === 0 || isLoadingAssignments}
             className="btn btn-primary btn-sm"
             style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
           >
-            {isSubmitting ? <Spinner size={16} /> : <Check size={16} />}
-            <span>Save Accreditation</span>
+            {isSubmitting ? (
+              <>
+                <Spinner size={16} />
+                <span>Saving...</span>
+              </>
+            ) : (
+              <>
+                <Check size={16} />
+                <span>Save</span>
+              </>
+            )}
           </button>
         </div>
       </div>
@@ -236,3 +270,5 @@ export const AssignCurriculaModal: React.FC<AssignCurriculaModalProps> = ({
     document.body
   );
 };
+
+export default AssignCurriculaModal;
