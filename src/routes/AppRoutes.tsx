@@ -52,7 +52,6 @@ export const AppRoutes: React.FC = () => {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/road-signs" element={<RoadSignsPage />} />
-      <Route path="/lesson/:id" element={<LessonViewPage />} />
       <Route path="/verify/certificate/:hashOrCode" element={<CertificateVerificationPage />} />
 
       {/* Protected Learner, Student & Role Routes */}
@@ -62,6 +61,7 @@ export const AppRoutes: React.FC = () => {
           <Route path="/account" element={<AccountView />} />
           <Route path="/courses" element={<CoursesView />} />
           <Route path="/courses/:id" element={<CoursesView />} />
+          <Route path="/courses/:courseId/lessons/:lessonId" element={<LessonViewPage />} />
           <Route path="/lesson/:id" element={<LessonViewPage />} />
           <Route path="/groups" element={<GroupsView />} />
           <Route path="/groups/:id" element={<GroupsView />} />

@@ -22,6 +22,7 @@ import type {
   CurriculumItem,
   QuizItem,
 } from '../../../core/services/AdminService';
+import { DEFAULT_LMS_QUIZZES } from '../data/mockQuizzes';
 
 export interface LmsStudioData {
   curricula: CurriculumItem[];
@@ -34,6 +35,7 @@ export interface LmsStudioData {
   liveClasses: LiveClassAdminItem[];
   quizzes: QuizItem[];
   isLoading: boolean;
+  isRefetching: boolean;
   refetch: () => Promise<void>;
 }
 
@@ -48,11 +50,12 @@ export function useLmsStudioData(): LmsStudioData {
   const [guests, setGuests] = useState<AdminUserItem[]>([]);
   const [questions, setQuestions] = useState<any[]>([]);
   const [liveClasses, setLiveClasses] = useState<LiveClassAdminItem[]>([]);
-  const [quizzes, setQuizzes] = useState<QuizItem[]>([]);
+  const [quizzes, setQuizzes] = useState<QuizItem[]>(DEFAULT_LMS_QUIZZES);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isRefetching, setIsRefetching] = useState<boolean>(false);
 
   const refetch = useCallback(async () => {
-    setIsLoading(true);
+    setIsRefetching(true);
     try {
       const [
         curriculaRes,
@@ -84,11 +87,16 @@ export function useLmsStudioData(): LmsStudioData {
       if (guestsRes.status === 'fulfilled') setGuests(guestsRes.value.results || []);
       if (questionsRes.status === 'fulfilled') setQuestions(questionsRes.value);
       if (classesRes.status === 'fulfilled') setLiveClasses(classesRes.value);
-      if (quizzesRes.status === 'fulfilled') setQuizzes(quizzesRes.value);
+      if (quizzesRes.status === 'fulfilled' && Array.isArray(quizzesRes.value)) {
+        setQuizzes(quizzesRes.value);
+      } else {
+        setQuizzes((prev) => (prev.length > 0 ? prev : DEFAULT_LMS_QUIZZES));
+      }
     } catch (err) {
       console.error('Failed to load LMS data:', err);
     } finally {
       setIsLoading(false);
+      setIsRefetching(false);
     }
   }, []);
 
@@ -107,6 +115,7 @@ export function useLmsStudioData(): LmsStudioData {
     liveClasses,
     quizzes,
     isLoading,
+    isRefetching,
     refetch,
   };
 }

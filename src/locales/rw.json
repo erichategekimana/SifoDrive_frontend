@@ -263,7 +263,9 @@
       "upcomingClassesTitle": "Amasomo y'Imbonankubone Ateganyijwe",
       "approachingDeadlinesTitle": "Ibizamini & Imyitozo Byegereje",
       "announcementsTitle": "Amatangazo",
-      "ticketsTitle": "Ibibazo by'Abanyeshuri & Amatike"
+      "ticketsTitle": "Ibibazo by'Abanyeshuri & Amatike",
+      "readMore": "Soma byose",
+      "announcedIn": "Yatangarijwe muri"
     },
     "enterprise": {
       "badge": "Ibiro by'Ishuri ryo Gutwara",
@@ -743,6 +745,9 @@
       "publishedBadge": "YATANGAJWE",
       "draftBadgeUpper": "UMUSHINGA",
       "addLessonBtn": "Ongeraho Inyigisho",
+      "homepageBtn": "Home page",
+      "homepageBuilderTitle": "Gutunganya Ahabanza h'Isomo (Home page)",
+      "homepageBuilderSubtitle": "Tunganya paji ibanza y'iri somo. Ongeramo inyandiko, amafoto, n'ibikoresho by'isomo hamwe no kureba uko bizagaragarira umunyeshuri cyangwa umwarimu.",
       "selectModuleToView": "Hitamo icyiciro kugira ngo urebe cyangwa wongeremo ibikoresho by'inyigisho.",
       "freePreviewBadge": "KUBUNTU",
       "enrolledOnlyBadge": "ABANYESHURI GUSA",

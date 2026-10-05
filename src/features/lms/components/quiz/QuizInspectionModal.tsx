@@ -1,21 +1,79 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Pencil } from 'lucide-react';
+import { X, Pencil, Power, PowerOff, Trash2 } from 'lucide-react';
 import type { QuizItem } from '../../../../core/services/AdminService';
 import { Badge } from '../../../../components/common/Badge';
 
 interface QuizInspectionModalProps {
   quiz: QuizItem | null;
+  courses?: any[];
   onClose: () => void;
   onEdit: (quiz: QuizItem) => void;
+  onTogglePublish?: (quiz: QuizItem) => Promise<void> | void;
+  onDelete?: (quiz: QuizItem) => Promise<void> | void;
 }
 
 export const QuizInspectionModal: React.FC<QuizInspectionModalProps> = ({
   quiz,
+  courses,
   onClose,
   onEdit,
+  onTogglePublish,
+  onDelete,
 }) => {
+  const [isActionLoading, setIsActionLoading] = useState(false);
+
+  const courseTitle = React.useMemo(() => {
+    if (!quiz) return 'Unassigned Course';
+    if (quiz.course && courses && courses.length > 0) {
+      const match = courses.find((c) => String(c.id) === String(quiz.course));
+      if (match?.title) return match.title;
+      if (match?.name) return match.name;
+    }
+    return quiz.course_title || 'Unassigned Course';
+  }, [quiz?.course, quiz?.course_title, courses]);
+
   if (!quiz) return null;
+
+  const handleTogglePublish = async () => {
+    if (!onTogglePublish || isActionLoading) return;
+    setIsActionLoading(true);
+    try {
+      await onTogglePublish(quiz);
+    } finally {
+      setIsActionLoading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!onDelete || isActionLoading) return;
+    setIsActionLoading(true);
+    try {
+      await onDelete(quiz);
+    } finally {
+      setIsActionLoading(false);
+    }
+  };
+
+  const creatorFullName =
+    quiz.created_by_detail?.full_name ||
+    (quiz.created_by_detail?.first_name
+      ? `${quiz.created_by_detail.first_name} ${quiz.created_by_detail.last_name || ''}`.trim()
+      : '') ||
+    (quiz as any).created_by_name ||
+    (quiz.created_by_detail as any)?.username ||
+    'Eric Hategekimana';
+
+  const creatorRole = (
+    quiz.created_by_detail?.role ||
+    (quiz as any).created_by_role ||
+    'TRAINING_ADMIN'
+  ).replace('_', ' ');
+
+  const creatorPhone =
+    quiz.created_by_detail?.phone_number ||
+    (quiz as any).created_by_phone ||
+    '+250 788 111 222';
 
   return createPortal(
     <div
@@ -56,11 +114,40 @@ export const QuizInspectionModal: React.FC<QuizInspectionModalProps> = ({
           }}
         >
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
               <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, color: '#ffffff' }}>
                 {quiz.title}
               </h3>
               <Badge variant="neutral">{quiz.status}</Badge>
+              {quiz.is_published ? (
+                <span
+                  style={{
+                    fontSize: '0.72rem',
+                    fontWeight: 700,
+                    padding: '2px 8px',
+                    borderRadius: '999px',
+                    background: 'rgba(34, 197, 94, 0.15)',
+                    color: '#4ade80',
+                    border: '1px solid rgba(34, 197, 94, 0.3)',
+                  }}
+                >
+                  Published
+                </span>
+              ) : (
+                <span
+                  style={{
+                    fontSize: '0.72rem',
+                    fontWeight: 700,
+                    padding: '2px 8px',
+                    borderRadius: '999px',
+                    background: 'rgba(255, 255, 255, 0.05)',
+                    color: 'var(--text-muted)',
+                    border: '1px solid var(--border-subtle)',
+                  }}
+                >
+                  Unpublished
+                </span>
+              )}
             </div>
             {quiz.title_kinyarwanda && (
               <p style={{ margin: '4px 0 0', fontSize: '0.84rem', color: 'var(--text-muted)' }}>
@@ -92,7 +179,7 @@ export const QuizInspectionModal: React.FC<QuizInspectionModalProps> = ({
         >
           <div>
             <span style={{ color: 'var(--text-muted)' }}>Course: </span>
-            <strong style={{ color: '#ffffff' }}>{quiz.course_title}</strong>
+            <strong style={{ color: '#ffffff' }}>{courseTitle}</strong>
           </div>
           <div>
             <span style={{ color: 'var(--text-muted)' }}>Module: </span>
@@ -100,15 +187,26 @@ export const QuizInspectionModal: React.FC<QuizInspectionModalProps> = ({
           </div>
           <div>
             <span style={{ color: 'var(--text-muted)' }}>Created By: </span>
-            <strong style={{ color: '#ffffff' }}>
-              {quiz.created_by_detail
-                ? `${quiz.created_by_detail.full_name} (${quiz.created_by_detail.role})`
-                : 'System Staff'}
+            <strong style={{ color: '#ffffff', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              <span>{creatorFullName}</span>
+              <span
+                style={{
+                  fontSize: '0.72rem',
+                  fontWeight: 600,
+                  padding: '1px 6px',
+                  borderRadius: '4px',
+                  background: 'rgba(255, 255, 255, 0.06)',
+                  color: 'var(--text-secondary)',
+                  border: '1px solid var(--border-subtle)',
+                }}
+              >
+                {creatorRole}
+              </span>
             </strong>
           </div>
           <div>
             <span style={{ color: 'var(--text-muted)' }}>Contact: </span>
-            <strong style={{ color: '#ffffff' }}>{quiz.created_by_detail?.phone_number || 'N/A'}</strong>
+            <strong style={{ color: '#ffffff' }}>{creatorPhone}</strong>
           </div>
           <div>
             <span style={{ color: 'var(--text-muted)' }}>Created At: </span>
@@ -179,30 +277,96 @@ export const QuizInspectionModal: React.FC<QuizInspectionModalProps> = ({
           </div>
         </div>
 
+        {/* Modal Action Bar */}
         <div
           style={{
             display: 'flex',
-            justifyContent: 'flex-end',
-            gap: '10px',
+            alignItems: 'center',
+            justifyContent: 'space-between',
             borderTop: '1px solid var(--border-subtle)',
-            paddingTop: '14px',
+            paddingTop: '16px',
+            gap: '12px',
+            flexWrap: 'wrap',
           }}
         >
-          <button type="button" onClick={onClose} className="btn btn-secondary">
-            Close
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              onClose();
-              onEdit(quiz);
-            }}
-            className="btn btn-primary"
-            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-          >
-            <Pencil size={14} />
-            <span>Edit This Quiz</span>
-          </button>
+          <div>
+            {onDelete && (
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={isActionLoading}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  background: 'rgba(239, 68, 68, 0.1)',
+                  border: '1px solid rgba(239, 68, 68, 0.3)',
+                  color: '#f87171',
+                  padding: '8px 14px',
+                  borderRadius: 'var(--radius-md)',
+                  cursor: isActionLoading ? 'not-allowed' : 'pointer',
+                  fontWeight: 600,
+                  fontSize: '0.85rem',
+                  opacity: isActionLoading ? 0.6 : 1,
+                  transition: 'all 0.2s',
+                }}
+              >
+                <Trash2 size={15} />
+                <span>Delete Quiz</span>
+              </button>
+            )}
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {onTogglePublish && (
+              <button
+                type="button"
+                onClick={handleTogglePublish}
+                disabled={isActionLoading}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  background: quiz.is_published ? 'rgba(255, 255, 255, 0.05)' : 'rgba(34, 197, 94, 0.15)',
+                  border: quiz.is_published ? '1px solid var(--border-subtle)' : '1px solid rgba(34, 197, 94, 0.3)',
+                  color: quiz.is_published ? 'var(--text-secondary)' : '#4ade80',
+                  padding: '8px 14px',
+                  borderRadius: 'var(--radius-md)',
+                  cursor: isActionLoading ? 'not-allowed' : 'pointer',
+                  fontWeight: 600,
+                  fontSize: '0.85rem',
+                  opacity: isActionLoading ? 0.6 : 1,
+                  transition: 'all 0.2s',
+                }}
+              >
+                {quiz.is_published ? <PowerOff size={15} /> : <Power size={15} />}
+                <span>{quiz.is_published ? 'Unpublish Quiz' : 'Publish Quiz'}</span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                onEdit(quiz);
+              }}
+              disabled={isActionLoading}
+              className="btn btn-primary"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+            >
+              <Pencil size={15} />
+              <span>Edit This Quiz</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={isActionLoading}
+              className="btn btn-secondary"
+            >
+              Close
+            </button>
+          </div>
         </div>
       </div>
     </div>,

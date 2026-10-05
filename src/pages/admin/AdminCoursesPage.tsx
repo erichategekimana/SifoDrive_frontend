@@ -38,6 +38,7 @@ export const AdminCoursesPage: React.FC = () => {
     liveClasses,
     quizzes,
     isLoading,
+    isRefetching,
     refetch,
   } = useLmsStudioData();
 
@@ -62,7 +63,7 @@ export const AdminCoursesPage: React.FC = () => {
             className="btn btn-secondary btn-sm"
             style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
           >
-            <RefreshCw size={14} className={isLoading ? 'spin' : ''} />
+            <RefreshCw size={14} className={isLoading || isRefetching ? 'spin' : ''} />
             <span>{t('admin.dashboard.refresh')}</span>
           </button>
         </div>
@@ -126,7 +127,7 @@ export const AdminCoursesPage: React.FC = () => {
       </div>
 
       {/* Main Studio View Body */}
-      {isLoading ? (
+      {isLoading && courses.length === 0 && curricula.length === 0 ? (
         <div style={{ padding: '80px 0', textAlign: 'center' }}>
           <Spinner message="Loading LMS Studio data..." />
         </div>

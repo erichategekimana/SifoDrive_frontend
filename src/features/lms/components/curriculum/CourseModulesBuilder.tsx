@@ -15,6 +15,7 @@ import {
   FileText,
   Globe,
   Lock,
+  Home,
 } from 'lucide-react';
 import { AdminService } from '../../../../core/services/AdminService';
 import { Badge } from '../../../../components/common/Badge';
@@ -23,6 +24,7 @@ import { useToast } from '../../../../context/ToastContext';
 import { useTranslation } from '../../../../context/I18nContext';
 import { ModuleModal } from './ModuleModal';
 import { LessonModal } from './LessonModal';
+import { CourseHomepageBuilderModal } from './CourseHomepageBuilderModal';
 
 interface CourseModulesBuilderProps {
   course: any;
@@ -57,6 +59,8 @@ export const CourseModulesBuilder: React.FC<CourseModulesBuilderProps> = ({
 
   const [isLessonModalOpen, setIsLessonModalOpen] = useState<boolean>(false);
   const [editingLesson, setEditingLesson] = useState<any | null>(null);
+
+  const [isHomepageBuilderOpen, setIsHomepageBuilderOpen] = useState<boolean>(false);
 
   const loadModules = async () => {
     setIsModulesLoading(true);
@@ -210,6 +214,15 @@ export const CourseModulesBuilder: React.FC<CourseModulesBuilderProps> = ({
 
         {canManage && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <button
+              onClick={() => setIsHomepageBuilderOpen(true)}
+              className="btn btn-secondary btn-sm"
+              style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px' }}
+              title="Build & Customize Course Home Page"
+            >
+              <Home size={15} color="var(--primary-light)" />
+              <span>{t('admin.courses.homepageBtn') || 'Home page'}</span>
+            </button>
             <button
               onClick={() => {
                 setEditingModule(null);
@@ -408,17 +421,35 @@ export const CourseModulesBuilder: React.FC<CourseModulesBuilderProps> = ({
                 </div>
 
                 {canManage && (
-                  <button
-                    onClick={() => {
-                      setEditingLesson(null);
-                      setIsLessonModalOpen(true);
-                    }}
-                    className="btn btn-primary btn-sm"
-                    style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px' }}
-                  >
-                    <Plus size={15} />
-                    <span>{t('admin.courses.addLessonBtn')}</span>
-                  </button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <button
+                      onClick={() => setIsHomepageBuilderOpen(true)}
+                      className="btn btn-secondary btn-sm"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '8px 14px',
+                        borderRadius: 'var(--radius-md)',
+                        fontWeight: 600,
+                      }}
+                      title="Build & Customize Course Home Page"
+                    >
+                      <Home size={15} color="var(--primary-light)" />
+                      <span>{t('admin.courses.homepageBtn') || 'Home page'}</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setEditingLesson(null);
+                        setIsLessonModalOpen(true);
+                      }}
+                      className="btn btn-primary btn-sm"
+                      style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px' }}
+                    >
+                      <Plus size={15} />
+                      <span>{t('admin.courses.addLessonBtn')}</span>
+                    </button>
+                  </div>
                 )}
               </div>
 
@@ -517,34 +548,53 @@ export const CourseModulesBuilder: React.FC<CourseModulesBuilderProps> = ({
                               <h4 style={{ margin: 0, fontSize: '0.92rem', fontWeight: 700, color: '#ffffff' }}>
                                 {les.title}
                               </h4>
-                              <span
-                                style={{
-                                  fontSize: '0.68rem',
-                                  fontWeight: 700,
-                                  padding: '2px 6px',
-                                  borderRadius: '4px',
-                                  background: isAudio
-                                    ? 'rgba(168, 85, 247, 0.2)'
-                                    : isVideo
-                                    ? 'rgba(6, 182, 212, 0.2)'
-                                    : isRoadSign
-                                    ? 'rgba(245, 158, 11, 0.2)'
-                                    : isQuiz
-                                    ? 'rgba(16, 185, 129, 0.2)'
-                                    : 'rgba(59, 130, 246, 0.2)',
-                                  color: isAudio
-                                    ? '#d8b4fe'
-                                    : isVideo
-                                    ? '#67e8f9'
-                                    : isRoadSign
-                                    ? '#fde68a'
-                                    : isQuiz
-                                    ? '#6ee7b7'
-                                    : '#93c5fd',
-                                }}
-                              >
-                                {typeLabel}
-                              </span>
+                              {les.content_count !== undefined && les.content_count > 0 ? (
+                                <span
+                                  style={{
+                                    fontSize: '0.68rem',
+                                    fontWeight: 700,
+                                    padding: '2px 8px',
+                                    borderRadius: '4px',
+                                    background: 'rgba(59, 130, 246, 0.2)',
+                                    color: '#93c5fd',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                  }}
+                                >
+                                  <Layers size={11} />
+                                  <span>{les.content_count} {les.content_count === 1 ? 'Content' : 'Contents'}</span>
+                                </span>
+                              ) : (
+                                <span
+                                  style={{
+                                    fontSize: '0.68rem',
+                                    fontWeight: 700,
+                                    padding: '2px 6px',
+                                    borderRadius: '4px',
+                                    background: isAudio
+                                      ? 'rgba(168, 85, 247, 0.2)'
+                                      : isVideo
+                                      ? 'rgba(6, 182, 212, 0.2)'
+                                      : isRoadSign
+                                      ? 'rgba(245, 158, 11, 0.2)'
+                                      : isQuiz
+                                      ? 'rgba(16, 185, 129, 0.2)'
+                                      : 'rgba(59, 130, 246, 0.2)',
+                                    color: isAudio
+                                      ? '#d8b4fe'
+                                      : isVideo
+                                      ? '#67e8f9'
+                                      : isRoadSign
+                                      ? '#fde68a'
+                                      : isQuiz
+                                      ? '#6ee7b7'
+                                      : '#93c5fd',
+                                  }}
+                                >
+                                  {typeLabel}
+                                </span>
+                              )}
 
                               {les.is_free_preview && (
                                 <Badge variant="success">{t('admin.courses.freePreviewBadge')}</Badge>
@@ -568,8 +618,36 @@ export const CourseModulesBuilder: React.FC<CourseModulesBuilderProps> = ({
                               </span>
                             </div>
 
+                            {/* Content Formats Pills */}
+                            {Array.isArray(les.content_types) && les.content_types.length > 0 && (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginTop: '2px' }}>
+                                {les.content_types.map((ct: string) => (
+                                  <span
+                                    key={ct}
+                                    style={{
+                                      fontSize: '0.68rem',
+                                      padding: '1px 6px',
+                                      borderRadius: '3px',
+                                      background: 'rgba(255, 255, 255, 0.06)',
+                                      color: 'var(--text-secondary)',
+                                      border: '1px solid var(--border-subtle)',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '4px',
+                                    }}
+                                  >
+                                    {ct === 'TEXT' && '📄 Text'}
+                                    {ct === 'AUDIO' && '🎵 Audio'}
+                                    {ct === 'VIDEO' && '🎬 Video'}
+                                    {ct === 'IMAGE' && '🖼️ Image'}
+                                    {ct === 'DOCUMENT' && '📑 Presentation/Doc'}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+
                             {/* Snippet / Content Preview */}
-                            {isText && les.content_text && (
+                            {isText && les.content_text && (!les.content_types || les.content_types.length === 0) && (
                               <p style={{ margin: '2px 0 0', fontSize: '0.78rem', color: 'var(--text-secondary)', maxHeight: '38px', overflow: 'hidden' }}>
                                 {les.content_text.slice(0, 160)}...
                               </p>
@@ -662,6 +740,20 @@ export const CourseModulesBuilder: React.FC<CourseModulesBuilderProps> = ({
         }}
         onSuccess={() => {
           if (selectedModule) handleSelectModule(selectedModule);
+          onCourseUpdated();
+        }}
+      />
+
+      <CourseHomepageBuilderModal
+        isOpen={isHomepageBuilderOpen}
+        course={course}
+        initialModules={courseModules}
+        onClose={() => setIsHomepageBuilderOpen(false)}
+        onSaved={(updatedData) => {
+          if (updatedData) {
+            course.homepage_data = updatedData;
+            course.homepageData = updatedData;
+          }
           onCourseUpdated();
         }}
       />

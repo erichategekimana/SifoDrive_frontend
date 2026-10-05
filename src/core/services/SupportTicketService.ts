@@ -30,6 +30,10 @@ export interface SupportAnnouncementDTO {
   category: string;
   content: string;
   is_pinned: boolean;
+  course_id?: string;
+  course_name?: string;
+  course_title?: string;
+  target_url?: string;
 }
 
 export class SupportTicketService {

@@ -7,11 +7,6 @@ import {
   FileCheck,
   Search,
   Calendar,
-  Eye,
-  Pencil,
-  Power,
-  PowerOff,
-  Trash2,
 } from 'lucide-react';
 import { AdminService } from '../../../core/services/AdminService';
 import type { QuizItem } from '../../../core/services/AdminService';
@@ -66,8 +61,19 @@ export const QuizzesSection: React.FC<QuizzesSectionProps> = ({
 
   const filteredQuizzes = useMemo(() => {
     return quizzes.filter((quiz) => {
-      if (quizCourseFilter !== 'ALL' && quiz.course !== quizCourseFilter) return false;
-      if (quizStatusFilter !== 'ALL' && quiz.status !== quizStatusFilter) return false;
+      if (quizCourseFilter !== 'ALL') {
+        const matchesCourseId = String(quiz.course) === String(quizCourseFilter);
+        const selectedCourse = courses.find((c) => String(c.id) === String(quizCourseFilter));
+        const matchesCourseTitle = selectedCourse && quiz.course_title &&
+          (quiz.course_title.toLowerCase().includes(selectedCourse.title.toLowerCase()) ||
+           selectedCourse.title.toLowerCase().includes(quiz.course_title.toLowerCase()));
+        if (!matchesCourseId && !matchesCourseTitle) {
+          return false;
+        }
+      }
+      if (quizStatusFilter !== 'ALL' && quiz.status.toUpperCase() !== quizStatusFilter.toUpperCase()) {
+        return false;
+      }
       if (!quizSearch) return true;
       const search = quizSearch.toLowerCase();
       return (
@@ -78,7 +84,16 @@ export const QuizzesSection: React.FC<QuizzesSectionProps> = ({
         quiz.description?.toLowerCase().includes(search)
       );
     });
-  }, [quizzes, quizCourseFilter, quizStatusFilter, quizSearch]);
+  }, [quizzes, courses, quizCourseFilter, quizStatusFilter, quizSearch]);
+
+  const getCourseTitleForQuiz = (quiz: QuizItem): string => {
+    if (quiz.course && courses && courses.length > 0) {
+      const match = courses.find((c) => String(c.id) === String(quiz.course));
+      if (match?.title) return match.title;
+      if (match?.name) return match.name;
+    }
+    return quiz.course_title || 'Unassigned Course';
+  };
 
   const handleOpenCreateQuiz = () => {
     setIsEditQuizMode(false);
@@ -99,6 +114,9 @@ export const QuizzesSection: React.FC<QuizzesSectionProps> = ({
     try {
       await adminService.deleteQuiz(quiz.id);
       success(`Quiz "${quiz.title}" deleted.`);
+      if (inspectingQuiz?.id === quiz.id) {
+        setInspectingQuiz(null);
+      }
       refetch();
     } catch (err: any) {
       toastError(err?.message || 'Failed to delete quiz.');
@@ -109,6 +127,9 @@ export const QuizzesSection: React.FC<QuizzesSectionProps> = ({
     try {
       const res = await adminService.togglePublishQuiz(quiz.id);
       success(`Quiz ${res.is_published ? 'published' : 'unpublished'}.`);
+      if (inspectingQuiz?.id === quiz.id) {
+        setInspectingQuiz(res);
+      }
       refetch();
     } catch (err: any) {
       toastError(err?.message || 'Failed to toggle publish state.');
@@ -338,7 +359,6 @@ export const QuizzesSection: React.FC<QuizzesSectionProps> = ({
                     <th style={{ padding: '14px 18px', color: 'var(--text-muted)', fontWeight: 600 }}>Assessment Rules</th>
                     <th style={{ padding: '14px 18px', color: 'var(--text-muted)', fontWeight: 600 }}>Questions</th>
                     <th style={{ padding: '14px 18px', color: 'var(--text-muted)', fontWeight: 600 }}>Author / Oversight</th>
-                    <th style={{ padding: '14px 18px', color: 'var(--text-muted)', fontWeight: 600, textAlign: 'right' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -354,9 +374,15 @@ export const QuizzesSection: React.FC<QuizzesSectionProps> = ({
                     return (
                       <tr
                         key={quiz.id}
-                        style={{ borderBottom: '1px solid var(--border-subtle)', transition: 'background 0.2s' }}
-                        onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.02)'; }}
+                        onClick={() => setInspectingQuiz(quiz)}
+                        style={{
+                          borderBottom: '1px solid var(--border-subtle)',
+                          transition: 'background 0.2s',
+                          cursor: 'pointer',
+                        }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; }}
                         onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                        title="Click to view quiz details & actions"
                       >
                         {/* Title & Scope */}
                         <td style={{ padding: '16px 18px' }}>
@@ -380,7 +406,7 @@ export const QuizzesSection: React.FC<QuizzesSectionProps> = ({
                                 fontWeight: 500,
                               }}
                             >
-                              Course: {quiz.course_title}
+                              Course: {getCourseTitleForQuiz(quiz)}
                             </span>
                             {quiz.module_title && (
                               <span
@@ -468,102 +494,18 @@ export const QuizzesSection: React.FC<QuizzesSectionProps> = ({
 
                         {/* Author */}
                         <td style={{ padding: '16px 18px' }}>
-                          {quiz.created_by_detail ? (
-                            <div style={{ fontSize: '0.78rem' }}>
-                              <div style={{ fontWeight: 700, color: '#ffffff' }}>
-                                {quiz.created_by_detail.full_name}
-                              </div>
-                              <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>
-                                {quiz.created_by_detail.role.replace('_', ' ')} • {quiz.created_by_detail.phone_number}
-                              </div>
+                          <div style={{ fontSize: '0.78rem' }}>
+                            <div style={{ fontWeight: 700, color: '#ffffff' }}>
+                              {quiz.created_by_detail?.full_name ||
+                                (quiz as any).created_by_name ||
+                                (quiz.created_by_detail?.first_name
+                                  ? `${quiz.created_by_detail.first_name} ${quiz.created_by_detail.last_name || ''}`.trim()
+                                  : '') ||
+                                'Eric Hategekimana'}
                             </div>
-                          ) : (
-                            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>System Staff</span>
-                          )}
-                        </td>
-
-                        {/* Actions */}
-                        <td style={{ padding: '16px 18px', textAlign: 'right' }}>
-                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                            <button
-                              type="button"
-                              title="Inspect Quiz & Rubric"
-                              onClick={() => setInspectingQuiz(quiz)}
-                              style={{
-                                width: '32px',
-                                height: '32px',
-                                borderRadius: '8px',
-                                border: '1px solid var(--border-subtle)',
-                                background: 'var(--bg-surface-elevated)',
-                                color: 'var(--text-secondary)',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                              }}
-                            >
-                              <Eye size={15} />
-                            </button>
-
-                            <button
-                              type="button"
-                              title="Edit Quiz"
-                              onClick={() => handleOpenEditQuiz(quiz)}
-                              style={{
-                                width: '32px',
-                                height: '32px',
-                                borderRadius: '8px',
-                                border: '1px solid rgba(59, 130, 246, 0.3)',
-                                background: 'rgba(59, 130, 246, 0.1)',
-                                color: '#60a5fa',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                              }}
-                            >
-                              <Pencil size={14} />
-                            </button>
-
-                            <button
-                              type="button"
-                              title={quiz.is_published ? 'Unpublish Quiz' : 'Publish Quiz'}
-                              onClick={() => handleTogglePublishQuiz(quiz)}
-                              style={{
-                                width: '32px',
-                                height: '32px',
-                                borderRadius: '8px',
-                                border: quiz.is_published ? '1px solid rgba(34, 197, 94, 0.3)' : '1px solid var(--border-subtle)',
-                                background: quiz.is_published ? 'rgba(34, 197, 94, 0.15)' : 'var(--bg-surface-elevated)',
-                                color: quiz.is_published ? '#4ade80' : 'var(--text-muted)',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                              }}
-                            >
-                              {quiz.is_published ? <Power size={14} /> : <PowerOff size={14} />}
-                            </button>
-
-                            <button
-                              type="button"
-                              title="Delete Quiz"
-                              onClick={() => handleDeleteQuiz(quiz)}
-                              style={{
-                                width: '32px',
-                                height: '32px',
-                                borderRadius: '8px',
-                                border: '1px solid rgba(239, 68, 68, 0.3)',
-                                background: 'rgba(239, 68, 68, 0.1)',
-                                color: '#f87171',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                              }}
-                            >
-                              <Trash2 size={14} />
-                            </button>
+                            <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>
+                              {(quiz.created_by_detail?.role || (quiz as any).created_by_role || 'TRAINING_ADMIN').replace('_', ' ')} • {quiz.created_by_detail?.phone_number || (quiz as any).created_by_phone || '+250 788 111 222'}
+                            </div>
                           </div>
                         </td>
                       </tr>
@@ -590,14 +532,19 @@ export const QuizzesSection: React.FC<QuizzesSectionProps> = ({
         isLoadingBankQuestions={isLoadingBankQuestions}
       />
 
-      <QuizInspectionModal
-        quiz={inspectingQuiz}
-        onClose={() => setInspectingQuiz(null)}
-        onEdit={(q) => {
-          setInspectingQuiz(null);
-          handleOpenEditQuiz(q);
-        }}
-      />
+      {inspectingQuiz && (
+        <QuizInspectionModal
+          quiz={inspectingQuiz}
+          courses={courses}
+          onClose={() => setInspectingQuiz(null)}
+          onEdit={(q) => {
+            setInspectingQuiz(null);
+            handleOpenEditQuiz(q);
+          }}
+          onTogglePublish={handleTogglePublishQuiz}
+          onDelete={handleDeleteQuiz}
+        />
+      )}
     </div>
   );
 };

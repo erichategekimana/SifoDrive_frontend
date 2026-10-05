@@ -59,6 +59,9 @@ export const QuizBuilderModal: React.FC<QuizBuilderModalProps> = ({
   const [quizDescriptionRw, setQuizDescriptionRw] = useState<string>('');
   const [quizOpenDate, setQuizOpenDate] = useState<string>('');
   const [quizDeadline, setQuizDeadline] = useState<string>('');
+  const [quizClosingDate, setQuizClosingDate] = useState<string>('');
+  const [allowLateSubmission, setAllowLateSubmission] = useState<boolean>(false);
+  const [isFinalExam, setIsFinalExam] = useState<boolean>(false);
   const [quizTimeLimit, setQuizTimeLimit] = useState<number>(30);
   const [quizTotalScore, setQuizTotalScore] = useState<number>(100);
   const [quizPassingScore, setQuizPassingScore] = useState<number>(70);
@@ -96,6 +99,9 @@ export const QuizBuilderModal: React.FC<QuizBuilderModalProps> = ({
           setQuizDescriptionRw(detail.description_kinyarwanda || '');
           setQuizOpenDate(detail.open_date ? detail.open_date.slice(0, 16) : '');
           setQuizDeadline(detail.deadline ? detail.deadline.slice(0, 16) : '');
+          setQuizClosingDate(detail.closing_date ? detail.closing_date.slice(0, 16) : '');
+          setAllowLateSubmission(Boolean(detail.allow_late_submission));
+          setIsFinalExam(Boolean(detail.is_final_exam));
           setQuizTimeLimit(detail.time_limit_minutes || 0);
           setQuizTotalScore(detail.total_score || 100);
           setQuizPassingScore(detail.passing_score || 70);
@@ -124,6 +130,9 @@ export const QuizBuilderModal: React.FC<QuizBuilderModalProps> = ({
       setQuizDescriptionRw('');
       setQuizOpenDate('');
       setQuizDeadline('');
+      setQuizClosingDate('');
+      setAllowLateSubmission(false);
+      setIsFinalExam(false);
       setQuizTimeLimit(30);
       setQuizTotalScore(100);
       setQuizPassingScore(70);
@@ -209,17 +218,35 @@ export const QuizBuilderModal: React.FC<QuizBuilderModalProps> = ({
       }
     }
 
+    if (isFinalExam && allowLateSubmission) {
+      warning('Final exams cannot allow late submissions.');
+      return;
+    }
+
+    if (quizDeadline && quizClosingDate && new Date(quizClosingDate) < new Date(quizDeadline)) {
+      warning('Closing date cannot be earlier than the standard deadline.');
+      return;
+    }
+
     setIsSavingQuiz(true);
     try {
+      const targetCourseObj = courses.find((c) => String(c.id) === String(quizCourseId));
+      const targetModuleObj = quizAvailableModules.find((m) => String(m.id) === String(quizModuleId));
+
       const payload: QuizPayload = {
         course: quizCourseId,
+        course_title: targetCourseObj?.title || targetCourseObj?.name || '',
         module: quizModuleId || null,
+        module_title: targetModuleObj?.title || targetModuleObj?.name || null,
         title: quizTitle.trim(),
         title_kinyarwanda: quizTitleRw.trim(),
         description: quizDescription.trim(),
         description_kinyarwanda: quizDescriptionRw.trim(),
         open_date: quizOpenDate ? new Date(quizOpenDate).toISOString() : null,
         deadline: quizDeadline ? new Date(quizDeadline).toISOString() : null,
+        closing_date: quizClosingDate ? new Date(quizClosingDate).toISOString() : null,
+        allow_late_submission: isFinalExam ? false : allowLateSubmission,
+        is_final_exam: isFinalExam,
         time_limit_minutes: Number(quizTimeLimit) || 0,
         total_score: quizItems.length > 0 ? calculatedTotalScore : Number(quizTotalScore) || 100,
         passing_score: Number(quizPassingScore) || 70,
@@ -491,7 +518,7 @@ export const QuizBuilderModal: React.FC<QuizBuilderModalProps> = ({
                     <span>Availability Window & Deadlines</span>
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '14px' }}>
                     <div>
                       <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
                         {t('admin.courses.openDate')}
@@ -503,13 +530,13 @@ export const QuizBuilderModal: React.FC<QuizBuilderModalProps> = ({
                         style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', color: '#ffffff' }}
                       />
                       <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
-                        If left blank, quiz opens immediately upon publishing.
+                        Opens immediately if left blank.
                       </span>
                     </div>
 
                     <div>
                       <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
-                        {t('admin.courses.deadline')}
+                        {t('admin.courses.deadline')} (Due Date)
                       </label>
                       <input
                         type="datetime-local"
@@ -518,8 +545,83 @@ export const QuizBuilderModal: React.FC<QuizBuilderModalProps> = ({
                         style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', color: '#ffffff' }}
                       />
                       <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
-                        Optional: submissions after this timestamp are blocked.
+                        Standard deadline for on-time submission.
                       </span>
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                        Closing Date (Final Cutoff)
+                      </label>
+                      <input
+                        type="datetime-local"
+                        value={quizClosingDate}
+                        onChange={(e) => setQuizClosingDate(e.target.value)}
+                        style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', color: '#ffffff' }}
+                      />
+                      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
+                        Hard cutoff after which no submissions are accepted.
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Late Submission & Final Exam Options */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', paddingTop: '8px', borderTop: '1px solid var(--border-subtle)' }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                      <input
+                        type="checkbox"
+                        id="allowLateSubmissionCheckbox"
+                        checked={allowLateSubmission}
+                        disabled={isFinalExam}
+                        onChange={(e) => setAllowLateSubmission(e.target.checked)}
+                        style={{ width: '16px', height: '16px', marginTop: '2px', cursor: isFinalExam ? 'not-allowed' : 'pointer' }}
+                      />
+                      <div>
+                        <label
+                          htmlFor="allowLateSubmissionCheckbox"
+                          style={{
+                            fontSize: '0.84rem',
+                            fontWeight: 600,
+                            color: isFinalExam ? 'var(--text-muted)' : '#ffffff',
+                            cursor: isFinalExam ? 'not-allowed' : 'pointer',
+                            display: 'block',
+                          }}
+                        >
+                          Allow late submission up to closing date
+                        </label>
+                        <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                          {isFinalExam
+                            ? 'Not applicable for Final Exams (final exams enforce strict deadline cutoff).'
+                            : 'Students submitting after the deadline will be flagged as "Late" with the number of days overdue.'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                      <input
+                        type="checkbox"
+                        id="isFinalExamCheckbox"
+                        checked={isFinalExam}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          setIsFinalExam(checked);
+                          if (checked) {
+                            setAllowLateSubmission(false);
+                          }
+                        }}
+                        style={{ width: '16px', height: '16px', marginTop: '2px', cursor: 'pointer' }}
+                      />
+                      <div>
+                        <label
+                          htmlFor="isFinalExamCheckbox"
+                          style={{ fontSize: '0.84rem', fontWeight: 600, color: '#ffffff', cursor: 'pointer', display: 'block' }}
+                        >
+                          Designate as School Theory Final Exam
+                        </label>
+                        <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                          Final exams enforce strict deadline closure. Late submissions are strictly disallowed.
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>

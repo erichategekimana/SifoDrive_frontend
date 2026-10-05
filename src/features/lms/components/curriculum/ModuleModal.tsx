@@ -32,6 +32,7 @@ export const ModuleModal: React.FC<ModuleModalProps> = ({
   const [modSortOrder, setModSortOrder] = useState<number>(1);
   const [modIsFoundational, setModIsFoundational] = useState<boolean>(false);
   const [modIsStudentOnly, setModIsStudentOnly] = useState<boolean>(false);
+  const [modIsOutsideResource, setModIsOutsideResource] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   useEffect(() => {
@@ -41,12 +42,14 @@ export const ModuleModal: React.FC<ModuleModalProps> = ({
       setModSortOrder(module.sort_order ?? 1);
       setModIsFoundational(!!module.is_foundational);
       setModIsStudentOnly(!!module.is_student_only);
+      setModIsOutsideResource(!!(module.is_outside_resource ?? module.isOutsideResource));
     } else {
       setModTitle('');
       setModDescription('');
       setModSortOrder(existingModulesCount + 1);
       setModIsFoundational(false);
       setModIsStudentOnly(false);
+      setModIsOutsideResource(false);
     }
   }, [module, existingModulesCount, isOpen]);
 
@@ -67,6 +70,7 @@ export const ModuleModal: React.FC<ModuleModalProps> = ({
           sort_order: Number(modSortOrder) || 1,
           is_foundational: modIsFoundational,
           is_student_only: modIsStudentOnly,
+          is_outside_resource: modIsOutsideResource,
         });
         success('Updated module successfully.');
       } else {
@@ -77,6 +81,7 @@ export const ModuleModal: React.FC<ModuleModalProps> = ({
           sort_order: Number(modSortOrder) || existingModulesCount + 1,
           is_foundational: modIsFoundational,
           is_student_only: modIsStudentOnly,
+          is_outside_resource: modIsOutsideResource,
         });
         success('Created new module.');
       }
@@ -272,6 +277,33 @@ export const ModuleModal: React.FC<ModuleModalProps> = ({
                 </div>
               </label>
             </div>
+          </div>
+
+          {/* Outside Resource Flag */}
+          <div
+            style={{
+              padding: '12px 14px',
+              borderRadius: 'var(--radius-md)',
+              background: modIsOutsideResource ? 'rgba(0, 85, 165, 0.12)' : 'rgba(255, 255, 255, 0.03)',
+              border: modIsOutsideResource ? '1px solid rgba(0, 85, 165, 0.4)' : '1px solid var(--border-subtle)',
+            }}
+          >
+            <label style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={modIsOutsideResource}
+                onChange={(e) => setModIsOutsideResource(e.target.checked)}
+                style={{ width: '16px', height: '16px', marginTop: '2px', cursor: 'pointer' }}
+              />
+              <div>
+                <span style={{ fontSize: '0.85rem', fontWeight: 600, color: modIsOutsideResource ? '#38BDF8' : '#ffffff' }}>
+                  Outside Resource
+                </span>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'block', marginTop: '2px' }}>
+                  Flag this module as an outside/external resource. In the course Modules view, its title text will be highlighted in blue.
+                </span>
+              </div>
+            </label>
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '10px' }}>

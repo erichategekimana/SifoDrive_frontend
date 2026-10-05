@@ -198,11 +198,17 @@ export const CanvasLayout: React.FC = () => {
       return [{ label: t('canvas.account'), href: '/account' }];
     }
     if (path.startsWith('/courses')) {
-      const courseId = path.split('/courses/')[1];
+      const courseId = path.split('/courses/')[1]?.split('/')[0];
       const matchedCourse = coursesList.find((c) => c.id === courseId);
       return [
         { label: t('canvas.courses'), href: '/courses' },
-        ...(matchedCourse ? [{ label: matchedCourse.title }] : []),
+        ...(matchedCourse ? [{ label: matchedCourse.title, href: `/courses/${matchedCourse.id}` }] : []),
+      ];
+    }
+    if (path.startsWith('/lesson')) {
+      return [
+        { label: t('canvas.courses'), href: '/courses' },
+        { label: 'Lesson Material' },
       ];
     }
     if (path.startsWith('/groups')) {
@@ -271,7 +277,10 @@ export const CanvasLayout: React.FC = () => {
           {tabs.map((tab) => {
             const isTabActive =
               activeDrawer === tab.id ||
-              (!activeDrawer && location.pathname.startsWith(tab.path));
+              (!activeDrawer && (
+                location.pathname.startsWith(tab.path) ||
+                (tab.id === 'courses' && location.pathname.startsWith('/lesson'))
+              ));
 
             return (
               <button
@@ -409,13 +418,23 @@ export const CanvasLayout: React.FC = () => {
 
       {/* 3. Main Canvas Content Workspace */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, height: '100vh', overflow: 'hidden' }}>
+        {/* Always render top blue stripe just as in all other tabs */}
         <CanvasTopBar breadcrumbs={getBreadcrumbs()} />
         <main
           style={{
             flex: 1,
             overflowY: 'auto',
-            backgroundColor: 'var(--canvas-bg-root)',
-            padding: location.pathname.startsWith('/account') ? 0 : '28px 36px',
+            backgroundColor:
+              ((location.pathname.startsWith('/courses/') && location.pathname !== '/courses') ||
+               location.pathname.startsWith('/lesson'))
+                ? '#FFFFFF'
+                : 'var(--canvas-bg-root)',
+            padding:
+              ((location.pathname.startsWith('/courses/') && location.pathname !== '/courses') ||
+               location.pathname.startsWith('/lesson') ||
+               location.pathname.startsWith('/account'))
+                ? 0
+                : '28px 36px',
           }}
         >
           <Outlet />

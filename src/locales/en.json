@@ -262,7 +262,9 @@
       "upcomingClassesTitle": "Upcoming Live Classes",
       "approachingDeadlinesTitle": "Approaching Deadlines",
       "announcementsTitle": "Announcements",
-      "ticketsTitle": "Student Inquiries & Tickets"
+      "ticketsTitle": "Student Inquiries & Tickets",
+      "readMore": "Read more",
+      "announcedIn": "Announced in"
     },
     "enterprise": {
       "badge": "Driving School Hub",
@@ -742,6 +744,9 @@
       "publishedBadge": "PUBLISHED",
       "draftBadgeUpper": "DRAFT",
       "addLessonBtn": "Add Lesson Material",
+      "homepageBtn": "Home page",
+      "homepageBuilderTitle": "Course Home Page Studio",
+      "homepageBuilderSubtitle": "Customize the landing page for this course. Add rich text, images, and attach course contents with live student & tutor dashboard previews.",
       "selectModuleToView": "Select a module to view or add lesson materials.",
       "freePreviewBadge": "FREE PREVIEW",
       "enrolledOnlyBadge": "ENROLLED ONLY",

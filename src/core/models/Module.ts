@@ -17,6 +17,8 @@ export interface ModuleDTO {
   isStudentOnly?: boolean;
   is_foundational?: boolean;
   isFoundational?: boolean;
+  is_outside_resource?: boolean;
+  isOutsideResource?: boolean;
   lessons?: LessonDTO[];
 }
 
@@ -29,6 +31,7 @@ export class Module {
   public readonly isPublished: boolean;
   public readonly isStudentOnly: boolean;
   public readonly isFoundational: boolean;
+  public readonly isOutsideResource: boolean;
   public readonly lessons: Lesson[];
 
   constructor(dto: ModuleDTO) {
@@ -40,6 +43,7 @@ export class Module {
     this.isPublished = Boolean(dto.isPublished ?? dto.is_published ?? true);
     this.isStudentOnly = Boolean(dto.isStudentOnly ?? dto.is_student_only ?? false);
     this.isFoundational = Boolean(dto.isFoundational ?? dto.is_foundational ?? false);
+    this.isOutsideResource = Boolean(dto.isOutsideResource ?? dto.is_outside_resource ?? false);
     this.lessons = (dto.lessons || []).map((l) => new Lesson(l));
   }
 

@@ -53,12 +53,12 @@ export const CurriculaSection: React.FC<CurriculaSectionProps> = ({
   // Keep selected items in sync with latest props
   const selectedCurriculum = useMemo(() => {
     if (!selectedCurriculumId) return null;
-    return curricula.find((c) => c.id === selectedCurriculumId) || null;
+    return curricula.find((c) => String(c.id) === String(selectedCurriculumId)) || null;
   }, [curricula, selectedCurriculumId]);
 
   const selectedCourse = useMemo(() => {
     if (!selectedCourseId) return null;
-    return courses.find((c) => c.id === selectedCourseId) || null;
+    return courses.find((c) => String(c.id) === String(selectedCourseId)) || null;
   }, [courses, selectedCourseId]);
 
   const filteredCurricula = useMemo(() => {

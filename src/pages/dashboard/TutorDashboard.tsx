@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   Clock,
   MessageSquare,
@@ -1090,12 +1091,30 @@ export const TutorDashboard: React.FC = () => {
                     }}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}>
-                      <div style={{ fontWeight: 700, fontSize: '1.0rem', color: 'var(--text-primary)' }}>
-                        {ann.title}
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: '1.0rem', color: 'var(--text-primary)' }}>
+                          {ann.title}
+                        </div>
+                        {(ann.course_title || ann.course_name) && (
+                          <div
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '5px',
+                              fontSize: '0.78rem',
+                              color: '#0284c7',
+                              fontWeight: 600,
+                              marginTop: '3px',
+                            }}
+                          >
+                            <BookOpen size={12} />
+                            <span>{t('dashboard.tutor.announcedIn')}: {ann.course_title || ann.course_name}</span>
+                          </div>
+                        )}
                       </div>
                       <span
                         style={{
-                          fontSize: '0.76rem',
+                          fontSize: '0.74rem',
                           fontWeight: 700,
                           padding: '3px 9px',
                           borderRadius: 'var(--radius-sm)',
@@ -1110,7 +1129,20 @@ export const TutorDashboard: React.FC = () => {
                       </span>
                     </div>
 
-                    <div style={{ fontSize: '0.88rem', color: 'var(--text-primary)', opacity: 0.9, lineHeight: '1.55' }}>
+                    {/* Clamped to 1-2 lines */}
+                    <div
+                      style={{
+                        fontSize: '0.86rem',
+                        color: 'var(--text-primary)',
+                        opacity: 0.9,
+                        lineHeight: '1.45',
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                      }}
+                    >
                       {ann.content}
                     </div>
 
@@ -1126,14 +1158,39 @@ export const TutorDashboard: React.FC = () => {
                         color: 'var(--text-secondary)',
                       }}
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <Users size={14} />
-                        <span>{ann.author}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                          <Users size={13} />
+                          <span>{ann.author}</span>
+                        </div>
+                        <span>•</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                          <Calendar size={13} />
+                          <span>{ann.date}</span>
+                        </div>
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <Calendar size={14} />
-                        <span>{ann.date}</span>
-                      </div>
+
+                      <Link
+                        to={ann.target_url || (ann.course_id ? `/courses/${ann.course_id}?announcement=${ann.id}` : `/courses?announcement=${ann.id}`)}
+                        style={{
+                          fontSize: '0.80rem',
+                          padding: '4px 10px',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '5px',
+                          fontWeight: 600,
+                          color: '#0284c7',
+                          textDecoration: 'none',
+                          background: 'rgba(2, 132, 199, 0.08)',
+                          border: '1px solid rgba(2, 132, 199, 0.25)',
+                          borderRadius: 'var(--radius-sm)',
+                          whiteSpace: 'nowrap',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <span>{t('dashboard.tutor.readMore')}</span>
+                        <ExternalLink size={12} />
+                      </Link>
                     </div>
                   </div>
                 ))

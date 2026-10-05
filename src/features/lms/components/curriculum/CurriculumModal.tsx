@@ -127,7 +127,7 @@ export const CurriculumModal: React.FC<CurriculumModalProps> = ({
             </label>
             <input
               type="text"
-              placeholder="RW-CURR-CAT-B"
+              placeholder="RW-CURR-UNIVERSAL"
               value={currCode}
               onChange={(e) => setCurrCode(e.target.value)}
               style={{
@@ -149,7 +149,7 @@ export const CurriculumModal: React.FC<CurriculumModalProps> = ({
             <input
               type="text"
               required
-              placeholder="Category B National Curriculum"
+              placeholder="National Driving Theory Curriculum"
               value={currTitle}
               onChange={(e) => setCurrTitle(e.target.value)}
               style={{

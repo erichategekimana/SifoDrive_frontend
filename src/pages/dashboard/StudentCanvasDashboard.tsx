@@ -110,7 +110,7 @@ export const StudentCanvasDashboard: React.FC = () => {
                 border: '1px solid rgba(0, 85, 165, 0.25)',
               }}
             >
-              {studentProfile?.license_category ? `Category ${studentProfile.license_category}` : 'Category B'}
+              {studentProfile?.license_category ? `Category ${studentProfile.license_category}` : 'Provisional Theory Candidate'}
             </span>
           </div>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '6px', marginBottom: 0 }}>
