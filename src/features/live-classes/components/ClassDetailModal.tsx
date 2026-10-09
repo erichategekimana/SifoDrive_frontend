@@ -1,5 +1,4 @@
-import React from 'react';
-import { X, ExternalLink } from 'lucide-react';
+import { X, ExternalLink, Edit2, Trash2 } from 'lucide-react';
 import { Badge } from '../../../components/common/Badge';
 import type { LiveClassAdminItem } from '../../../core/services/AdminService';
 import { useTranslation } from '../../../context/I18nContext';
@@ -8,12 +7,16 @@ interface ClassDetailModalProps {
   selectedClass: LiveClassAdminItem | null;
   onClose: () => void;
   onAction: (classId: string, action: 'START' | 'END' | 'CANCEL') => void;
+  onEdit?: (cls: LiveClassAdminItem) => void;
+  onDelete?: (classId: string) => void;
 }
 
 export const ClassDetailModal: React.FC<ClassDetailModalProps> = ({
   selectedClass,
   onClose,
   onAction,
+  onEdit,
+  onDelete,
 }) => {
   const { t } = useTranslation();
 
@@ -99,38 +102,65 @@ export const ClassDetailModal: React.FC<ClassDetailModalProps> = ({
             </div>
           )}
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '14px', paddingTop: '12px', borderTop: '1px solid var(--border-subtle)' }}>
-            {selectedClass.status === 'SCHEDULED' && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '14px', paddingTop: '12px', borderTop: '1px solid var(--border-subtle)', flexWrap: 'wrap', gap: '8px' }}>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              {onEdit && (
+                <button
+                  type="button"
+                  onClick={() => onEdit(selectedClass)}
+                  className="btn btn-secondary btn-sm"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                >
+                  <Edit2 size={13} />
+                  <span>{t('admin.liveClasses.editClass')}</span>
+                </button>
+              )}
+              {onDelete && (
+                <button
+                  type="button"
+                  onClick={() => onDelete(selectedClass.id)}
+                  className="btn btn-secondary btn-sm"
+                  style={{ color: '#DC2626', borderColor: 'rgba(220, 38, 38, 0.3)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                >
+                  <Trash2 size={13} />
+                  <span>{t('admin.liveClasses.deleteClass')}</span>
+                </button>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px' }}>
+              {selectedClass.status === 'SCHEDULED' && (
+                <button
+                  onClick={() => onAction(selectedClass.id, 'START')}
+                  className="btn btn-secondary btn-sm"
+                >
+                  {t('admin.liveClasses.startClass')}
+                </button>
+              )}
+              {selectedClass.status === 'IN_PROGRESS' && (
+                <button
+                  onClick={() => onAction(selectedClass.id, 'END')}
+                  className="btn btn-secondary btn-sm"
+                >
+                  {t('admin.liveClasses.endClass')}
+                </button>
+              )}
+              {selectedClass.status !== 'COMPLETED' && selectedClass.status !== 'CANCELLED' && (
+                <button
+                  onClick={() => onAction(selectedClass.id, 'CANCEL')}
+                  className="btn btn-secondary btn-sm"
+                >
+                  {t('admin.liveClasses.cancelClass')}
+                </button>
+              )}
               <button
-                onClick={() => onAction(selectedClass.id, 'START')}
+                type="button"
+                onClick={onClose}
                 className="btn btn-secondary btn-sm"
               >
-                {t('admin.liveClasses.startClass')}
+                {t('admin.liveClasses.close')}
               </button>
-            )}
-            {selectedClass.status === 'IN_PROGRESS' && (
-              <button
-                onClick={() => onAction(selectedClass.id, 'END')}
-                className="btn btn-secondary btn-sm"
-              >
-                {t('admin.liveClasses.endClass')}
-              </button>
-            )}
-            {selectedClass.status !== 'COMPLETED' && selectedClass.status !== 'CANCELLED' && (
-              <button
-                onClick={() => onAction(selectedClass.id, 'CANCEL')}
-                className="btn btn-secondary btn-sm"
-              >
-                {t('admin.liveClasses.cancelClass')}
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={onClose}
-              className="btn btn-secondary btn-sm"
-            >
-              {t('admin.liveClasses.close')}
-            </button>
+            </div>
           </div>
         </div>
       </div>

@@ -10,6 +10,8 @@ import {
   Check,
   ListChecks,
   Sparkles,
+  ShieldCheck,
+  Clock,
 } from 'lucide-react';
 import { AdminService } from '../../../../core/services/AdminService';
 import type { QuizQuestionItem, QuizPayload } from '../../../../core/services/AdminService';
@@ -50,7 +52,7 @@ export const QuizBuilderModal: React.FC<QuizBuilderModalProps> = ({
   const { warning, success, error: toastError } = useToast();
   const adminService = AdminService.getInstance();
 
-  const [quizActiveTab, setQuizActiveTab] = useState<'settings' | 'questions' | 'rubric'>('settings');
+  const [quizActiveTab, setQuizActiveTab] = useState<'settings' | 'questions' | 'rubric' | 'accessControl'>('settings');
   const [quizCourseId, setQuizCourseId] = useState<string>('');
   const [quizModuleId, setQuizModuleId] = useState<string>('');
   const [quizTitle, setQuizTitle] = useState<string>('');
@@ -69,6 +71,10 @@ export const QuizBuilderModal: React.FC<QuizBuilderModalProps> = ({
   const [quizShuffle, setQuizShuffle] = useState<boolean>(false);
   const [quizRubric, setQuizRubric] = useState<string>('');
   const [quizRubricRw, setQuizRubricRw] = useState<string>('');
+  const [allowTutorScheduling, setAllowTutorScheduling] = useState<boolean>(true);
+  const [allowTutorInstructions, setAllowTutorInstructions] = useState<boolean>(true);
+  const [allowTutorDuration, setAllowTutorDuration] = useState<boolean>(true);
+  const [allowTutorAttempts, setAllowTutorAttempts] = useState<boolean>(true);
   const [quizItems, setQuizItems] = useState<QuizQuestionItem[]>([]);
   const [quizAvailableModules, setQuizAvailableModules] = useState<any[]>([]);
   const [isSavingQuiz, setIsSavingQuiz] = useState<boolean>(false);
@@ -109,6 +115,10 @@ export const QuizBuilderModal: React.FC<QuizBuilderModalProps> = ({
           setQuizShuffle(detail.shuffle_questions || false);
           setQuizRubric(detail.rubric || '');
           setQuizRubricRw(detail.rubric_kinyarwanda || '');
+          setAllowTutorScheduling(detail.allow_tutor_scheduling !== false);
+          setAllowTutorInstructions(detail.allow_tutor_edit_instructions !== false);
+          setAllowTutorDuration(detail.allow_tutor_edit_duration !== false);
+          setAllowTutorAttempts(detail.allow_tutor_edit_attempts !== false);
           setQuizItems(detail.items || []);
 
           if (detail.course) {
@@ -144,6 +154,10 @@ export const QuizBuilderModal: React.FC<QuizBuilderModalProps> = ({
       setQuizRubricRw(
         'Buri kibazo gifite agaciro kangana. Subiza ibibazo byose mu gihe cyagenwe. Amanota yo gutsinda ni 70%.'
       );
+      setAllowTutorScheduling(true);
+      setAllowTutorInstructions(true);
+      setAllowTutorDuration(true);
+      setAllowTutorAttempts(true);
       setQuizItems([]);
       if (defaultCourseId) {
         adminService.getCourseModules(defaultCourseId).then(setQuizAvailableModules).catch(() => setQuizAvailableModules([]));
@@ -254,6 +268,10 @@ export const QuizBuilderModal: React.FC<QuizBuilderModalProps> = ({
         shuffle_questions: quizShuffle,
         rubric: quizRubric.trim(),
         rubric_kinyarwanda: quizRubricRw.trim(),
+        allow_tutor_scheduling: allowTutorScheduling,
+        allow_tutor_edit_instructions: allowTutorInstructions,
+        allow_tutor_edit_duration: allowTutorDuration,
+        allow_tutor_edit_attempts: allowTutorAttempts,
         items: quizItems.map((item, idx) => ({
           ...item,
           sort_order: idx + 1,
@@ -411,6 +429,27 @@ export const QuizBuilderModal: React.FC<QuizBuilderModalProps> = ({
               >
                 <FileCheck size={15} />
                 <span>{t('admin.courses.tabRubric')}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setQuizActiveTab('accessControl')}
+                style={{
+                  padding: '10px 18px',
+                  border: 'none',
+                  background: 'transparent',
+                  borderBottom: quizActiveTab === 'accessControl' ? '2px solid var(--primary-color)' : '2px solid transparent',
+                  color: quizActiveTab === 'accessControl' ? '#ffffff' : 'var(--text-secondary)',
+                  fontWeight: 700,
+                  fontSize: '0.86rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                }}
+              >
+                <ShieldCheck size={15} />
+                <span>{t('admin.courses.tabAccessControl')}</span>
               </button>
             </div>
 
@@ -626,71 +665,6 @@ export const QuizBuilderModal: React.FC<QuizBuilderModalProps> = ({
                   </div>
                 </div>
 
-                {/* Quantitative Rules */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px' }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>
-                      {t('admin.courses.timeLimit')}
-                    </label>
-                    <input
-                      type="number"
-                      min={0}
-                      value={quizTimeLimit}
-                      onChange={(e) => setQuizTimeLimit(parseInt(e.target.value) || 0)}
-                      style={{ width: '100%', padding: '9px 12px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', color: '#ffffff' }}
-                    />
-                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>0 = unlimited</span>
-                  </div>
-
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>
-                      {t('admin.courses.totalScore')}
-                    </label>
-                    <input
-                      type="text"
-                      readOnly
-                      value={`${calculatedTotalScore} pts`}
-                      style={{
-                        width: '100%',
-                        padding: '9px 12px',
-                        borderRadius: 'var(--radius-md)',
-                        background: 'var(--bg-surface-elevated)',
-                        border: '1px solid var(--border-subtle)',
-                        color: '#ffffff',
-                        cursor: 'not-allowed',
-                        opacity: 0.9,
-                      }}
-                    />
-                  </div>
-
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>
-                      {t('admin.courses.passingScore')}
-                    </label>
-                    <input
-                      type="number"
-                      min={1}
-                      max={100}
-                      value={quizPassingScore}
-                      onChange={(e) => setQuizPassingScore(parseInt(e.target.value) || 70)}
-                      style={{ width: '100%', padding: '9px 12px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', color: '#ffffff' }}
-                    />
-                  </div>
-
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>
-                      {t('admin.courses.maxAttempts')}
-                    </label>
-                    <input
-                      type="number"
-                      min={0}
-                      value={quizMaxAttempts}
-                      onChange={(e) => setQuizMaxAttempts(parseInt(e.target.value) || 1)}
-                      style={{ width: '100%', padding: '9px 12px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', color: '#ffffff' }}
-                    />
-                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>0 = unlimited</span>
-                  </div>
-                </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <input
@@ -884,9 +858,84 @@ export const QuizBuilderModal: React.FC<QuizBuilderModalProps> = ({
               </div>
             )}
 
-            {/* TAB 3: RUBRIC */}
+            {/* TAB 3: RUBRIC & SCORING */}
             {quizActiveTab === 'rubric' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {/* Quantitative Rules & Scoring Parameters */}
+                <div style={{ padding: '16px', borderRadius: 'var(--radius-lg)', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#ffffff', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Sliders size={15} style={{ color: '#60a5fa' }} />
+                    <span>Scoring & Assessment Parameters</span>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                        {t('admin.courses.timeLimit')}
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        value={quizTimeLimit}
+                        onChange={(e) => setQuizTimeLimit(parseInt(e.target.value) || 0)}
+                        style={{ width: '100%', padding: '9px 12px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', color: '#ffffff' }}
+                      />
+                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>0 = unlimited</span>
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                        {t('admin.courses.totalScore')}
+                      </label>
+                      <input
+                        type="text"
+                        readOnly
+                        value={`${calculatedTotalScore} pts`}
+                        style={{
+                          width: '100%',
+                          padding: '9px 12px',
+                          borderRadius: 'var(--radius-md)',
+                          background: 'var(--bg-surface-elevated)',
+                          border: '1px solid var(--border-subtle)',
+                          color: '#ffffff',
+                          cursor: 'not-allowed',
+                          opacity: 0.9,
+                        }}
+                      />
+                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Sum of question points</span>
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                        {t('admin.courses.passingScore')}
+                      </label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={100}
+                        value={quizPassingScore}
+                        onChange={(e) => setQuizPassingScore(parseInt(e.target.value) || 70)}
+                        style={{ width: '100%', padding: '9px 12px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', color: '#ffffff' }}
+                      />
+                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Passing threshold</span>
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                        {t('admin.courses.maxAttempts')}
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        value={quizMaxAttempts}
+                        onChange={(e) => setQuizMaxAttempts(parseInt(e.target.value) || 1)}
+                        style={{ width: '100%', padding: '9px 12px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', color: '#ffffff' }}
+                      />
+                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>0 = unlimited</span>
+                    </div>
+                  </div>
+                </div>
+
                 <div>
                   <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
                     {t('admin.courses.rubric')}
@@ -929,6 +978,196 @@ export const QuizBuilderModal: React.FC<QuizBuilderModalProps> = ({
               </div>
             )}
 
+            {/* TAB 4: ACCESS CONTROL */}
+            {quizActiveTab === 'accessControl' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+                <div style={{ padding: '16px 20px', borderRadius: 'var(--radius-lg)', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ width: '38px', height: '38px', borderRadius: '8px', background: 'rgba(96, 165, 250, 0.12)', color: '#60a5fa', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(96, 165, 250, 0.25)' }}>
+                      <ShieldCheck size={20} />
+                    </div>
+                    <div>
+                      <h4 style={{ margin: 0, fontSize: '0.96rem', fontWeight: 700, color: '#ffffff' }}>
+                        {t('admin.courses.accessControlTitle')}
+                      </h4>
+                      <p style={{ margin: '3px 0 0 0', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                        {t('admin.courses.accessControlSubtitle')}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {/* Permission 1: Schedules & Extensions */}
+                  <div
+                    onClick={() => setAllowTutorScheduling(!allowTutorScheduling)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: '14px',
+                      padding: '16px 18px',
+                      borderRadius: 'var(--radius-lg)',
+                      background: allowTutorScheduling ? 'rgba(5, 135, 40, 0.05)' : 'rgba(255, 255, 255, 0.02)',
+                      border: allowTutorScheduling ? '1px solid rgba(5, 135, 40, 0.35)' : '1px solid var(--border-subtle)',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      id="allowTutorSchedulingCheckbox"
+                      checked={allowTutorScheduling}
+                      onChange={(e) => setAllowTutorScheduling(e.target.checked)}
+                      onClick={(e) => e.stopPropagation()}
+                      style={{ width: '18px', height: '18px', marginTop: '2px', cursor: 'pointer' }}
+                    />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Calendar size={15} style={{ color: allowTutorScheduling ? '#4ade80' : 'var(--text-muted)' }} />
+                        <label
+                          htmlFor="allowTutorSchedulingCheckbox"
+                          onClick={(e) => e.stopPropagation()}
+                          style={{ fontSize: '0.88rem', fontWeight: 700, color: '#ffffff', cursor: 'pointer' }}
+                        >
+                          {t('admin.courses.allowTutorSchedules')}
+                        </label>
+                      </div>
+                      <p style={{ margin: '4px 0 0 0', fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                        {t('admin.courses.allowTutorSchedulesDesc')}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Permission 2: Instructions & Rubric */}
+                  <div
+                    onClick={() => setAllowTutorInstructions(!allowTutorInstructions)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: '14px',
+                      padding: '16px 18px',
+                      borderRadius: 'var(--radius-lg)',
+                      background: allowTutorInstructions ? 'rgba(5, 135, 40, 0.05)' : 'rgba(255, 255, 255, 0.02)',
+                      border: allowTutorInstructions ? '1px solid rgba(5, 135, 40, 0.35)' : '1px solid var(--border-subtle)',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      id="allowTutorInstructionsCheckbox"
+                      checked={allowTutorInstructions}
+                      onChange={(e) => setAllowTutorInstructions(e.target.checked)}
+                      onClick={(e) => e.stopPropagation()}
+                      style={{ width: '18px', height: '18px', marginTop: '2px', cursor: 'pointer' }}
+                    />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <FileCheck size={15} style={{ color: allowTutorInstructions ? '#4ade80' : 'var(--text-muted)' }} />
+                        <label
+                          htmlFor="allowTutorInstructionsCheckbox"
+                          onClick={(e) => e.stopPropagation()}
+                          style={{ fontSize: '0.88rem', fontWeight: 700, color: '#ffffff', cursor: 'pointer' }}
+                        >
+                          {t('admin.courses.allowTutorInstructions')}
+                        </label>
+                      </div>
+                      <p style={{ margin: '4px 0 0 0', fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                        {t('admin.courses.allowTutorInstructionsDesc')}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Permission 3: Duration / Time Limit */}
+                  <div
+                    onClick={() => setAllowTutorDuration(!allowTutorDuration)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: '14px',
+                      padding: '16px 18px',
+                      borderRadius: 'var(--radius-lg)',
+                      background: allowTutorDuration ? 'rgba(5, 135, 40, 0.05)' : 'rgba(255, 255, 255, 0.02)',
+                      border: allowTutorDuration ? '1px solid rgba(5, 135, 40, 0.35)' : '1px solid var(--border-subtle)',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      id="allowTutorDurationCheckbox"
+                      checked={allowTutorDuration}
+                      onChange={(e) => setAllowTutorDuration(e.target.checked)}
+                      onClick={(e) => e.stopPropagation()}
+                      style={{ width: '18px', height: '18px', marginTop: '2px', cursor: 'pointer' }}
+                    />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Clock size={15} style={{ color: allowTutorDuration ? '#4ade80' : 'var(--text-muted)' }} />
+                        <label
+                          htmlFor="allowTutorDurationCheckbox"
+                          onClick={(e) => e.stopPropagation()}
+                          style={{ fontSize: '0.88rem', fontWeight: 700, color: '#ffffff', cursor: 'pointer' }}
+                        >
+                          {t('admin.courses.allowTutorDuration')}
+                        </label>
+                      </div>
+                      <p style={{ margin: '4px 0 0 0', fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                        {t('admin.courses.allowTutorDurationDesc')}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Permission 4: Attempt Limits */}
+                  <div
+                    onClick={() => setAllowTutorAttempts(!allowTutorAttempts)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: '14px',
+                      padding: '16px 18px',
+                      borderRadius: 'var(--radius-lg)',
+                      background: allowTutorAttempts ? 'rgba(5, 135, 40, 0.05)' : 'rgba(255, 255, 255, 0.02)',
+                      border: allowTutorAttempts ? '1px solid rgba(5, 135, 40, 0.35)' : '1px solid var(--border-subtle)',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      id="allowTutorAttemptsCheckbox"
+                      checked={allowTutorAttempts}
+                      onChange={(e) => setAllowTutorAttempts(e.target.checked)}
+                      onClick={(e) => e.stopPropagation()}
+                      style={{ width: '18px', height: '18px', marginTop: '2px', cursor: 'pointer' }}
+                    />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <ListChecks size={15} style={{ color: allowTutorAttempts ? '#4ade80' : 'var(--text-muted)' }} />
+                        <label
+                          htmlFor="allowTutorAttemptsCheckbox"
+                          onClick={(e) => e.stopPropagation()}
+                          style={{ fontSize: '0.88rem', fontWeight: 700, color: '#ffffff', cursor: 'pointer' }}
+                        >
+                          {t('admin.courses.allowTutorAttempts')}
+                        </label>
+                      </div>
+                      <p style={{ margin: '4px 0 0 0', fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                        {t('admin.courses.allowTutorAttemptsDesc')}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ padding: '14px 16px', borderRadius: 'var(--radius-md)', background: 'rgba(96, 165, 250, 0.05)', border: '1px solid rgba(96, 165, 250, 0.2)', fontSize: '0.78rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <ShieldCheck size={16} color="#60a5fa" />
+                  <span>
+                    When permissions are enabled, assigned tutors can adapt this quiz specifically for their cohorts without affecting the base quiz template in the Question Bank.
+                  </span>
+                </div>
+              </div>
+            )}
+
             {/* Footer Buttons */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid var(--border-subtle)', paddingTop: '16px', marginTop: '10px' }}>
               <button
@@ -943,17 +1182,25 @@ export const QuizBuilderModal: React.FC<QuizBuilderModalProps> = ({
                 {quizActiveTab !== 'settings' && (
                   <button
                     type="button"
-                    onClick={() => setQuizActiveTab(quizActiveTab === 'rubric' ? 'questions' : 'settings')}
+                    onClick={() => {
+                      if (quizActiveTab === 'accessControl') setQuizActiveTab('rubric');
+                      else if (quizActiveTab === 'rubric') setQuizActiveTab('questions');
+                      else setQuizActiveTab('settings');
+                    }}
                     className="btn btn-secondary"
                   >
                     Previous
                   </button>
                 )}
 
-                {quizActiveTab !== 'rubric' ? (
+                {quizActiveTab !== 'accessControl' ? (
                   <button
                     type="button"
-                    onClick={() => setQuizActiveTab(quizActiveTab === 'settings' ? 'questions' : 'rubric')}
+                    onClick={() => {
+                      if (quizActiveTab === 'settings') setQuizActiveTab('questions');
+                      else if (quizActiveTab === 'questions') setQuizActiveTab('rubric');
+                      else setQuizActiveTab('accessControl');
+                    }}
                     className="btn btn-primary"
                   >
                     Next Tab

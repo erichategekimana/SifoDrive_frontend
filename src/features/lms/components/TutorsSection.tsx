@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Plus, Award, BookOpen, Users, GraduationCap } from 'lucide-react';
-import type { AdminUserItem, LiveClassAdminItem, CohortItem, CurriculumItem } from '../../../core/services/AdminService';
+import { Award, BookOpen, Users, GraduationCap } from 'lucide-react';
+import type { AdminUserItem, CohortItem, CurriculumItem } from '../../../core/services/AdminService';
 import { Badge } from '../../../components/common/Badge';
-import { ScheduleClassModal } from './tutors/ScheduleClassModal';
 import { AssignCurriculaModal } from './tutors/AssignCurriculaModal';
 import { AssignCoursesModal } from './tutors/AssignCoursesModal';
 import { AssignCohortsModal } from './tutors/AssignCohortsModal';
@@ -10,7 +9,6 @@ import { TutorLmsService, type TutorAdminSummary } from '../../../core/services/
 
 export interface TutorsSectionProps {
   tutors: AdminUserItem[];
-  liveClasses: LiveClassAdminItem[];
   cohorts: CohortItem[];
   curricula?: CurriculumItem[];
   courses?: any[];
@@ -19,13 +17,11 @@ export interface TutorsSectionProps {
 
 export const TutorsSection: React.FC<TutorsSectionProps> = ({
   tutors,
-  liveClasses,
   cohorts,
   curricula = [],
   courses = [],
   refetch,
 }) => {
-  const [isScheduleClassModalOpen, setIsScheduleClassModalOpen] = useState<boolean>(false);
   const [tutorSummaries, setTutorSummaries] = useState<TutorAdminSummary[]>([]);
   const [, setIsLoadingSummaries] = useState<boolean>(true);
 
@@ -97,10 +93,10 @@ export const TutorsSection: React.FC<TutorsSectionProps> = ({
         >
           <div>
             <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: '#ffffff' }}>
-              Facilitator Accreditation & Course Distribution ({displayTutors.length})
+              Tutors Management ({displayTutors.length})
             </h3>
             <p style={{ margin: '4px 0 0', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-              Accredit curricula and assign courses to certified instructors. Instructors can only be assigned courses belonging to their accredited curricula.
+              Accredit curricula, assign courses, and link cohorts to certified driving tutors and instructors.
             </p>
           </div>
         </div>
@@ -246,101 +242,6 @@ export const TutorsSection: React.FC<TutorsSectionProps> = ({
         )}
       </div>
 
-      {/* Scheduled Live Classes */}
-      <div className="glass-panel" style={{ borderRadius: 'var(--radius-2xl)', overflow: 'hidden' }}>
-        <div
-          style={{
-            padding: '18px 24px',
-            borderBottom: '1px solid var(--border-subtle)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-          }}
-        >
-          <div>
-            <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, color: '#ffffff' }}>
-              Scheduled Live Classes & Cohort Sessions
-            </h3>
-            <p style={{ margin: '4px 0 0', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-              Interactive cohort-wide lecture dispatches and live tele-classes
-            </p>
-          </div>
-          <button
-            onClick={() => setIsScheduleClassModalOpen(true)}
-            className="btn btn-primary btn-sm"
-            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-          >
-            <Plus size={15} />
-            <span>Schedule Class</span>
-          </button>
-        </div>
-
-        {liveClasses.length === 0 ? (
-          <div style={{ padding: '48px', textAlign: 'center', color: 'var(--text-secondary)' }}>
-            No live classes currently scheduled. Click "Schedule Class" to dispatch a session.
-          </div>
-        ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
-              <thead>
-                <tr style={{ background: 'var(--bg-surface-elevated)', textAlign: 'left' }}>
-                  <th style={{ padding: '14px 16px', color: 'var(--text-muted)', fontWeight: 600 }}>Class Title</th>
-                  <th style={{ padding: '14px 16px', color: 'var(--text-muted)', fontWeight: 600 }}>Cohort</th>
-                  <th style={{ padding: '14px 16px', color: 'var(--text-muted)', fontWeight: 600 }}>Instructor</th>
-                  <th style={{ padding: '14px 16px', color: 'var(--text-muted)', fontWeight: 600 }}>Schedule</th>
-                  <th style={{ padding: '14px 16px', color: 'var(--text-muted)', fontWeight: 600 }}>Status</th>
-                  <th style={{ padding: '14px 16px', color: 'var(--text-muted)', fontWeight: 600 }}>Meeting Link</th>
-                </tr>
-              </thead>
-              <tbody>
-                {liveClasses.map((cls) => (
-                  <tr key={cls.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                    <td style={{ padding: '14px 16px', fontWeight: 700, color: '#ffffff' }}>
-                      {cls.title}
-                    </td>
-                    <td style={{ padding: '14px 16px', color: 'var(--primary-light)' }}>
-                      {cls.cohort_name || 'Open Class'}
-                    </td>
-                    <td style={{ padding: '14px 16px', color: 'var(--text-secondary)' }}>
-                      {cls.tutor_name || 'Unassigned'}
-                    </td>
-                    <td style={{ padding: '14px 16px', color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
-                      {cls.scheduled_at ? cls.scheduled_at.replace('T', ' ').slice(0, 16) : 'TBD'} ({cls.duration_minutes || 60} min)
-                    </td>
-                    <td style={{ padding: '14px 16px' }}>
-                      <Badge variant={cls.status === 'COMPLETED' ? 'success' : cls.status === 'SCHEDULED' ? 'info' : 'neutral'}>
-                        {cls.status}
-                      </Badge>
-                    </td>
-                    <td style={{ padding: '14px 16px' }}>
-                      {cls.meeting_link || cls.google_meet_url ? (
-                        <a
-                          href={cls.meeting_link || cls.google_meet_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          style={{ color: '#38bdf8', textDecoration: 'underline', fontSize: '0.82rem' }}
-                        >
-                          Google Meet
-                        </a>
-                      ) : (
-                        <span style={{ color: 'var(--text-muted)' }}>—</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      <ScheduleClassModal
-        isOpen={isScheduleClassModalOpen}
-        onClose={() => setIsScheduleClassModalOpen(false)}
-        cohorts={cohorts}
-        tutors={tutors}
-        onSuccess={handleRefreshAll}
-      />
 
       <AssignCurriculaModal
         key={selectedTutorForCurricula ? `curricula-${selectedTutorForCurricula.id}` : 'curricula-none'}

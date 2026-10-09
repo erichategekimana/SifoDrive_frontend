@@ -19,6 +19,8 @@ export interface ModuleDTO {
   isFoundational?: boolean;
   is_outside_resource?: boolean;
   isOutsideResource?: boolean;
+  is_locked?: boolean;
+  isLocked?: boolean;
   lessons?: LessonDTO[];
 }
 
@@ -29,6 +31,7 @@ export class Module {
   public readonly description: string;
   public readonly order: number;
   public readonly isPublished: boolean;
+  public readonly isLocked: boolean;
   public readonly isStudentOnly: boolean;
   public readonly isFoundational: boolean;
   public readonly isOutsideResource: boolean;
@@ -41,6 +44,7 @@ export class Module {
     this.description = dto.description || '';
     this.order = dto.order ?? dto.sort_order ?? 0;
     this.isPublished = Boolean(dto.isPublished ?? dto.is_published ?? true);
+    this.isLocked = Boolean(dto.isLocked ?? dto.is_locked ?? false);
     this.isStudentOnly = Boolean(dto.isStudentOnly ?? dto.is_student_only ?? false);
     this.isFoundational = Boolean(dto.isFoundational ?? dto.is_foundational ?? false);
     this.isOutsideResource = Boolean(dto.isOutsideResource ?? dto.is_outside_resource ?? false);

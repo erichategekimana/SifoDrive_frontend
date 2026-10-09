@@ -117,8 +117,12 @@ export interface LiveClassAdminItem {
   id: string;
   title: string;
   topic?: string;
+  cohort?: string;
+  cohort_id?: string;
   cohort_name?: string;
   cohort_code?: string;
+  tutor?: string;
+  tutor_id?: string;
   tutor_name?: string;
   scheduled_date?: string;
   start_time?: string;
@@ -131,6 +135,48 @@ export interface LiveClassAdminItem {
   attendee_count?: number;
   created_by_name?: string;
   created_by_role?: string;
+  notes?: string;
+  is_published?: boolean;
+  recording_url?: string;
+}
+
+export interface LiveClassScheduleItem {
+  id: string;
+  title: string;
+  topic?: string;
+  cohort?: string;
+  cohort_id?: string;
+  cohort_name?: string;
+  cohort_code?: string;
+  tutor?: string;
+  tutor_id?: string;
+  tutor_name?: string;
+  schedule_mode: 'SINGLE' | 'RECURRING';
+  days_of_week: number[];
+  start_time: string;
+  end_time: string;
+  start_date: string;
+  end_date?: string;
+  period_months?: number;
+  period_unit?: 'months' | 'years';
+  google_meet_url?: string;
+  is_published?: boolean;
+  notes?: string;
+  is_active?: boolean;
+  created_by_name?: string;
+  created_by_role?: string;
+  total_sessions_count: number;
+  next_upcoming_session?: {
+    id: string;
+    title: string;
+    scheduled_date: string;
+    start_time: string;
+    end_time: string;
+    google_meet_url?: string;
+    status: string;
+  } | null;
+  sessions?: LiveClassAdminItem[];
+  created_at?: string;
 }
 
 export interface QuizQuestionItem {
@@ -179,6 +225,11 @@ export interface QuizItem {
   max_attempts: number;
   shuffle_questions: boolean;
   is_published: boolean;
+  is_locked?: boolean;
+  allow_tutor_scheduling?: boolean;
+  allow_tutor_edit_instructions?: boolean;
+  allow_tutor_edit_duration?: boolean;
+  allow_tutor_edit_attempts?: boolean;
   status: 'DRAFT' | 'SCHEDULED' | 'OPEN' | 'CLOSED';
   question_count: number;
   created_by?: string | null;
@@ -217,6 +268,10 @@ export interface QuizPayload {
   max_attempts?: number;
   shuffle_questions?: boolean;
   is_published?: boolean;
+  allow_tutor_scheduling?: boolean;
+  allow_tutor_edit_instructions?: boolean;
+  allow_tutor_edit_duration?: boolean;
+  allow_tutor_edit_attempts?: boolean;
   items?: QuizQuestionItem[];
 }
 
@@ -1101,11 +1156,15 @@ export class AdminService {
 
   public async createLiveClass(payload: {
     title: string;
-    cohort_id?: string;
-    tutor_id?: string;
-    scheduled_at: string;
-    duration_minutes: number;
-    meeting_link?: string;
+    topic?: string;
+    cohort?: string;
+    tutor?: string;
+    scheduled_date: string;
+    start_time: string;
+    end_time: string;
+    google_meet_url: string;
+    is_published?: boolean;
+    notes?: string;
   }): Promise<any> {
     const storedUser = this.storage.getItem<any>('sifo_user');
     const authorId = storedUser?.id;
@@ -1119,11 +1178,14 @@ export class AdminService {
     title: string;
     cohort?: string;
     tutor?: string;
-    day_of_week: number;
+    day_of_week?: number;
+    days_of_week?: number[];
     start_time: string;
     end_time: string;
     start_date: string;
-    period_months: number;
+    end_date?: string;
+    period_months?: number;
+    period_unit?: 'months' | 'years';
     google_meet_url?: string;
     topic?: string;
     notes?: string;
@@ -1141,6 +1203,49 @@ export class AdminService {
 
   public async cancelLiveClass(id: string, reason?: string): Promise<any> {
     return this.http.post(ApiEndpoints.ADMIN.CLASS_CANCEL(id), { reason });
+  }
+
+  public async updateLiveClass(id: string, payload: {
+    title?: string;
+    topic?: string;
+    cohort?: string;
+    tutor?: string;
+    scheduled_date?: string;
+    start_time?: string;
+    end_time?: string;
+    google_meet_url?: string;
+    is_published?: boolean;
+    notes?: string;
+    status?: string;
+  }): Promise<any> {
+    logger.info(`Updating live class ${id}`);
+    return this.http.patch(ApiEndpoints.ADMIN.CLASS_DETAIL(id), payload);
+  }
+
+  public async deleteLiveClass(id: string): Promise<any> {
+    logger.info(`Deleting live class ${id}`);
+    return this.http.delete(ApiEndpoints.ADMIN.CLASS_DETAIL(id));
+  }
+
+  public async getLiveClassSchedules(cohortId?: string): Promise<LiveClassScheduleItem[]> {
+    const url = cohortId ? `${ApiEndpoints.ADMIN.SCHEDULES}?cohort=${cohortId}` : ApiEndpoints.ADMIN.SCHEDULES;
+    const res = await this.http.get<any>(url);
+    return Array.isArray(res) ? res : res?.results || [];
+  }
+
+  public async getLiveClassSchedule(id: string): Promise<LiveClassScheduleItem> {
+    const res = await this.http.get<any>(ApiEndpoints.ADMIN.SCHEDULE_DETAIL(id));
+    return res?.data || res;
+  }
+
+  public async updateLiveClassSchedule(id: string, payload: Partial<LiveClassScheduleItem>): Promise<any> {
+    logger.info(`Updating live class schedule ${id}`);
+    return this.http.patch(ApiEndpoints.ADMIN.SCHEDULE_DETAIL(id), payload);
+  }
+
+  public async deleteLiveClassSchedule(id: string): Promise<any> {
+    logger.info(`Deleting live class schedule ${id}`);
+    return this.http.delete(ApiEndpoints.ADMIN.SCHEDULE_DETAIL(id));
   }
 
   // -------------------------------------------------------------------------

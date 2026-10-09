@@ -9,6 +9,8 @@ import {
   CreateCohortModal,
   ScheduleClassModal,
   ClassDetailModal,
+  EditClassModal,
+  EditScheduleModal,
 } from '../../features/live-classes';
 
 export const AdminLiveClassesPage: React.FC = () => {
@@ -17,6 +19,7 @@ export const AdminLiveClassesPage: React.FC = () => {
     periodOptions,
     weekdaysList,
     classes,
+    schedules,
     cohorts,
     isLoading,
     viewMode,
@@ -49,12 +52,19 @@ export const AdminLiveClassesPage: React.FC = () => {
     setClassMeetLink,
     singleDate,
     setSingleDate,
-    recurringDay,
-    setRecurringDay,
+    recurringDays,
+    setRecurringDays,
+    recurringPeriodValue,
+    setRecurringPeriodValue,
+    recurringPeriodUnit,
+    setRecurringPeriodUnit,
     recurringStartDate,
     setRecurringStartDate,
-    recurringPeriodMonths,
-    setRecurringPeriodMonths,
+    recurringEndDate,
+    setRecurringEndDate,
+    handleStartDateChange,
+    handlePeriodValueChange,
+    handlePeriodUnitChange,
     isSubmitting,
     calendarDays,
     classesByDate,
@@ -64,6 +74,48 @@ export const AdminLiveClassesPage: React.FC = () => {
     handleScheduleSubmit,
     handleClassAction,
     handleDayClick,
+    isEditModalOpen,
+    setIsEditModalOpen,
+    editingClass,
+    editTitle,
+    setEditTitle,
+    editTopic,
+    setEditTopic,
+    editCohortId,
+    setEditCohortId,
+    editScheduledDate,
+    setEditScheduledDate,
+    editStartTime,
+    setEditStartTime,
+    editEndTime,
+    setEditEndTime,
+    editMeetLink,
+    setEditMeetLink,
+    editStatus,
+    setEditStatus,
+    handleOpenEditModal,
+    handleUpdateClass,
+    handleDeleteClass,
+    isEditScheduleModalOpen,
+    setIsEditScheduleModalOpen,
+    editingSchedule,
+    editScheduleTitle,
+    setEditScheduleTitle,
+    editScheduleTopic,
+    setEditScheduleTopic,
+    editScheduleCohortId,
+    setEditScheduleCohortId,
+    editScheduleStartTime,
+    setEditScheduleStartTime,
+    editScheduleEndTime,
+    setEditScheduleEndTime,
+    editScheduleMeetLink,
+    setEditScheduleMeetLink,
+    editScheduleNotes,
+    setEditScheduleNotes,
+    handleOpenEditSchedule,
+    handleUpdateSchedule,
+    handleDeleteSchedule,
     nextMonth,
     prevMonth,
     todayMonth,
@@ -102,7 +154,12 @@ export const AdminLiveClassesPage: React.FC = () => {
       ) : (
         <LiveClassesTableView
           classes={classes}
+          schedules={schedules}
           onClassAction={handleClassAction}
+          onEditClass={handleOpenEditModal}
+          onDeleteClass={handleDeleteClass}
+          onEditSchedule={handleOpenEditSchedule}
+          onDeleteSchedule={handleDeleteSchedule}
         />
       )}
 
@@ -132,12 +189,19 @@ export const AdminLiveClassesPage: React.FC = () => {
         setClassTitle={setClassTitle}
         classCohortId={classCohortId}
         setClassCohortId={setClassCohortId}
-        recurringDay={recurringDay}
-        setRecurringDay={setRecurringDay}
-        recurringPeriodMonths={recurringPeriodMonths}
-        setRecurringPeriodMonths={setRecurringPeriodMonths}
+        recurringDays={recurringDays}
+        setRecurringDays={setRecurringDays}
+        recurringPeriodValue={recurringPeriodValue}
+        setRecurringPeriodValue={setRecurringPeriodValue}
+        recurringPeriodUnit={recurringPeriodUnit}
+        setRecurringPeriodUnit={setRecurringPeriodUnit}
         recurringStartDate={recurringStartDate}
         setRecurringStartDate={setRecurringStartDate}
+        recurringEndDate={recurringEndDate}
+        setRecurringEndDate={setRecurringEndDate}
+        onStartDateChange={handleStartDateChange}
+        onPeriodValueChange={handlePeriodValueChange}
+        onPeriodUnitChange={handlePeriodUnitChange}
         singleDate={singleDate}
         setSingleDate={setSingleDate}
         classStartTime={classStartTime}
@@ -151,10 +215,65 @@ export const AdminLiveClassesPage: React.FC = () => {
         periodOptions={periodOptions}
       />
 
+      <EditClassModal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        onSubmit={handleUpdateClass}
+        onDelete={handleDeleteClass}
+        cohorts={cohorts}
+        classId={editingClass?.id || ''}
+        classTitle={editTitle}
+        setClassTitle={setEditTitle}
+        classTopic={editTopic}
+        setClassTopic={setEditTopic}
+        classCohortId={editCohortId}
+        setClassCohortId={setEditCohortId}
+        classScheduledDate={editScheduledDate}
+        setClassScheduledDate={setEditScheduledDate}
+        classStartTime={editStartTime}
+        setClassStartTime={setEditStartTime}
+        classEndTime={editEndTime}
+        setClassEndTime={setEditEndTime}
+        classMeetLink={editMeetLink}
+        setClassMeetLink={setEditMeetLink}
+        classStatus={editStatus}
+        setClassStatus={setEditStatus}
+        isSubmitting={isSubmitting}
+      />
+
+      <EditScheduleModal
+        isOpen={isEditScheduleModalOpen}
+        onClose={() => setIsEditScheduleModalOpen(false)}
+        onSubmit={handleUpdateSchedule}
+        onDelete={handleDeleteSchedule}
+        cohorts={cohorts}
+        schedule={editingSchedule}
+        title={editScheduleTitle}
+        setTitle={setEditScheduleTitle}
+        topic={editScheduleTopic}
+        setTopic={setEditScheduleTopic}
+        cohortId={editScheduleCohortId}
+        setCohortId={setEditScheduleCohortId}
+        startTime={editScheduleStartTime}
+        setStartTime={setEditScheduleStartTime}
+        endTime={editScheduleEndTime}
+        setEndTime={setEditScheduleEndTime}
+        meetLink={editScheduleMeetLink}
+        setMeetLink={setEditScheduleMeetLink}
+        notes={editScheduleNotes}
+        setNotes={setEditScheduleNotes}
+        isSubmitting={isSubmitting}
+      />
+
       <ClassDetailModal
         selectedClass={selectedClass}
         onClose={() => setSelectedClass(null)}
         onAction={handleClassAction}
+        onEdit={(cls) => {
+          setSelectedClass(null);
+          handleOpenEditModal(cls);
+        }}
+        onDelete={handleDeleteClass}
       />
     </div>
   );

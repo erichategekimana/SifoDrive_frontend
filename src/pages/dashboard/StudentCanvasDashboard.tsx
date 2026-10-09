@@ -8,6 +8,7 @@ import {
   ExternalLink,
   X,
   Award,
+  Bell,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTranslation } from '../../context/I18nContext';
@@ -17,6 +18,7 @@ import { LiveClassService } from '../../core/services/LiveClassService';
 import { LiveClass } from '../../core/models/LiveClass';
 import { Spinner } from '../../components/common/Spinner';
 import { TutorLmsService, type CohortActivityItem } from '../../core/services/TutorLmsService';
+import { SupportTicketService, type SupportAnnouncementDTO } from '../../core/services/SupportTicketService';
 import { StudentSubmitActivityModal } from '../../features/lms/components/student/StudentSubmitActivityModal';
 
 import { Course } from '../../core/models/Course';
@@ -30,6 +32,7 @@ export const StudentCanvasDashboard: React.FC = () => {
   const [upcomingClasses, setUpcomingClasses] = useState<LiveClass[]>([]);
   const [publishedCourses, setPublishedCourses] = useState<Course[]>([]);
   const [cohortActivities, setCohortActivities] = useState<CohortActivityItem[]>([]);
+  const [announcements, setAnnouncements] = useState<SupportAnnouncementDTO[]>([]);
   const [selectedActivityForSubmit, setSelectedActivityForSubmit] = useState<CohortActivityItem | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -42,18 +45,20 @@ export const StudentCanvasDashboard: React.FC = () => {
   useEffect(() => {
     const loadAll = async () => {
       try {
-        const [eligData, profData, classesData, coursesData, activitiesData] = await Promise.all([
+        const [eligData, profData, classesData, coursesData, activitiesData, announcementsData] = await Promise.all([
           StudentAccountService.getInstance().getEligibility(),
           StudentAccountService.getInstance().getProfile(),
           LiveClassService.getInstance().getClasses(),
           LmsService.getInstance().getCourses(),
           TutorLmsService.getInstance().getStudentCohortActivities().catch(() => []),
+          SupportTicketService.getInstance().getAnnouncements().catch(() => []),
         ]);
         setEligibility(eligData);
         setStudentProfile(profData);
         setUpcomingClasses(classesData);
         setPublishedCourses(coursesData);
         setCohortActivities(activitiesData || []);
+        setAnnouncements(announcementsData || []);
       } catch (err) {
         console.error('Failed to load student canvas dashboard:', err);
       } finally {
@@ -739,47 +744,99 @@ export const StudentCanvasDashboard: React.FC = () => {
                 {t('dashboard.student.announcements')}
               </h3>
               <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                {t('dashboard.student.unreadCount', { count: 1 })}
+                {announcements.length} {announcements.length === 1 ? 'Notice' : 'Notices'}
               </span>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <div
-                style={{
-                  padding: '12px',
-                  borderRadius: 'var(--radius-md)',
-                  background: 'var(--bg-surface-elevated)',
-                  borderLeft: '4px solid #0055A5',
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {announcements.length === 0 ? (
+                <div style={{ padding: '24px 12px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                  <Bell size={28} style={{ margin: '0 auto 8px auto', opacity: 0.5 }} />
+                  <p style={{ fontSize: '0.82rem', margin: 0 }}>
+                    {t('dashboard.student.noAnnouncements') || 'No announcements yet.'}
+                  </p>
+                </div>
+              ) : (
+                announcements.slice(0, 3).map((ann) => (
                   <div
+                    key={ann.id}
                     style={{
-                      width: '24px',
-                      height: '24px',
-                      borderRadius: '50%',
-                      background: '#0055A5',
-                      color: '#ffffff',
-                      fontSize: '0.7rem',
-                      fontWeight: 700,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
+                      padding: '12px',
+                      borderRadius: 'var(--radius-md)',
+                      background: 'var(--bg-surface-elevated)',
+                      borderLeft: '4px solid #0055A5',
                     }}
                   >
-                    SF
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '4px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div
+                          style={{
+                            width: '24px',
+                            height: '24px',
+                            borderRadius: '50%',
+                            background: '#0055A5',
+                            color: '#ffffff',
+                            fontSize: '0.7rem',
+                            fontWeight: 700,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                        >
+                          {(ann.author_name || ann.author || 'SF').substring(0, 2).toUpperCase()}
+                        </div>
+                        <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                          {ann.author_name || ann.author}
+                        </span>
+                      </div>
+                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                        {ann.date || (ann.created_at ? new Date(ann.created_at).toLocaleDateString() : '')}
+                      </span>
+                    </div>
+
+                    <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#0055A5' }}>
+                      {ann.title}
+                    </div>
+
+                    {ann.target_type === 'SINGLE_COHORT' && ann.cohort_name ? (
+                      <span
+                        style={{
+                          display: 'inline-block',
+                          fontSize: '0.68rem',
+                          fontWeight: 700,
+                          color: '#0055A5',
+                          backgroundColor: 'rgba(0, 85, 165, 0.08)',
+                          padding: '1px 6px',
+                          borderRadius: '4px',
+                          margin: '4px 0',
+                        }}
+                      >
+                        {ann.cohort_name}
+                      </span>
+                    ) : (
+                      <span
+                        style={{
+                          display: 'inline-block',
+                          fontSize: '0.68rem',
+                          fontWeight: 700,
+                          color: '#15803D',
+                          backgroundColor: '#F0FDF4',
+                          border: '1px solid #BBF7D0',
+                          padding: '1px 6px',
+                          borderRadius: '4px',
+                          margin: '4px 0',
+                        }}
+                      >
+                        all
+                      </span>
+                    )}
+
+                    <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: '4px 0 0 0', lineHeight: 1.4 }}>
+                      {ann.content}
+                    </p>
                   </div>
-                  <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                    Sifo Drive Academy
-                  </span>
-                </div>
-                <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#0055A5' }}>
-                  {t('dashboard.student.announcement1Title')}
-                </div>
-                <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: '4px 0 0 0', lineHeight: 1.4 }}>
-                  {t('dashboard.student.announcement1Desc')}
-                </p>
-              </div>
+                ))
+              )}
             </div>
           </div>
 

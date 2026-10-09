@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Menu,
   BookOpen,
@@ -9,40 +9,58 @@ import {
   Lock,
   Award,
   Plus,
-  MessageSquare,
-  Video,
-  ExternalLink,
   Users,
   ArrowLeft,
   Check,
   Clock,
   Unlock,
+  Settings,
+  X,
+  Trash2,
+  Bell,
+  Loader2,
 } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Course } from '../../../../core/models/Course';
 import { useAuth } from '../../../../context/AuthContext';
 import { useTranslation } from '../../../../context/I18nContext';
-import type { SupportAnnouncementDTO } from '../../../../core/services/SupportTicketService';
+import { useToast } from '../../../../context/ToastContext';
+import { SupportTicketService, type SupportAnnouncementDTO } from '../../../../core/services/SupportTicketService';
 import { AdminService } from '../../../../core/services/AdminService';
+import {
+  TutorLmsService,
+  type CohortSelectorItem,
+  type CohortModuleItem,
+} from '../../../../core/services/TutorLmsService';
+import { TutorQuizUpdateModal } from '../quiz/TutorQuizUpdateModal';
 
 export interface CourseAssignmentItem {
   id: string;
   title: string;
   points: number;
   timeLimit: string;
+  timeLimitMinutes?: number;
   attemptsAllowed: number;
   isLocked: boolean;
   gradesPublished: boolean;
   openDate: string;
   dueDate: string;
   closingDate: string;
+  rawOpenDate?: string | null;
+  rawDueDate?: string | null;
+  rawClosingDate?: string | null;
   allowLateSubmission: boolean;
   isFinalExam: boolean;
   status: string;
   score: string | null;
   type: string;
   instructions: string;
+  rubricText?: string;
   rubrics: { criteria: string; points: string }[];
+  allowTutorScheduling?: boolean;
+  allowTutorEditInstructions?: boolean;
+  allowTutorEditDuration?: boolean;
+  allowTutorEditAttempts?: boolean;
   submissions: {
     studentId: string;
     completed: boolean;
@@ -50,8 +68,48 @@ export interface CourseAssignmentItem {
     submittedAt: string | null;
     isLate: boolean;
     daysLate: number;
+    feedback?: string;
   }[];
 }
+
+export const parseRubrics = (
+  rubricStr?: string | null,
+  total: number = 20
+): { criteria: string; points: string }[] => {
+  if (!rubricStr || !rubricStr.trim()) {
+    return [
+      {
+        criteria: 'Knowledge of road signs & ground markings',
+        points: `${Math.round(total * 0.4)} pts`,
+      },
+      {
+        criteria: 'Intersections and right-of-way rules (Article 34)',
+        points: `${Math.round(total * 0.3)} pts`,
+      },
+      {
+        criteria: 'Defensive driving and general road safety',
+        points: `${Math.round(total * 0.3)} pts`,
+      },
+    ];
+  }
+  const lines = rubricStr
+    .split(/\r?\n|;/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+  if (lines.length > 1) {
+    return lines.map((line) => {
+      const match = line.match(/^(.*?)(?::|\s-\s|\s–\s)?\s*(\d+\s*(?:pts|points|marks)?)$/i);
+      if (match) {
+        const criteria = match[1].trim() || line;
+        const pts = match[2].trim().toLowerCase().includes('pt') ? match[2].trim() : `${match[2].trim()} pts`;
+        return { criteria, points: pts };
+      }
+      return { criteria: line, points: 'Evaluated' };
+    });
+  }
+  return [{ criteria: rubricStr, points: `${total} pts` }];
+};
+
 import {
   CourseSecondaryNav,
   type CourseWorkspaceTab,
@@ -59,18 +117,22 @@ import {
 import { CourseHomeContent } from './CourseHomeContent';
 import { CourseRightSidebar } from './CourseRightSidebar';
 import { CoursePeopleTab } from './CoursePeopleTab';
+import { CourseLiveClassesTab } from './CourseLiveClassesTab';
+import { CourseDiscussionsTab } from './CourseDiscussionsTab';
 import { LessonViewPage } from '../../../../pages/lms/LessonViewPage';
+
+
 
 interface CanvasCourseWorkspaceProps {
   course: Course;
-  announcements: SupportAnnouncementDTO[];
+  announcements?: SupportAnnouncementDTO[];
   onBackToCourses: () => void;
   highlightAnnouncementId?: string | null;
 }
 
 export const CanvasCourseWorkspace: React.FC<CanvasCourseWorkspaceProps> = ({
   course,
-  announcements,
+  announcements: initialAnnouncements = [],
   onBackToCourses,
   highlightAnnouncementId,
 }) => {
@@ -87,21 +149,79 @@ export const CanvasCourseWorkspace: React.FC<CanvasCourseWorkspaceProps> = ({
   const [navCollapsed, setNavCollapsed] = useState(false);
   const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
 
+  const { success: showToastSuccess, error: showToastError } = useToast();
+
   // Announcement Modal State (for Tutors)
   const [showPostAnnouncementModal, setShowPostAnnouncementModal] = useState(false);
   const [announcementTitle, setAnnouncementTitle] = useState('');
   const [announcementContent, setAnnouncementContent] = useState('');
-  const [localAnnouncements, setLocalAnnouncements] = useState<SupportAnnouncementDTO[]>(
-    announcements.filter((a) => !a.course_id || a.course_id === course.id)
-  );
+  const [announcementTargetType, setAnnouncementTargetType] = useState<'SINGLE_COHORT' | 'ALL_ASSIGNED_COHORTS'>('ALL_ASSIGNED_COHORTS');
+  const [announcementCohortId, setAnnouncementCohortId] = useState<string>('');
+  const [submittingAnnouncement, setSubmittingAnnouncement] = useState(false);
+  const [loadingAnnouncements, setLoadingAnnouncements] = useState(false);
+  const [localAnnouncements, setLocalAnnouncements] = useState<SupportAnnouncementDTO[]>(initialAnnouncements);
 
   const [searchParams, setSearchParams] = useSearchParams();
   const lessonParam = searchParams.get('lesson');
+  const assignmentParam = searchParams.get('assignment');
+  const viewParam = searchParams.get('view');
+  const groupParam = searchParams.get('group');
+  const tabParam = searchParams.get('tab') as CourseWorkspaceTab | null;
 
   const [selectedLessonId, setSelectedLessonId] = useState<string | null>(lessonParam);
+  const [selectedAssignmentId, setSelectedAssignmentId] = useState<string | null>(assignmentParam);
+  const [isGradingView, setIsGradingView] = useState<boolean>(viewParam === 'grading');
   const [collapsedModules, setCollapsedModules] = useState<Record<string, boolean>>({});
 
-  const modules = course.modules || [];
+  // Tutor Cohorts & Cohort-specific Material Controls
+  const [tutorCohorts, setTutorCohorts] = useState<CohortSelectorItem[]>([]);
+  const [activeCohortId, setActiveCohortId] = useState<string | null>(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('cohort') || localStorage.getItem('sifo_tutor_active_cohort') || null;
+  });
+  const [cohortModulesMap, setCohortModulesMap] = useState<Record<string, CohortModuleItem>>({});
+
+  const handleCohortChange = (newCohortId: string) => {
+    if (!newCohortId || newCohortId === activeCohortId) return;
+    localStorage.setItem('sifo_tutor_active_cohort', newCohortId);
+    const params = new URLSearchParams(window.location.search);
+    params.set('cohort', newCohortId);
+    window.location.search = params.toString();
+  };
+
+  const activeCohort = tutorCohorts.find((c) => c.id === activeCohortId) || tutorCohorts[0] || null;
+  const activeCohortName = activeCohort ? (activeCohort.name || activeCohort.code || 'Active Cohort') : 'Active Cohort';
+
+  const fetchAnnouncements = useCallback(async () => {
+    try {
+      setLoadingAnnouncements(true);
+      const data = await SupportTicketService.getInstance().getAnnouncements({
+        course_id: course.id,
+        cohort_id: isTutor && activeCohortId ? activeCohortId : undefined,
+      });
+      setLocalAnnouncements(data || []);
+    } catch (err) {
+      console.error('Failed to load announcements:', err);
+    } finally {
+      setLoadingAnnouncements(false);
+    }
+  }, [course.id, isTutor, activeCohortId]);
+
+  useEffect(() => {
+    fetchAnnouncements();
+  }, [fetchAnnouncements]);
+
+  useEffect(() => {
+    if (activeCohortId && !announcementCohortId) {
+      setAnnouncementCohortId(activeCohortId);
+    } else if (tutorCohorts.length > 0 && !announcementCohortId) {
+      setAnnouncementCohortId(tutorCohorts[0].id);
+    }
+  }, [activeCohortId, tutorCohorts, announcementCohortId]);
+
+  const allModules = course.modules || [];
+  // Students only see modules released and unlocked by tutor for their cohort
+  const modules = isTutor ? allModules : allModules.filter((m) => !m.isLocked);
   const totalLessons = modules.reduce((sum, m) => sum + (m.lessons?.length || 0), 0);
   const completedLessons = modules.reduce((sum, m) => sum + (m.completedLessonsCount || 0), 0);
   const courseProgress = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
@@ -110,8 +230,36 @@ export const CanvasCourseWorkspace: React.FC<CanvasCourseWorkspaceProps> = ({
     if (lessonParam) {
       setSelectedLessonId(lessonParam);
       setActiveTab('modules');
+    } else {
+      setSelectedLessonId(null);
     }
   }, [lessonParam]);
+
+  useEffect(() => {
+    if (assignmentParam) {
+      setSelectedAssignmentId(assignmentParam);
+      setActiveTab('assignments');
+      setIsGradingView(searchParams.get('view') === 'grading');
+    } else {
+      setSelectedAssignmentId(null);
+      setIsGradingView(false);
+    }
+  }, [assignmentParam, searchParams]);
+
+  useEffect(() => {
+    if (groupParam) {
+      setActiveGroupId(groupParam);
+      setActiveTab('people');
+    } else {
+      setActiveGroupId(null);
+    }
+  }, [groupParam]);
+
+  useEffect(() => {
+    if (tabParam) {
+      setActiveTab(tabParam);
+    }
+  }, [tabParam]);
 
   const activeLesson = selectedLessonId
     ? modules.flatMap((m) => m.lessons || []).find((l) => l.id === selectedLessonId)
@@ -127,42 +275,136 @@ export const CanvasCourseWorkspace: React.FC<CanvasCourseWorkspaceProps> = ({
   const handleOpenLesson = (lessonId: string) => {
     setSelectedLessonId(lessonId);
     setActiveTab('modules');
-    setSearchParams({ lesson: lessonId });
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set('lesson', lessonId);
+      next.delete('assignment');
+      return next;
+    });
   };
 
   const handleCloseLesson = () => {
     setSelectedLessonId(null);
-    setSearchParams({});
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete('lesson');
+      return next;
+    });
+  };
+
+  const handleOpenAssignment = (assignmentId: string) => {
+    setSelectedAssignmentId(assignmentId);
+    setIsGradingView(false);
+    setAssignmentFilter('all');
+    setActiveTab('assignments');
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set('assignment', assignmentId);
+      next.delete('view');
+      next.delete('lesson');
+      return next;
+    });
+  };
+
+  const handleOpenGradingView = () => {
+    setIsGradingView(true);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set('view', 'grading');
+      return next;
+    });
+  };
+
+  const handleExitGradingView = () => {
+    setIsGradingView(false);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete('view');
+      return next;
+    });
+  };
+
+  const handleCloseAssignment = () => {
+    setSelectedAssignmentId(null);
+    setIsGradingView(false);
+    setAssignmentFilter('all');
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete('assignment');
+      next.delete('view');
+      return next;
+    });
+  };
+
+  const handleOpenGroup = (groupId: string) => {
+    setActiveGroupId(groupId);
+    setActiveTab('people');
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set('tab', 'people');
+      next.set('group', groupId);
+      return next;
+    });
+  };
+
+  const handleCloseGroup = () => {
+    setActiveGroupId(null);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete('group');
+      return next;
+    });
   };
 
   const handleOpenGroupFromSidebar = (groupId: string) => {
-    setActiveGroupId(groupId);
-    setActiveTab('people');
+    handleOpenGroup(groupId);
   };
 
-  const handleCreateAnnouncement = (e: React.FormEvent) => {
+  const handleCreateAnnouncement = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!announcementTitle.trim() || !announcementContent.trim()) return;
 
-    const newAnn: SupportAnnouncementDTO = {
-      id: `ann-${Date.now()}`,
-      title: announcementTitle.trim(),
-      content: announcementContent.trim(),
-      category: 'COURSE_UPDATE',
-      author: user?.fullName || 'Instructor',
-      date: 'Just now',
-      course_id: course.id,
-      is_pinned: false,
-    };
+    try {
+      setSubmittingAnnouncement(true);
+      const chosenCohortId = announcementTargetType === 'SINGLE_COHORT'
+        ? (announcementCohortId || activeCohortId || (tutorCohorts[0]?.id ?? ''))
+        : undefined;
 
-    setLocalAnnouncements([newAnn, ...localAnnouncements]);
-    setAnnouncementTitle('');
-    setAnnouncementContent('');
-    setShowPostAnnouncementModal(false);
+      const created = await SupportTicketService.getInstance().createAnnouncement({
+        course_id: course.id,
+        title: announcementTitle.trim(),
+        content: announcementContent.trim(),
+        target_type: announcementTargetType,
+        cohort_id: chosenCohortId,
+      });
+
+      setLocalAnnouncements((prev) => [created, ...prev]);
+      setAnnouncementTitle('');
+      setAnnouncementContent('');
+      setShowPostAnnouncementModal(false);
+      showToastSuccess('Announcement posted successfully.');
+    } catch (err: any) {
+      console.error('Failed to post announcement:', err);
+      showToastError(err?.message || 'Failed to post announcement.');
+    } finally {
+      setSubmittingAnnouncement(false);
+    }
+  };
+
+  const handleDeleteAnnouncement = async (id: string) => {
+    if (!window.confirm('Are you sure you want to delete this announcement?')) return;
+    try {
+      await SupportTicketService.getInstance().deleteAnnouncement(id);
+      setLocalAnnouncements((prev) => prev.filter((a) => a.id !== id));
+      showToastSuccess('Announcement deleted successfully.');
+    } catch (err: any) {
+      console.error('Failed to delete announcement:', err);
+      showToastError(err?.message || 'Failed to delete announcement.');
+    }
   };
 
 
-  // Mock student roster for assignment completion tracking
+
   const courseStudents = [
     { id: 'u-3', name: 'Alice Uwase', studentId: 'SF-2026-0904', category: 'General Road Rules' },
     { id: 'u-4', name: 'Jean Mugisha', studentId: 'SF-2026-0891', category: 'National Mock Exam Prep' },
@@ -172,12 +414,16 @@ export const CanvasCourseWorkspace: React.FC<CanvasCourseWorkspaceProps> = ({
     { id: 'u-8', name: 'Sandrine Uwitonze', studentId: 'SF-2026-0955', category: 'National Mock Exam Prep' },
   ];
 
-  // Selected assignment for Tutor & Student detailed inspection view
-  const [selectedAssignmentId, setSelectedAssignmentId] = useState<string | null>(null);
+  // Selected assignment for Tutor & Student detailed inspection view (managed via URL & state)
   const [assignmentFilter, setAssignmentFilter] = useState<'all' | 'completed' | 'pending'>('all');
 
   // Quizzes/Assignments with individual student completion details & tutor controls
   const [assignmentsData, setAssignmentsData] = useState<CourseAssignmentItem[]>([]);
+
+  // Visible assignments for the current viewer:
+  // - Tutors see all quizzes (including locked ones, so tutor can inspect, manage, and unlock them)
+  // - Students from that cohort can NOT see locked quizzes anywhere (completely hidden from assignments & grades)
+  const visibleAssignments = isTutor ? assignmentsData : assignmentsData.filter((a) => !a.isLocked);
 
   useEffect(() => {
     let isMounted = true;
@@ -194,11 +440,8 @@ export const CanvasCourseWorkspace: React.FC<CanvasCourseWorkspaceProps> = ({
 
         // Drafts are strictly for Training Admin and System Admin.
         // Tutors and Students must NOT see drafts.
-        // Those set to 'OPEN' are the ones tutors can see and control cohort visibility for.
+        // Published quizzes (Open, Scheduled, Closed) are visible and controllable by tutors.
         const targetQuizzes = candidateQuizzes.filter((q) => {
-          if (isTutor) {
-            return q.is_published && q.status === 'OPEN';
-          }
           return q.is_published && q.status !== 'DRAFT';
         });
 
@@ -221,45 +464,56 @@ export const CanvasCourseWorkspace: React.FC<CanvasCourseWorkspaceProps> = ({
             const isPast =
               (quiz.deadline && new Date(quiz.deadline) < new Date()) ||
               quiz.status === 'CLOSED';
-            const isOpen = quiz.status === 'OPEN' || (!isPast && quiz.is_published);
+            const isScheduled =
+              quiz.status === 'SCHEDULED' ||
+              Boolean(quiz.open_date && new Date(quiz.open_date) > new Date());
+            const isOpen = quiz.status === 'OPEN' || (!isPast && !isScheduled && quiz.is_published);
             const totalScore = quiz.total_score || quiz.calculated_total_points || 20;
+
+            const isLockedStored = localStorage.getItem(`sifo_quiz_locked_${quiz.id}`);
+            let isLocked: boolean;
+            if (typeof quiz.is_locked === 'boolean') {
+              isLocked = quiz.is_locked;
+            } else if (isLockedStored !== null) {
+              isLocked = isLockedStored === 'true';
+            } else {
+              // By default, quizzes are locked for cohorts until a tutor unlocks/publishes them
+              isLocked = true;
+            }
 
             return {
               id: quiz.id,
               title: quiz.title,
               points: totalScore,
               timeLimit: `${quiz.time_limit_minutes || 20} Minutes`,
+              timeLimitMinutes: quiz.time_limit_minutes || 20,
               attemptsAllowed: quiz.max_attempts || 1,
-              isLocked: !quiz.is_published,
-              gradesPublished: true,
+              isLocked,
+              gradesPublished: Boolean(
+                Boolean(quiz.deadline && new Date(quiz.deadline) <= new Date()) &&
+                  localStorage.getItem(`sifo_quiz_grades_published_${quiz.id}`) === 'true'
+              ),
               openDate: formatD(quiz.open_date) || 'Open Access',
               dueDate: formatD(quiz.deadline) || 'No deadline',
               closingDate:
                 formatD(quiz.closing_date) || formatD(quiz.deadline) || 'No cutoff',
+              rawOpenDate: quiz.open_date,
+              rawDueDate: quiz.deadline,
+              rawClosingDate: quiz.closing_date,
               allowLateSubmission: Boolean(quiz.allow_late_submission),
               isFinalExam: Boolean(quiz.is_final_exam),
-              status: isPast ? 'Past' : isOpen ? 'Open' : 'Draft',
+              status: isPast ? 'Past' : isScheduled ? 'Scheduled' : isOpen ? 'Open' : 'Draft',
               score: isPast ? `${Math.max(14, totalScore - 2)} / ${totalScore}` : null,
               type: quiz.is_final_exam ? 'Final Exam' : 'Quiz',
               instructions:
                 quiz.description ||
                 'Review course guidelines and complete this assessment accurately.',
-              rubrics: quiz.rubric
-                ? [{ criteria: quiz.rubric, points: `${totalScore} pts` }]
-                : [
-                    {
-                      criteria: 'Knowledge of road signs & ground markings',
-                      points: `${Math.round(totalScore * 0.4)} pts`,
-                    },
-                    {
-                      criteria: 'Intersections and right-of-way rules (Article 34)',
-                      points: `${Math.round(totalScore * 0.3)} pts`,
-                    },
-                    {
-                      criteria: 'Defensive driving and general road safety',
-                      points: `${Math.round(totalScore * 0.3)} pts`,
-                    },
-                  ],
+              rubricText: quiz.rubric || '',
+              rubrics: parseRubrics(quiz.rubric, totalScore),
+              allowTutorScheduling: quiz.allow_tutor_scheduling,
+              allowTutorEditInstructions: quiz.allow_tutor_edit_instructions,
+              allowTutorEditDuration: quiz.allow_tutor_edit_duration,
+              allowTutorEditAttempts: quiz.allow_tutor_edit_attempts,
               submissions: courseStudents.map((st, sIdx) => ({
                 studentId: st.id,
                 completed: isPast ? sIdx % 2 === 0 : sIdx === 0,
@@ -291,21 +545,243 @@ export const CanvasCourseWorkspace: React.FC<CanvasCourseWorkspaceProps> = ({
     };
   }, [course.id, isTutor]);
 
-  // Tutor lock/unlock handler
-  const handleToggleLock = (assignmentId: string) => {
+  // Tutor quiz update modal state
+  const [updatingAssignment, setUpdatingAssignment] = useState<CourseAssignmentItem | null>(null);
+
+  const handleQuizUpdatedByTutor = (updated: Partial<CourseAssignmentItem>) => {
+    if (!updatingAssignment) return;
     setAssignmentsData((prev) =>
-      prev.map((item) =>
-        item.id === assignmentId ? { ...item, isLocked: !item.isLocked } : item
-      )
+      prev.map((item) => {
+        if (item.id === updatingAssignment.id) {
+          const merged = { ...item, ...updated };
+          if (updated.rawOpenDate !== undefined || updated.rawDueDate !== undefined) {
+            const isPast = Boolean(merged.rawDueDate && new Date(merged.rawDueDate) < new Date());
+            const isScheduled = Boolean(merged.rawOpenDate && new Date(merged.rawOpenDate) > new Date());
+            merged.status = isPast ? 'Past' : isScheduled ? 'Scheduled' : 'Open';
+            // If due date was updated and has not arrived yet, grades cannot be published
+            const isDuePassed = Boolean(merged.rawDueDate && new Date(merged.rawDueDate) <= new Date());
+            if (!isDuePassed) {
+              merged.gradesPublished = false;
+              localStorage.removeItem(`sifo_quiz_grades_published_${item.id}`);
+            }
+          }
+          if (updated.rubricText !== undefined) {
+            merged.rubrics = parseRubrics(updated.rubricText, merged.points);
+          }
+          return merged;
+        }
+        return item;
+      })
     );
+    setUpdatingAssignment((prev) => (prev ? { ...prev, ...updated } : null));
   };
 
-  // Tutor publish grades handler
+  // Fetch tutor's assigned cohorts
+  useEffect(() => {
+    if (!isTutor) return;
+    let isMounted = true;
+    const loadCohorts = async () => {
+      try {
+        const cohorts = await TutorLmsService.getInstance().getTutorCohorts();
+        if (!isMounted) return;
+        if (Array.isArray(cohorts) && cohorts.length > 0) {
+          setTutorCohorts(cohorts);
+          const savedCohortId = new URLSearchParams(window.location.search).get('cohort') || localStorage.getItem('sifo_tutor_active_cohort');
+          const matchedCohort = cohorts.find((c) => c.id === savedCohortId);
+          const finalCohortId = matchedCohort ? matchedCohort.id : cohorts[0].id;
+          setActiveCohortId(finalCohortId);
+          localStorage.setItem('sifo_tutor_active_cohort', finalCohortId);
+        }
+      } catch (err) {
+        console.error('Failed to load tutor cohorts:', err);
+      }
+    };
+    loadCohorts();
+    return () => {
+      isMounted = false;
+    };
+  }, [isTutor]);
+
+  // Sync cohort module release & quiz schedule states for the active cohort
+  useEffect(() => {
+    if (!isTutor || !activeCohortId || !course.id) return;
+    let isMounted = true;
+    const syncCohortMaterials = async () => {
+      try {
+        // 1. Fetch modules release & lock states for active cohort
+        const modItems = await TutorLmsService.getInstance().getCohortModules(activeCohortId, course.id);
+        if (!isMounted) return;
+        if (Array.isArray(modItems)) {
+          const map: Record<string, CohortModuleItem> = {};
+          modItems.forEach((m) => {
+            map[m.id] = m;
+          });
+          setCohortModulesMap(map);
+        }
+
+        // 2. Fetch quiz schedules for active cohort to set lock states per cohort
+        const quizItems = await TutorLmsService.getInstance().getCohortQuizzes(activeCohortId, course.id);
+        if (!isMounted) return;
+        if (Array.isArray(quizItems) && quizItems.length > 0) {
+          const lockMap = new Map<string, boolean>();
+          quizItems.forEach((q) => {
+            lockMap.set(q.id, q.is_locked);
+          });
+          setAssignmentsData((prev) =>
+            prev.map((item) => {
+              if (lockMap.has(item.id)) {
+                return { ...item, isLocked: lockMap.get(item.id)! };
+              }
+              return item;
+            })
+          );
+        }
+      } catch (err) {
+        console.error('Failed to sync materials for active cohort:', err);
+      }
+    };
+    syncCohortMaterials();
+    return () => {
+      isMounted = false;
+    };
+  }, [isTutor, activeCohortId, course.id]);
+
+  // Tutor lock/unlock handler for modules for the ACTIVE COHORT ONLY
+  const handleToggleModuleLock = async (moduleId: string, nextLocked: boolean) => {
+    if (!activeCohortId) return;
+
+    setCohortModulesMap((prev) => ({
+      ...prev,
+      [moduleId]: {
+        ...(prev[moduleId] || {
+          id: moduleId,
+          title: '',
+          order: 0,
+          is_default_published: true,
+          unlock_date: null,
+        }),
+        is_locked: nextLocked,
+        is_published: !nextLocked,
+      },
+    }));
+
+    try {
+      await TutorLmsService.getInstance().updateCohortModuleRelease(activeCohortId, moduleId, {
+        is_locked: nextLocked,
+        is_published: !nextLocked,
+      });
+    } catch (err) {
+      console.error('Failed to update cohort module release state:', err);
+    }
+  };
+
+  // Tutor lock/unlock handler for quizzes for the ACTIVE COHORT ONLY
+  const handleToggleLock = async (assignmentId: string) => {
+    const targetItem = assignmentsData.find((item) => item.id === assignmentId);
+    if (!targetItem) return;
+    const nextLocked = !targetItem.isLocked;
+
+    // Immediately update local UI state
+    setAssignmentsData((prev) =>
+      prev.map((item) => {
+        if (item.id === assignmentId) {
+          return { ...item, isLocked: nextLocked };
+        }
+        return item;
+      })
+    );
+
+    // Sync cohort lock state to backend for active cohort ONLY
+    try {
+      if (activeCohortId) {
+        await TutorLmsService.getInstance().scheduleCohortQuiz(activeCohortId, assignmentId, {
+          is_locked: nextLocked,
+          is_published: !nextLocked,
+        });
+      }
+    } catch (err) {
+      console.error('Failed to sync cohort quiz schedule:', err);
+    }
+  };
+
+  // Tutor student grading modal state
+  const [gradingStudentModal, setGradingStudentModal] = useState<{
+    studentId: string;
+    name: string;
+    studentRollNo: string;
+    category: string;
+    score: string;
+    feedback: string;
+    completed: boolean;
+  } | null>(null);
+
+  // Tutor publish grades handler - grades CANNOT be published before assignment due date reaches!
   const handlePublishGrades = (assignmentId: string) => {
+    const target = assignmentsData.find((a) => a.id === assignmentId);
+    if (!target) return;
+    const isDuePassed = Boolean(target.rawDueDate && new Date(target.rawDueDate) <= new Date());
+    if (!isDuePassed) {
+      alert(
+        `Illogical action prevented: Grades cannot be published before the assignment due date (${target.dueDate || 'scheduled deadline'}) has reached.`
+      );
+      return;
+    }
+    localStorage.setItem(`sifo_quiz_grades_published_${assignmentId}`, 'true');
     setAssignmentsData((prev) =>
       prev.map((item) =>
         item.id === assignmentId ? { ...item, gradesPublished: true } : item
       )
+    );
+  };
+
+  // Tutor individual student grading handler
+  const handleSaveStudentGrade = (
+    assignmentId: string,
+    studentId: string,
+    score: string,
+    feedback: string
+  ) => {
+    setAssignmentsData((prev) =>
+      prev.map((asg) => {
+        if (asg.id !== assignmentId) return asg;
+        const formattedScore = score
+          ? score.includes('/')
+            ? score
+            : `${score} / ${asg.points}`
+          : null;
+        const updatedSubmissions = asg.submissions.map((sub) => {
+          if (sub.studentId !== studentId) return sub;
+          return {
+            ...sub,
+            completed: true,
+            score: formattedScore,
+            feedback,
+            submittedAt: sub.submittedAt || 'Today',
+          };
+        });
+        return { ...asg, submissions: updatedSubmissions };
+      })
+    );
+    setGradingStudentModal(null);
+  };
+
+  // Auto-grade completed submissions shortcut
+  const handleAutoGradeCompleted = (assignmentId: string) => {
+    setAssignmentsData((prev) =>
+      prev.map((asg) => {
+        if (asg.id !== assignmentId) return asg;
+        const updatedSubmissions = asg.submissions.map((sub, sIdx) => {
+          if (!sub.completed || sub.score) return sub;
+          const assignedPts = Math.max(Math.round(asg.points * 0.75), asg.points - (sIdx % 3));
+          return {
+            ...sub,
+            score: `${assignedPts} / ${asg.points}`,
+            feedback: 'Satisfactory completion verified by tutor.',
+            submittedAt: sub.submittedAt || 'Today',
+          };
+        });
+        return { ...asg, submissions: updatedSubmissions };
+      })
     );
   };
 
@@ -389,17 +865,31 @@ export const CanvasCourseWorkspace: React.FC<CanvasCourseWorkspaceProps> = ({
                 <ChevronRight size={15} color="#9CA3AF" />
                 <span
                   onClick={() => {
-                    handleCloseLesson();
+                    if (activeTab === 'assignments') {
+                      handleCloseAssignment();
+                    } else if (activeTab === 'modules') {
+                      handleCloseLesson();
+                    } else if (activeTab === 'people') {
+                      handleCloseGroup();
+                    }
                   }}
                   style={{
-                    color: selectedLessonId ? '#0055A5' : '#2D3B45',
+                    color: (selectedLessonId || selectedAssignmentId || (activeTab === 'people' && activeGroupId)) ? '#0055A5' : '#2D3B45',
                     fontWeight: 600,
                     textTransform: 'capitalize',
-                    cursor: selectedLessonId ? 'pointer' : 'default',
-                    textDecoration: selectedLessonId ? 'underline' : 'none',
+                    cursor: (selectedLessonId || selectedAssignmentId || (activeTab === 'people' && activeGroupId)) ? 'pointer' : 'default',
+                    textDecoration: (selectedLessonId || selectedAssignmentId || (activeTab === 'people' && activeGroupId)) ? 'underline' : 'none',
                   }}
                 >
                   {activeTab}
+                </span>
+              </>
+            )}
+            {activeTab === 'people' && activeGroupId && (
+              <>
+                <ChevronRight size={15} color="#9CA3AF" />
+                <span style={{ color: '#2D3B45', fontWeight: 600 }}>
+                  Group Chat
                 </span>
               </>
             )}
@@ -411,8 +901,82 @@ export const CanvasCourseWorkspace: React.FC<CanvasCourseWorkspaceProps> = ({
                 </span>
               </>
             )}
+            {selectedAssignmentId && (
+              <>
+                <ChevronRight size={15} color="#9CA3AF" />
+                <span
+                  onClick={() => {
+                    if (isGradingView) {
+                      handleExitGradingView();
+                    }
+                  }}
+                  style={{
+                    color: isGradingView ? '#0055A5' : '#2D3B45',
+                    fontWeight: 600,
+                    cursor: isGradingView ? 'pointer' : 'default',
+                    textDecoration: isGradingView ? 'underline' : 'none',
+                  }}
+                >
+                  {assignmentsData.find((a) => a.id === selectedAssignmentId)?.title || 'Assessment'}
+                </span>
+                {isGradingView && isTutor && (
+                  <>
+                    <ChevronRight size={15} color="#9CA3AF" />
+                    <span style={{ color: '#2D3B45', fontWeight: 700 }}>Grading</span>
+                  </>
+                )}
+              </>
+            )}
           </div>
         </div>
+
+        {/* Right side of Top Bar: Tutor Cohort Selector */}
+        {isTutor && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              backgroundColor: '#F8FAFC',
+              padding: '6px 14px',
+              borderRadius: '8px',
+              border: '1px solid #E2E8F0',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Users size={16} color="#0055A5" />
+              <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#334155' }}>
+                Active Cohort:
+              </span>
+            </div>
+            {tutorCohorts.length > 0 ? (
+              <select
+                id="tutor-cohort-selector"
+                value={activeCohortId || ''}
+                onChange={(e) => handleCohortChange(e.target.value)}
+                style={{
+                  fontSize: '0.82rem',
+                  fontWeight: 600,
+                  padding: '5px 12px',
+                  borderRadius: '6px',
+                  border: '1px solid #CBD5E1',
+                  backgroundColor: '#FFFFFF',
+                  color: '#1E293B',
+                  cursor: 'pointer',
+                  outline: 'none',
+                }}
+              >
+                {tutorCohorts.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name} {c.code ? `(${c.code})` : ''} — {c.student_count || 0} students
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <span style={{ fontSize: '0.8rem', color: '#94A3B8' }}>No assigned cohorts</span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* 2. Main 3-Column Canvas LMS Course Layout (Frame fits 100% width) */}
@@ -432,9 +996,23 @@ export const CanvasCourseWorkspace: React.FC<CanvasCourseWorkspaceProps> = ({
           activeTab={activeTab}
           onTabChange={(tab) => {
             setActiveTab(tab);
-            setActiveGroupId(null);
+            if (tab === 'people') {
+              handleCloseGroup();
+            } else {
+              setActiveGroupId(null);
+              setSearchParams((prev) => {
+                const next = new URLSearchParams(prev);
+                next.delete('group');
+                return next;
+              });
+            }
+            if (tab === 'assignments') {
+              handleCloseAssignment();
+            } else if (tab === 'modules') {
+              handleCloseLesson();
+            }
           }}
-          gradesCount={!isTutor ? 7 : undefined}
+          gradesCount={!isTutor ? visibleAssignments.length : undefined}
           announcementsCount={localAnnouncements.length}
           isCollapsed={navCollapsed}
           isTutor={Boolean(isTutor)}
@@ -486,7 +1064,9 @@ export const CanvasCourseWorkspace: React.FC<CanvasCourseWorkspaceProps> = ({
                       Course Modules & Lessons
                     </h2>
                     <p style={{ fontSize: '0.84rem', color: '#6B7280', margin: '3px 0 0 0' }}>
-                      {completedLessons} of {totalLessons} lessons completed ({courseProgress}%)
+                      {isTutor
+                        ? `Target Cohort: ${activeCohortName} — Release modules one-by-one to this cohort.`
+                        : `${completedLessons} of ${totalLessons} lessons completed (${courseProgress}%)`}
                     </p>
                   </div>
                 </div>
@@ -564,8 +1144,55 @@ export const CanvasCourseWorkspace: React.FC<CanvasCourseWorkspaceProps> = ({
                               {mod.title}
                             </span>
                           </div>
-                          <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748B' }}>
-                            {t('canvasCourses.lessonsCount', { count: mod.lessons?.length || 0 })}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            {isTutor && activeCohortId && (
+                              <div
+                                onClick={(e) => e.stopPropagation()}
+                                style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                              >
+                                <span
+                                  style={{
+                                    fontSize: '0.74rem',
+                                    fontWeight: 700,
+                                    padding: '3px 8px',
+                                    borderRadius: '4px',
+                                    backgroundColor: (cohortModulesMap[mod.id]?.is_locked ?? true) ? '#FEF2F2' : '#F0FDF4',
+                                    color: (cohortModulesMap[mod.id]?.is_locked ?? true) ? '#991B1B' : '#166534',
+                                    border: (cohortModulesMap[mod.id]?.is_locked ?? true) ? '1px solid #FECACA' : '1px solid #BBF7D0',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                  }}
+                                >
+                                  {(cohortModulesMap[mod.id]?.is_locked ?? true) ? <Lock size={12} /> : <Unlock size={12} />}
+                                  {(cohortModulesMap[mod.id]?.is_locked ?? true) ? `Locked for ${activeCohortName}` : `Released to ${activeCohortName}`}
+                                </span>
+                                <button
+                                  onClick={() => {
+                                    const currentlyLocked = cohortModulesMap[mod.id]?.is_locked ?? true;
+                                    handleToggleModuleLock(mod.id, !currentlyLocked);
+                                  }}
+                                  className="canvas-btn"
+                                  style={{
+                                    fontSize: '0.74rem',
+                                    padding: '4px 10px',
+                                    fontWeight: 600,
+                                    backgroundColor: (cohortModulesMap[mod.id]?.is_locked ?? true) ? '#0055A5' : '#DC2626',
+                                    color: '#FFFFFF',
+                                    border: 'none',
+                                    borderRadius: '4px',
+                                    cursor: 'pointer',
+                                  }}
+                                >
+                                  {(cohortModulesMap[mod.id]?.is_locked ?? true) ? 'Unlock' : 'Lock'}
+                                </button>
+                              </div>
+                            )}
+                            {!isTutor && (
+                              <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748B' }}>
+                                {t('canvasCourses.lessonsCount', { count: mod.lessons?.length || 0 })}
+                              </div>
+                            )}
                           </div>
                         </div>
 
@@ -667,8 +1294,50 @@ export const CanvasCourseWorkspace: React.FC<CanvasCourseWorkspaceProps> = ({
               {/* If an assignment is selected (for Student OR Tutor) */}
               {selectedAssignmentId ? (
                 (() => {
-                  const currentAsg = assignmentsData.find((a) => a.id === selectedAssignmentId);
-                  if (!currentAsg) return null;
+                  const currentAsg = visibleAssignments.find((a) => a.id === selectedAssignmentId);
+                  if (!currentAsg) {
+                    return (
+                      <div
+                        style={{
+                          padding: '40px 20px',
+                          textAlign: 'center',
+                          backgroundColor: '#F8FAFC',
+                          borderRadius: '6px',
+                          border: '1px solid #E2E8F0',
+                        }}
+                      >
+                        <Lock size={32} color="#94A3B8" style={{ margin: '0 auto 12px auto' }} />
+                        <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#1E293B', marginBottom: '6px' }}>
+                          Assessment Unavailable
+                        </h3>
+                        <p style={{ fontSize: '0.85rem', color: '#64748B', maxWidth: '420px', margin: '0 auto 16px auto' }}>
+                          This assessment is not visible or has been locked for your cohort by the instructor.
+                        </p>
+                        <button
+                          onClick={() => {
+                            setSelectedAssignmentId(null);
+                            setAssignmentFilter('all');
+                          }}
+                          className="canvas-btn"
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            padding: '8px 16px',
+                            fontSize: '0.84rem',
+                            backgroundColor: '#FFFFFF',
+                            color: '#1E293B',
+                            border: '1px solid #CBD5E1',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          <ArrowLeft size={14} />
+                          <span>Back to Assignments</span>
+                        </button>
+                      </div>
+                    );
+                  }
 
                   const submissionsWithStudent = currentAsg.submissions.map((sub) => {
                     const studentInfo = courseStudents.find((s) => s.id === sub.studentId);
@@ -694,9 +1363,501 @@ export const CanvasCourseWorkspace: React.FC<CanvasCourseWorkspaceProps> = ({
                     (completedList.length / (submissionsWithStudent.length || 1)) * 100
                   );
 
+                  // DEDICATED GRADING PAGE (Tutor only)
+                  if (isGradingView && isTutor) {
+                    const isDuePassed = Boolean(
+                      currentAsg.rawDueDate && new Date(currentAsg.rawDueDate) <= new Date()
+                    );
+                    const gradedCount = submissionsWithStudent.filter((s) => s.score).length;
+
+                    return (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                        {/* Top Bar: Back Button & Context Header */}
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            flexWrap: 'wrap',
+                            gap: '12px',
+                            borderBottom: '1px solid #E2E8F0',
+                            paddingBottom: '14px',
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                            <button
+                              onClick={handleExitGradingView}
+                              className="canvas-btn"
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                padding: '6px 14px',
+                                fontSize: '0.8rem',
+                                fontWeight: 600,
+                                backgroundColor: '#FFFFFF',
+                                color: '#334155',
+                                border: '1px solid #CBD5E1',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                              }}
+                              title="Return to Assignment Details"
+                            >
+                              <ArrowLeft size={14} />
+                              <span>Back to Assignment Details</span>
+                            </button>
+
+                            <div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <h2 style={{ fontSize: '1.35rem', fontWeight: 800, color: '#1E293B', margin: 0 }}>
+                                  {currentAsg.title}
+                                </h2>
+                              </div>
+                              <div style={{ fontSize: '0.8rem', color: '#64748B', marginTop: '2px' }}>
+                                Cohort: <strong style={{ color: '#1E293B' }}>{activeCohortName}</strong> &bull; Due: {currentAsg.dueDate || 'No Due Date'} &bull; Points: {currentAsg.points}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <button
+                              onClick={() => handleAutoGradeCompleted(currentAsg.id)}
+                              className="canvas-btn"
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                padding: '6px 12px',
+                                fontSize: '0.76rem',
+                                fontWeight: 600,
+                                backgroundColor: '#F8FAFC',
+                                color: '#334155',
+                                border: '1px solid #CBD5E1',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                              }}
+                              title="Auto-grade all completed submissions without recorded scores"
+                            >
+                              <CheckCircle size={13} color="#0055A5" />
+                              <span>Auto-Grade Completed</span>
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Assessment Grading & Student Roster */}
+                        <div
+                          id="assignment-grading-section"
+                          style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '16px',
+                            padding: '20px',
+                            backgroundColor: '#FFFFFF',
+                            borderRadius: '6px',
+                            border: '1px solid #CBD5E1',
+                          }}
+                        >
+                          {/* Section Header */}
+                          <div
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              flexWrap: 'wrap',
+                              gap: '12px',
+                              paddingBottom: '14px',
+                              borderBottom: '2px solid #E2E8F0',
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              <div
+                                style={{
+                                  width: '34px',
+                                  height: '34px',
+                                  borderRadius: '6px',
+                                  backgroundColor: '#EFF6FF',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  border: '1px solid #BFDBFE',
+                                }}
+                              >
+                                <Award size={18} color="#0055A5" />
+                              </div>
+                              <div>
+                                <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#1E293B', margin: 0 }}>
+                                  Assessment Grading & Student Roster
+                                </h3>
+                                <p style={{ fontSize: '0.8rem', color: '#64748B', margin: '2px 0 0 0' }}>
+                                  Grade cohort submissions, review scores, track completion, and release grades once due date has arrived.
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Tutor Action Toolbar & Grade Status */}
+                          <div
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              flexWrap: 'wrap',
+                              gap: '14px',
+                              backgroundColor: '#F8FAFC',
+                              padding: '14px 18px',
+                              borderRadius: '6px',
+                              border: '1px solid #E2E8F0',
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
+                              <div>
+                                <div style={{ fontSize: '0.72rem', color: '#64748B', textTransform: 'uppercase', fontWeight: 600 }}>
+                                  Roster Completion
+                                </div>
+                                <div style={{ fontSize: '0.95rem', fontWeight: 800, color: '#0055A5', marginTop: '1px' }}>
+                                  {completedList.length} of {submissionsWithStudent.length} ({completionPercent}%)
+                                </div>
+                              </div>
+                              <div style={{ height: '26px', width: '1px', backgroundColor: '#CBD5E1' }} />
+                              <div>
+                                <div style={{ fontSize: '0.72rem', color: '#64748B', textTransform: 'uppercase', fontWeight: 600 }}>
+                                  Graded Submissions
+                                </div>
+                                <div style={{ fontSize: '0.95rem', fontWeight: 800, color: '#334155', marginTop: '1px' }}>
+                                  {gradedCount} of {submissionsWithStudent.length}
+                                </div>
+                              </div>
+                              <div style={{ height: '26px', width: '1px', backgroundColor: '#CBD5E1' }} />
+                              <div>
+                                <div style={{ fontSize: '0.72rem', color: '#64748B', textTransform: 'uppercase', fontWeight: 600 }}>
+                                  Grade Publishing Status
+                                </div>
+                                <div
+                                  style={{
+                                    fontSize: '0.85rem',
+                                    fontWeight: 700,
+                                    color: currentAsg.gradesPublished ? '#15803D' : !isDuePassed ? '#B45309' : '#0055A5',
+                                    marginTop: '1px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '5px',
+                                  }}
+                                >
+                                  {currentAsg.gradesPublished ? (
+                                    <>
+                                      <Check size={14} color="#15803D" />
+                                      <span>Grades Published to Students</span>
+                                    </>
+                                  ) : !isDuePassed ? (
+                                    <>
+                                      <Lock size={13} color="#B45309" />
+                                      <span>Awaiting</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Clock size={13} color="#0055A5" />
+                                      <span>Due Date Reached — Ready to Publish</span>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              {!currentAsg.gradesPublished ? (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                  <button
+                                    onClick={() => handlePublishGrades(currentAsg.id)}
+                                    disabled={!isDuePassed}
+                                    className="canvas-btn"
+                                    style={{
+                                      padding: '7px 16px',
+                                      fontSize: '0.8rem',
+                                      fontWeight: 700,
+                                      backgroundColor: isDuePassed ? '#0055A5' : '#94A3B8',
+                                      color: '#FFFFFF',
+                                      border: 'none',
+                                      borderRadius: '4px',
+                                      cursor: isDuePassed ? 'pointer' : 'not-allowed',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '6px',
+                                      opacity: isDuePassed ? 1 : 0.75,
+                                    }}
+                                    title={
+                                      isDuePassed
+                                        ? 'Publish grades to all students in this cohort'
+                                        : `Grades cannot be published until the assignment due date has passed (${currentAsg.dueDate})`
+                                    }
+                                  >
+                                    {isDuePassed ? <Check size={14} /> : <Lock size={14} />}
+                                    <span>{isDuePassed ? 'Publish Grades' : 'Grades Locked (Due Date Pending)'}</span>
+                                  </button>
+                                </div>
+                              ) : (
+                                <span
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '5px',
+                                    fontSize: '0.78rem',
+                                    fontWeight: 700,
+                                    color: '#15803D',
+                                    backgroundColor: '#DCFCE7',
+                                    padding: '6px 14px',
+                                    borderRadius: '4px',
+                                    border: '1px solid #BBF7D0',
+                                  }}
+                                >
+                                  <Check size={14} />
+                                  <span>Grades Published to Students</span>
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Filter Tabs */}
+                          <div
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '8px',
+                              borderBottom: '1px solid #E2E8F0',
+                              paddingBottom: '8px',
+                            }}
+                          >
+                            <button
+                              onClick={() => setAssignmentFilter('all')}
+                              style={{
+                                padding: '6px 14px',
+                                fontSize: '0.82rem',
+                                fontWeight: 700,
+                                border: 'none',
+                                background: assignmentFilter === 'all' ? '#0055A5' : '#F1F5F9',
+                                color: assignmentFilter === 'all' ? '#FFFFFF' : '#475569',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              All Students ({submissionsWithStudent.length})
+                            </button>
+                            <button
+                              onClick={() => setAssignmentFilter('completed')}
+                              style={{
+                                padding: '6px 14px',
+                                fontSize: '0.82rem',
+                                fontWeight: 700,
+                                border: 'none',
+                                background: assignmentFilter === 'completed' ? '#0055A5' : '#F1F5F9',
+                                color: assignmentFilter === 'completed' ? '#FFFFFF' : '#475569',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              Completed ({completedList.length})
+                            </button>
+                            <button
+                              onClick={() => setAssignmentFilter('pending')}
+                              style={{
+                                padding: '6px 14px',
+                                fontSize: '0.82rem',
+                                fontWeight: 700,
+                                border: 'none',
+                                background: assignmentFilter === 'pending' ? '#0055A5' : '#F1F5F9',
+                                color: assignmentFilter === 'pending' ? '#FFFFFF' : '#475569',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              Not Completed ({pendingList.length})
+                            </button>
+                          </div>
+
+                          {/* Student Submissions Table */}
+                          <div className="canvas-card" style={{ padding: 0, overflow: 'hidden' }}>
+                            <div
+                              style={{
+                                padding: '12px 18px',
+                                backgroundColor: '#F8FAFC',
+                                borderBottom: '1px solid #E5E7EB',
+                                display: 'grid',
+                                gridTemplateColumns: '2fr 1fr 1.2fr 1fr 1.2fr 1fr',
+                                fontWeight: 700,
+                                fontSize: '0.78rem',
+                                color: '#475569',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.04em',
+                              }}
+                            >
+                              <div>Student Name</div>
+                              <div>Student ID</div>
+                              <div>Status</div>
+                              <div>Score</div>
+                              <div>Submitted Date</div>
+                              <div style={{ textAlign: 'right' }}>Grading Action</div>
+                            </div>
+
+                            <div>
+                              {filteredList.length === 0 ? (
+                                <div style={{ padding: '30px', textAlign: 'center', color: '#64748B', fontSize: '0.86rem' }}>
+                                  No students found for this filter.
+                                </div>
+                              ) : (
+                                filteredList.map((st) => (
+                                  <div
+                                    key={st.studentId}
+                                    style={{
+                                      padding: '14px 18px',
+                                      borderBottom: '1px solid #F1F5F9',
+                                      display: 'grid',
+                                      gridTemplateColumns: '2fr 1fr 1.2fr 1fr 1.2fr 1fr',
+                                      alignItems: 'center',
+                                      fontSize: '0.84rem',
+                                      backgroundColor: '#FFFFFF',
+                                    }}
+                                  >
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                      <div
+                                        style={{
+                                          width: '28px',
+                                          height: '28px',
+                                          borderRadius: '50%',
+                                          backgroundColor: '#F1F5F9',
+                                          color: '#1E293B',
+                                          fontWeight: 700,
+                                          fontSize: '0.75rem',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          justifyContent: 'center',
+                                          border: '1px solid #CBD5E1',
+                                        }}
+                                      >
+                                        {st.name.charAt(0)}
+                                      </div>
+                                      <div>
+                                        <div style={{ fontWeight: 700, color: '#1E293B' }}>{st.name}</div>
+                                        <div style={{ fontSize: '0.72rem', color: '#64748B' }}>{st.category}</div>
+                                      </div>
+                                    </div>
+
+                                    <div style={{ color: '#475569', fontFamily: 'monospace', fontSize: '0.8rem' }}>
+                                      {st.studentRollNo}
+                                    </div>
+
+                                    <div>
+                                      {st.completed ? (
+                                        st.isLate ? (
+                                          <span
+                                            style={{
+                                              display: 'inline-flex',
+                                              alignItems: 'center',
+                                              gap: '4px',
+                                              fontSize: '0.74rem',
+                                              fontWeight: 700,
+                                              color: '#B45309',
+                                              backgroundColor: '#FEF3C7',
+                                              padding: '3px 8px',
+                                              borderRadius: '3px',
+                                              border: '1px solid #FDE68A',
+                                            }}
+                                          >
+                                            <Clock size={12} />
+                                            <span>Late ({st.daysLate || 1} day{st.daysLate === 1 ? '' : 's'} late)</span>
+                                          </span>
+                                        ) : (
+                                          <span
+                                            style={{
+                                              display: 'inline-flex',
+                                              alignItems: 'center',
+                                              gap: '4px',
+                                              fontSize: '0.74rem',
+                                              fontWeight: 700,
+                                              color: '#15803D',
+                                              backgroundColor: '#F0FDF4',
+                                              padding: '3px 8px',
+                                              borderRadius: '3px',
+                                              border: '1px solid #DCFCE7',
+                                            }}
+                                          >
+                                            <Check size={12} />
+                                            <span>Completed</span>
+                                          </span>
+                                        )
+                                      ) : (
+                                        <span
+                                          style={{
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '4px',
+                                            fontSize: '0.74rem',
+                                            fontWeight: 600,
+                                            color: '#64748B',
+                                            backgroundColor: '#F8FAFC',
+                                            padding: '3px 8px',
+                                            borderRadius: '3px',
+                                            border: '1px solid #E2E8F0',
+                                          }}
+                                        >
+                                          <Clock size={12} />
+                                          <span>Not Completed</span>
+                                        </span>
+                                      )}
+                                    </div>
+
+                                    <div style={{ fontWeight: 700, color: st.completed ? '#0055A5' : '#94A3B8' }}>
+                                      {st.score || '—'}
+                                    </div>
+
+                                    <div style={{ color: '#64748B', fontSize: '0.78rem' }}>
+                                      {st.submittedAt || '—'}
+                                    </div>
+
+                                    <div style={{ textAlign: 'right' }}>
+                                      <button
+                                        onClick={() =>
+                                          setGradingStudentModal({
+                                            studentId: st.studentId,
+                                            name: st.name,
+                                            studentRollNo: st.studentRollNo,
+                                            category: st.category,
+                                            score: st.score || '',
+                                            feedback: st.feedback || '',
+                                            completed: st.completed,
+                                          })
+                                        }
+                                        className="canvas-btn"
+                                        style={{
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          gap: '5px',
+                                          padding: '5px 12px',
+                                          fontSize: '0.75rem',
+                                          fontWeight: 600,
+                                          backgroundColor: '#FFFFFF',
+                                          color: '#0055A5',
+                                          border: '1px solid #0055A5',
+                                          borderRadius: '4px',
+                                          cursor: 'pointer',
+                                        }}
+                                        title={`Grade or update score for ${st.name}`}
+                                      >
+                                        <Award size={13} />
+                                        <span>{st.score ? 'Edit Grade' : 'Grade'}</span>
+                                      </button>
+                                    </div>
+                                  </div>
+                                ))
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+
                   return (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                      {/* Top Bar: Back Button & Context Header */}
+                      {/* Top Bar: Context Header */}
                       <div
                         style={{
                           display: 'flex',
@@ -709,81 +1870,14 @@ export const CanvasCourseWorkspace: React.FC<CanvasCourseWorkspaceProps> = ({
                         }}
                       >
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                          <button
-                            onClick={() => {
-                              setSelectedAssignmentId(null);
-                              setAssignmentFilter('all');
-                            }}
-                            className="canvas-btn"
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '6px',
-                              padding: '6px 14px',
-                              fontSize: '0.82rem',
-                              backgroundColor: '#F1F5F9',
-                              color: '#1E293B',
-                              border: '1px solid #CBD5E1',
-                              borderRadius: '4px',
-                              cursor: 'pointer',
-                            }}
-                          >
-                            <ArrowLeft size={15} />
-                            <span>Back to Assignments</span>
-                          </button>
-                          <div>
-                            {isTutor && (
-                              <div style={{ fontSize: '0.74rem', color: '#64748B', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                                Assessment Management & Grading
-                              </div>
-                            )}
-                            <h2 style={{ fontSize: '1.35rem', fontWeight: 800, color: '#1E293B', margin: '2px 0 0 0' }}>
-                              {currentAsg.title}
-                            </h2>
-                          </div>
+                          <h2 style={{ fontSize: '1.35rem', fontWeight: 800, color: '#1E293B', margin: 0 }}>
+                            {currentAsg.title}
+                          </h2>
                         </div>
 
-                        {/* Status / Visibility Badges (Tutors only) */}
+                        {/* Tutor Actions Toolbar */}
                         {isTutor && (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            {currentAsg.isLocked ? (
-                              <span
-                                style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '5px',
-                                  padding: '4px 10px',
-                                  borderRadius: '4px',
-                                  fontSize: '0.76rem',
-                                  fontWeight: 700,
-                                  backgroundColor: '#FEF2F2',
-                                  color: '#991B1B',
-                                  border: '1px solid #FEE2E2',
-                                }}
-                              >
-                                <Lock size={13} />
-                                <span>Locked for Cohort</span>
-                              </span>
-                            ) : (
-                              <span
-                                style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '5px',
-                                  padding: '4px 10px',
-                                  borderRadius: '4px',
-                                  fontSize: '0.76rem',
-                                  fontWeight: 700,
-                                  backgroundColor: '#F0FDF4',
-                                  color: '#166534',
-                                  border: '1px solid #DCFCE7',
-                                }}
-                              >
-                                <Check size={13} />
-                                <span>Published</span>
-                              </span>
-                            )}
-
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <button
                               onClick={() => handleToggleLock(currentAsg.id)}
                               className="canvas-btn"
@@ -794,16 +1888,61 @@ export const CanvasCourseWorkspace: React.FC<CanvasCourseWorkspaceProps> = ({
                                 padding: '6px 12px',
                                 fontSize: '0.76rem',
                                 fontWeight: 600,
-                                backgroundColor: '#FFFFFF',
-                                color: currentAsg.isLocked ? '#166534' : '#475569',
+                                backgroundColor: currentAsg.isLocked ? '#0055A5' : '#FFFFFF',
+                                color: currentAsg.isLocked ? '#FFFFFF' : '#475569',
                                 border: '1px solid #CBD5E1',
                                 borderRadius: '4px',
                                 cursor: 'pointer',
                               }}
-                              title={currentAsg.isLocked ? 'Unlock visibility for all students' : 'Lock visibility from students'}
+                              title={currentAsg.isLocked ? `Unlock for ${activeCohortName}` : `Lock for ${activeCohortName}`}
                             >
                               {currentAsg.isLocked ? <Unlock size={14} /> : <Lock size={14} />}
-                              <span>{currentAsg.isLocked ? 'Unlock Quiz' : 'Lock Quiz'}</span>
+                              <span>{currentAsg.isLocked ? 'Unlock' : 'Lock'}</span>
+                            </button>
+
+                            <button
+                              onClick={() => setUpdatingAssignment(currentAsg)}
+                              className="canvas-btn"
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                padding: '6px 14px',
+                                fontSize: '0.76rem',
+                                fontWeight: 600,
+                                backgroundColor: '#FFFFFF',
+                                color: '#475569',
+                                border: '1px solid #CBD5E1',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                              }}
+                              title="Update Quiz Rules & Settings"
+                            >
+                              <Settings size={14} />
+                              <span>Update</span>
+                            </button>
+
+                            <button
+                              onClick={handleOpenGradingView}
+                              className="canvas-btn"
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                padding: '6px 14px',
+                                fontSize: '0.76rem',
+                                fontWeight: 600,
+                                backgroundColor: '#0055A5',
+                                color: '#FFFFFF',
+                                border: '1px solid #0055A5',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                              }}
+                              title="Go to Grading page: grade student submissions, view completion status and release grades"
+                            >
+                              <Award size={14} />
+                              <span>Grading</span>
                             </button>
                           </div>
                         )}
@@ -989,283 +2128,6 @@ export const CanvasCourseWorkspace: React.FC<CanvasCourseWorkspaceProps> = ({
                         </div>
                       )}
 
-                      {/* TUTOR VIEW: Management Bar & Student Completion/Grading Roster */}
-                      {isTutor && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                          {/* Tutor Action Toolbar */}
-                          <div
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'space-between',
-                              flexWrap: 'wrap',
-                              gap: '12px',
-                              backgroundColor: '#F8FAFC',
-                              padding: '12px 18px',
-                              borderRadius: '4px',
-                              border: '1px solid #CBD5E1',
-                            }}
-                          >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                              <div>
-                                <div style={{ fontSize: '0.72rem', color: '#64748B', textTransform: 'uppercase', fontWeight: 600 }}>Roster Completion</div>
-                                <div style={{ fontSize: '0.95rem', fontWeight: 800, color: '#0055A5', marginTop: '1px' }}>
-                                  {completedList.length} of {submissionsWithStudent.length} ({completionPercent}%)
-                                </div>
-                              </div>
-                              <div style={{ height: '24px', width: '1px', backgroundColor: '#CBD5E1' }} />
-                              <div>
-                                <div style={{ fontSize: '0.72rem', color: '#64748B', textTransform: 'uppercase', fontWeight: 600 }}>Grade Status</div>
-                                <div style={{ fontSize: '0.85rem', fontWeight: 700, color: currentAsg.gradesPublished ? '#15803D' : '#B45309', marginTop: '1px' }}>
-                                  {currentAsg.gradesPublished ? 'Grades Published to Students' : 'Grades Unpublished'}
-                                </div>
-                              </div>
-                            </div>
-
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                              {!currentAsg.gradesPublished ? (
-                                <button
-                                  onClick={() => handlePublishGrades(currentAsg.id)}
-                                  className="canvas-btn"
-                                  style={{
-                                    padding: '7px 16px',
-                                    fontSize: '0.8rem',
-                                    fontWeight: 700,
-                                    backgroundColor: '#0055A5',
-                                    color: '#FFFFFF',
-                                    border: 'none',
-                                    borderRadius: '4px',
-                                    cursor: 'pointer',
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '6px',
-                                  }}
-                                >
-                                  <Check size={14} />
-                                  <span>Publish Grades</span>
-                                </button>
-                              ) : (
-                                <span
-                                  style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '5px',
-                                    fontSize: '0.78rem',
-                                    fontWeight: 700,
-                                    color: '#15803D',
-                                    backgroundColor: '#DCFCE7',
-                                    padding: '5px 12px',
-                                    borderRadius: '4px',
-                                  }}
-                                >
-                                  <Check size={13} />
-                                  <span>Grades Published</span>
-                                </span>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Filter Tabs */}
-                          <div
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '8px',
-                              borderBottom: '1px solid #E2E8F0',
-                              paddingBottom: '8px',
-                            }}
-                          >
-                            <button
-                              onClick={() => setAssignmentFilter('all')}
-                              style={{
-                                padding: '6px 14px',
-                                fontSize: '0.82rem',
-                                fontWeight: 700,
-                                border: 'none',
-                                background: assignmentFilter === 'all' ? '#0055A5' : '#F1F5F9',
-                                color: assignmentFilter === 'all' ? '#FFFFFF' : '#475569',
-                                borderRadius: '4px',
-                                cursor: 'pointer',
-                              }}
-                            >
-                              All Students ({submissionsWithStudent.length})
-                            </button>
-                            <button
-                              onClick={() => setAssignmentFilter('completed')}
-                              style={{
-                                padding: '6px 14px',
-                                fontSize: '0.82rem',
-                                fontWeight: 700,
-                                border: 'none',
-                                background: assignmentFilter === 'completed' ? '#0055A5' : '#F1F5F9',
-                                color: assignmentFilter === 'completed' ? '#FFFFFF' : '#475569',
-                                borderRadius: '4px',
-                                cursor: 'pointer',
-                              }}
-                            >
-                              Completed ({completedList.length})
-                            </button>
-                            <button
-                              onClick={() => setAssignmentFilter('pending')}
-                              style={{
-                                padding: '6px 14px',
-                                fontSize: '0.82rem',
-                                fontWeight: 700,
-                                border: 'none',
-                                background: assignmentFilter === 'pending' ? '#0055A5' : '#F1F5F9',
-                                color: assignmentFilter === 'pending' ? '#FFFFFF' : '#475569',
-                                borderRadius: '4px',
-                                cursor: 'pointer',
-                              }}
-                            >
-                              Not Completed ({pendingList.length})
-                            </button>
-                          </div>
-
-                          {/* Student Submissions Table */}
-                          <div className="canvas-card" style={{ padding: 0, overflow: 'hidden' }}>
-                            <div
-                              style={{
-                                padding: '12px 18px',
-                                backgroundColor: '#F8FAFC',
-                                borderBottom: '1px solid #E5E7EB',
-                                display: 'grid',
-                                gridTemplateColumns: '2fr 1fr 1.2fr 1fr 1.2fr',
-                                fontWeight: 700,
-                                fontSize: '0.78rem',
-                                color: '#475569',
-                                textTransform: 'uppercase',
-                                letterSpacing: '0.04em',
-                              }}
-                            >
-                              <div>Student Name</div>
-                              <div>Student ID</div>
-                              <div>Status</div>
-                              <div>Score</div>
-                              <div>Submitted Date</div>
-                            </div>
-
-                            <div>
-                              {filteredList.length === 0 ? (
-                                <div style={{ padding: '30px', textAlign: 'center', color: '#64748B', fontSize: '0.86rem' }}>
-                                  No students found for this filter.
-                                </div>
-                              ) : (
-                                filteredList.map((st) => (
-                                  <div
-                                    key={st.studentId}
-                                    style={{
-                                      padding: '14px 18px',
-                                      borderBottom: '1px solid #F1F5F9',
-                                      display: 'grid',
-                                      gridTemplateColumns: '2fr 1fr 1.2fr 1fr 1.2fr',
-                                      alignItems: 'center',
-                                      fontSize: '0.84rem',
-                                      backgroundColor: '#FFFFFF',
-                                    }}
-                                  >
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                      <div
-                                        style={{
-                                          width: '28px',
-                                          height: '28px',
-                                          borderRadius: '50%',
-                                          backgroundColor: '#F1F5F9',
-                                          color: '#1E293B',
-                                          fontWeight: 700,
-                                          fontSize: '0.75rem',
-                                          display: 'flex',
-                                          alignItems: 'center',
-                                          justifyContent: 'center',
-                                          border: '1px solid #CBD5E1',
-                                        }}
-                                      >
-                                        {st.name.charAt(0)}
-                                      </div>
-                                      <div>
-                                        <div style={{ fontWeight: 700, color: '#1E293B' }}>{st.name}</div>
-                                        <div style={{ fontSize: '0.72rem', color: '#64748B' }}>{st.category}</div>
-                                      </div>
-                                    </div>
-
-                                    <div style={{ color: '#475569', fontFamily: 'monospace', fontSize: '0.8rem' }}>
-                                      {st.studentRollNo}
-                                    </div>
-
-                                    <div>
-                                      {st.completed ? (
-                                        st.isLate ? (
-                                          <span
-                                            style={{
-                                              display: 'inline-flex',
-                                              alignItems: 'center',
-                                              gap: '4px',
-                                              fontSize: '0.74rem',
-                                              fontWeight: 700,
-                                              color: '#B45309',
-                                              backgroundColor: '#FEF3C7',
-                                              padding: '3px 8px',
-                                              borderRadius: '3px',
-                                              border: '1px solid #FDE68A',
-                                            }}
-                                          >
-                                            <Clock size={12} />
-                                            <span>Late ({st.daysLate || 1} day{st.daysLate === 1 ? '' : 's'} late)</span>
-                                          </span>
-                                        ) : (
-                                          <span
-                                            style={{
-                                              display: 'inline-flex',
-                                              alignItems: 'center',
-                                              gap: '4px',
-                                              fontSize: '0.74rem',
-                                              fontWeight: 700,
-                                              color: '#15803D',
-                                              backgroundColor: '#F0FDF4',
-                                              padding: '3px 8px',
-                                              borderRadius: '3px',
-                                              border: '1px solid #DCFCE7',
-                                            }}
-                                          >
-                                            <Check size={12} />
-                                            <span>Completed</span>
-                                          </span>
-                                        )
-                                      ) : (
-                                        <span
-                                          style={{
-                                            display: 'inline-flex',
-                                            alignItems: 'center',
-                                            gap: '4px',
-                                            fontSize: '0.74rem',
-                                            fontWeight: 600,
-                                            color: '#64748B',
-                                            backgroundColor: '#F8FAFC',
-                                            padding: '3px 8px',
-                                            borderRadius: '3px',
-                                            border: '1px solid #E2E8F0',
-                                          }}
-                                        >
-                                          <Clock size={12} />
-                                          <span>Not Completed</span>
-                                        </span>
-                                      )}
-                                    </div>
-
-                                    <div style={{ fontWeight: 700, color: st.completed ? '#0055A5' : '#94A3B8' }}>
-                                      {st.score || '—'}
-                                    </div>
-
-                                    <div style={{ color: '#64748B', fontSize: '0.78rem' }}>
-                                      {st.submittedAt || '—'}
-                                    </div>
-                                  </div>
-                                ))
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      )}
                     </div>
                   );
                 })()
@@ -1279,31 +2141,31 @@ export const CanvasCourseWorkspace: React.FC<CanvasCourseWorkspaceProps> = ({
                       </h2>
                       <p style={{ fontSize: '0.84rem', color: '#6B7280', margin: '3px 0 0 0' }}>
                         {isTutor
-                          ? 'Select any assessment to inspect student completions, late submissions, and publish grades.'
+                          ? `Target Cohort: ${activeCohortName} — Control quiz lock/unlock visibility individually for this cohort.`
                           : 'Select an assessment below to review instructions, submission rules, and rubrics before starting.'}
                       </p>
                     </div>
                   </div>
 
-                  {/* UPCOMING ASSIGNMENTS BLOCK */}
+                  {/* UPCOMING & ACTIVE ASSIGNMENTS BLOCK */}
                   <div className="canvas-card" style={{ padding: 0, overflow: 'hidden' }}>
                     <div style={{ padding: '12px 18px', backgroundColor: '#F8FAFC', borderBottom: '1px solid #E5E7EB', fontWeight: 700, fontSize: '0.88rem', color: '#334155', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <Clock size={16} color="#64748B" />
-                        <span>Upcoming Assignments ({assignmentsData.filter(a => a.status === 'Open').length})</span>
+                        <span>Upcoming & Active Assignments ({visibleAssignments.filter(a => a.status === 'Open' || a.status === 'Scheduled').length})</span>
                       </span>
                       <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 500 }}>
                         {isTutor ? 'Click to inspect submissions & grade' : 'Click to read instructions & open assessment'}
                       </span>
                     </div>
                     <div>
-                      {assignmentsData.filter(a => a.status === 'Open').length === 0 ? (
+                      {visibleAssignments.filter(a => a.status === 'Open' || a.status === 'Scheduled').length === 0 ? (
                         <div style={{ padding: '24px', textAlign: 'center', color: '#64748B', fontSize: '0.85rem' }}>
-                          No upcoming assignments at this time.
+                          No upcoming or scheduled assignments at this time.
                         </div>
                       ) : (
-                        assignmentsData
-                          .filter(a => a.status === 'Open')
+                        visibleAssignments
+                          .filter(a => a.status === 'Open' || a.status === 'Scheduled')
                           .map((item) => {
                             const totalRoster = item.submissions?.length || courseStudents.length;
                             const completedCount = item.submissions?.filter((s) => s.completed).length || 0;
@@ -1312,10 +2174,7 @@ export const CanvasCourseWorkspace: React.FC<CanvasCourseWorkspaceProps> = ({
                             return (
                               <div
                                 key={item.id}
-                                onClick={() => {
-                                  setSelectedAssignmentId(item.id);
-                                  setAssignmentFilter('all');
-                                }}
+                                onClick={() => handleOpenAssignment(item.id)}
                                 style={{
                                   padding: '14px 20px',
                                   borderBottom: '1px solid #F1F5F9',
@@ -1336,18 +2195,59 @@ export const CanvasCourseWorkspace: React.FC<CanvasCourseWorkspaceProps> = ({
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
                                   <Award size={18} color="#64748B" />
                                   <div>
-                                    <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#334155' }}>
-                                      {item.title}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                      <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#334155' }}>
+                                        {item.title}
+                                      </span>
+                                      {item.status === 'Scheduled' && (
+                                        <span
+                                          style={{
+                                            padding: '2px 8px',
+                                            borderRadius: '4px',
+                                            fontSize: '0.72rem',
+                                            fontWeight: 700,
+                                            backgroundColor: '#EFF6FF',
+                                            color: '#1D4ED8',
+                                            border: '1px solid #DBEAFE',
+                                          }}
+                                        >
+                                          Scheduled
+                                        </span>
+                                      )}
                                     </div>
                                     <div style={{ fontSize: '0.75rem', color: '#64748B', marginTop: '2px' }}>
-                                      Due: {item.dueDate} • {item.points} pts • {item.type}
+                                      {item.openDate !== 'Open Access' ? `Opens: ${item.openDate} • ` : ''}Due: {item.dueDate} • {item.points} pts • {item.type}
                                     </div>
                                   </div>
                                 </div>
 
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
                                   {isTutor ? (
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleToggleLock(item.id);
+                                        }}
+                                        className="canvas-btn"
+                                        style={{
+                                          padding: '5px 10px',
+                                          fontSize: '0.74rem',
+                                          fontWeight: 600,
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          gap: '5px',
+                                          backgroundColor: item.isLocked ? '#0055A5' : '#FFFFFF',
+                                          color: item.isLocked ? '#FFFFFF' : '#475569',
+                                          border: '1px solid #CBD5E1',
+                                          borderRadius: '4px',
+                                          cursor: 'pointer',
+                                        }}
+                                        title={item.isLocked ? `Unlock for ${activeCohortName}` : `Lock for ${activeCohortName}`}
+                                      >
+                                        {item.isLocked ? <Unlock size={12} /> : <Lock size={12} />}
+                                        <span>{item.isLocked ? 'Unlock' : 'Lock'}</span>
+                                      </button>
                                       <div style={{ textAlign: 'right' }}>
                                         <div style={{ fontSize: '0.84rem', fontWeight: 700, color: '#334155' }}>
                                           {completedCount} / {totalRoster} completed
@@ -1396,20 +2296,20 @@ export const CanvasCourseWorkspace: React.FC<CanvasCourseWorkspaceProps> = ({
                     <div style={{ padding: '12px 18px', backgroundColor: '#F8FAFC', borderBottom: '1px solid #E5E7EB', fontWeight: 700, fontSize: '0.88rem', color: '#334155', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <CheckCircle size={16} color="#64748B" />
-                        <span>Past Assignments ({assignmentsData.filter(a => a.status !== 'Open').length})</span>
+                        <span>Past Assignments ({visibleAssignments.filter(a => a.status === 'Past' || a.status === 'Closed').length})</span>
                       </span>
                       <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 500 }}>
                         {isTutor ? 'Inspect past submissions & records' : 'Completed & graded assessments'}
                       </span>
                     </div>
                     <div>
-                      {assignmentsData.filter(a => a.status !== 'Open').length === 0 ? (
+                      {visibleAssignments.filter(a => a.status === 'Past' || a.status === 'Closed').length === 0 ? (
                         <div style={{ padding: '24px', textAlign: 'center', color: '#64748B', fontSize: '0.85rem' }}>
                           No past assignments recorded.
                         </div>
                       ) : (
-                        assignmentsData
-                          .filter(a => a.status !== 'Open')
+                        visibleAssignments
+                          .filter(a => a.status === 'Past' || a.status === 'Closed')
                           .map((item) => {
                             const totalRoster = item.submissions?.length || courseStudents.length;
                             const completedCount = item.submissions?.filter((s) => s.completed).length || 0;
@@ -1418,10 +2318,7 @@ export const CanvasCourseWorkspace: React.FC<CanvasCourseWorkspaceProps> = ({
                             return (
                               <div
                                 key={item.id}
-                                onClick={() => {
-                                  setSelectedAssignmentId(item.id);
-                                  setAssignmentFilter('all');
-                                }}
+                                onClick={() => handleOpenAssignment(item.id)}
                                 style={{
                                   padding: '14px 20px',
                                   borderBottom: '1px solid #F1F5F9',
@@ -1485,9 +2382,11 @@ export const CanvasCourseWorkspace: React.FC<CanvasCourseWorkspaceProps> = ({
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                       <div style={{ textAlign: 'right' }}>
                                         <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#475569' }}>
-                                          Score: {item.score}
+                                          Score: {item.gradesPublished && item.score ? item.score : 'Grade Pending'}
                                         </span>
-                                        <div style={{ fontSize: '0.68rem', color: '#64748B' }}>Passed</div>
+                                        <div style={{ fontSize: '0.68rem', color: item.gradesPublished ? '#15803D' : '#64748B' }}>
+                                          {item.gradesPublished ? 'Graded & Released' : 'Awaiting Grade Release'}
+                                        </div>
                                       </div>
                                       <ChevronRight size={15} color="#94A3B8" />
                                     </div>
@@ -1546,7 +2445,7 @@ export const CanvasCourseWorkspace: React.FC<CanvasCourseWorkspaceProps> = ({
                       </tr>
                     </thead>
                     <tbody>
-                      {assignmentsData.map((asg) => (
+                      {visibleAssignments.map((asg) => (
                         <tr key={asg.id} style={{ borderBottom: '1px solid #F1F5F9' }}>
                           <td style={{ padding: '12px 14px', fontWeight: 600, color: '#0055A5' }}>{asg.title}</td>
                           <td style={{ padding: '12px 14px', color: '#64748B' }}>{asg.dueDate}</td>
@@ -1588,180 +2487,156 @@ export const CanvasCourseWorkspace: React.FC<CanvasCourseWorkspaceProps> = ({
                 )}
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {localAnnouncements.map((ann) => (
-                  <div
-                    key={ann.id}
-                    className="canvas-card"
-                    style={{
-                      padding: '18px 22px',
-                      backgroundColor: '#FFFFFF',
-                      borderLeft: '4px solid #0055A5 !important',
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-                      <h4 style={{ fontSize: '1.02rem', fontWeight: 700, color: '#1E293B', margin: 0 }}>
-                        {ann.title}
-                      </h4>
-                      <span style={{ fontSize: '0.72rem', color: '#64748B' }}>{ann.date}</span>
-                    </div>
+              {loadingAnnouncements ? (
+                <div style={{ display: 'flex', justifyContent: 'center', padding: '40px 0', color: '#64748B', gap: '8px', alignItems: 'center' }}>
+                  <Loader2 size={20} className="animate-spin" />
+                  <span style={{ fontSize: '0.86rem' }}>Loading course announcements...</span>
+                </div>
+              ) : localAnnouncements.length === 0 ? (
+                <div
+                  className="canvas-card"
+                  style={{
+                    padding: '48px 24px',
+                    textAlign: 'center',
+                    backgroundColor: '#FFFFFF',
+                    border: '1px dashed #CBD5E1',
+                    borderRadius: '6px',
+                  }}
+                >
+                  <Bell size={40} color="#94A3B8" style={{ margin: '0 auto 12px auto' }} />
+                  <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: '#334155', margin: 0 }}>
+                    No Announcements Yet
+                  </h3>
+                  <p style={{ fontSize: '0.84rem', color: '#64748B', maxWidth: '420px', margin: '6px auto 0 auto', lineHeight: 1.5 }}>
+                    Official notices, schedule changes, and cohort exam briefings will appear here when posted by instructors.
+                  </p>
+                  {isTutor && (
+                    <button
+                      onClick={() => setShowPostAnnouncementModal(true)}
+                      className="canvas-btn canvas-btn-primary"
+                      style={{ marginTop: '16px', display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem' }}
+                    >
+                      <Plus size={14} />
+                      <span>Post the First Announcement</span>
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  {localAnnouncements.map((ann) => (
+                    <div
+                      key={ann.id}
+                      className="canvas-card"
+                      style={{
+                        padding: '20px 24px',
+                        backgroundColor: '#FFFFFF',
+                        borderLeft: '4px solid #0055A5',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                          <h4 style={{ fontSize: '1.05rem', fontWeight: 700, color: '#1E293B', margin: 0 }}>
+                            {ann.title}
+                          </h4>
+                          {ann.target_type === 'SINGLE_COHORT' ? (
+                            <span
+                              style={{
+                                fontSize: '0.72rem',
+                                fontWeight: 700,
+                                color: '#0055A5',
+                                backgroundColor: '#EFF6FF',
+                                border: '1px solid #BFDBFE',
+                                padding: '2px 8px',
+                                borderRadius: '4px',
+                              }}
+                            >
+                              {ann.cohort_name || 'Cohort'}
+                            </span>
+                          ) : (
+                            <span
+                              style={{
+                                fontSize: '0.72rem',
+                                fontWeight: 700,
+                                color: '#15803D',
+                                backgroundColor: '#F0FDF4',
+                                border: '1px solid #BBF7D0',
+                                padding: '2px 8px',
+                                borderRadius: '4px',
+                              }}
+                            >
+                              all
+                            </span>
+                          )}
+                        </div>
+                        <span style={{ fontSize: '0.74rem', color: '#64748B', whiteSpace: 'nowrap' }}>
+                          {ann.date || (ann.created_at ? new Date(ann.created_at).toLocaleDateString() : '')}
+                        </span>
+                      </div>
 
-                    <p style={{ fontSize: '0.86rem', color: '#4B5563', lineHeight: 1.55, margin: '0 0 10px 0' }}>
-                      {ann.content}
-                    </p>
+                      <p style={{ fontSize: '0.88rem', color: '#374151', lineHeight: 1.6, margin: '0 0 14px 0', whiteSpace: 'pre-wrap' }}>
+                        {ann.content}
+                      </p>
 
-                    <div style={{ fontSize: '0.76rem', color: '#6B7280' }}>
-                      Posted by: <strong>{ann.author}</strong>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #F1F5F9', paddingTop: '10px' }}>
+                        <div style={{ fontSize: '0.78rem', color: '#64748B' }}>
+                          Posted by: <strong style={{ color: '#1E293B' }}>{ann.author_name || ann.author}</strong>
+                          {ann.author_role ? ` • ${ann.author_role}` : ''}
+                        </div>
+
+                        {isTutor && (
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteAnnouncement(ann.id)}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              color: '#DC2626',
+                              fontSize: '0.76rem',
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              padding: '2px 6px',
+                              borderRadius: '4px',
+                            }}
+                            title="Delete announcement"
+                          >
+                            <Trash2 size={13} />
+                            <span>Delete</span>
+                          </button>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
           {/* TAB 6: DISCUSSIONS */}
           {activeTab === 'discussions' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-              <div>
-                <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#2D3B45', margin: 0 }}>
-                  Course Discussion Forums
-                </h2>
-                <p style={{ fontSize: '0.84rem', color: '#6B7280', margin: '3px 0 0 0' }}>
-                  Ask questions, share tricky mock questions, and explore road traffic scenarios.
-                </p>
-              </div>
-
-              <div className="canvas-card" style={{ padding: '24px', backgroundColor: '#FFFFFF' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-                  <MessageSquare size={22} color="#0055A5" />
-                  <div>
-                    <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: '#1E293B', margin: 0 }}>
-                      General Course Q&A Thread
-                    </h3>
-                    <p style={{ fontSize: '0.8rem', color: '#64748B', margin: '2px 0 0 0' }}>
-                      Moderated by Claude Kamanzi (Theory Lead)
-                    </p>
-                  </div>
-                </div>
-
-                <p style={{ fontSize: '0.86rem', color: '#4B5563', lineHeight: 1.55 }}>
-                  Have questions about overtaking rules on dual carriageways or what to do when a traffic officer signals differently from a traffic light? Post here or join a Course Group under the People tab.
-                </p>
-
-                <button
-                  onClick={() => setActiveTab('people')}
-                  className="canvas-btn"
-                  style={{ marginTop: '12px', fontSize: '0.8rem', color: '#0055A5' }}
-                >
-                  <span>Go to Course Groups & Study Circles</span>
-                  <ChevronRight size={14} />
-                </button>
-              </div>
-            </div>
+            <CourseDiscussionsTab course={course} />
           )}
 
           {/* TAB 7: PEOPLE (Classmates, Instructors, Course Groups & Group Chat) */}
           {activeTab === 'people' && (
             <CoursePeopleTab
               course={course}
-              initialGroupId={activeGroupId}
+              activeGroupId={activeGroupId}
+              onSelectGroup={(grpId) => {
+                if (grpId) {
+                  handleOpenGroup(grpId);
+                } else {
+                  handleCloseGroup();
+                }
+              }}
             />
           )}
 
           {/* TAB 8: LIVE CLASSES */}
           {activeTab === 'live' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-              <div>
-                <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#2D3B45', margin: 0 }}>
-                  Upcoming Live Classes & Google Meet Links
-                </h2>
-                <p style={{ fontSize: '0.84rem', color: '#6B7280', margin: '3px 0 0 0' }}>
-                  Interactive live lectures and Q&A sessions led by qualified driving instructors.
-                </p>
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                {[
-                  {
-                    title: 'Cohort Alpha - Priority Rules at Intersections & Roundabouts',
-                    time: 'Today • 18:00 - 19:30 CAT',
-                    instructor: 'Claude Kamanzi',
-                    link: 'https://meet.google.com/sifo-drive-alpha',
-                    badge: 'Starting Soon',
-                  },
-                  {
-                    title: 'Cohort Beta - Danger and Prohibitory Signs (Ibyapa Bibuza)',
-                    time: 'Tomorrow • 19:30 - 21:00 CAT',
-                    instructor: 'Jeanette Mukamana',
-                    link: 'https://meet.google.com/sifo-drive-beta',
-                    badge: 'Scheduled',
-                  },
-                  {
-                    title: 'Weekend Intensive - Full 20-Question Timed Mock Simulation Review',
-                    time: 'Saturday • 09:00 - 12:00 CAT',
-                    instructor: 'Claude Kamanzi & Guest Officers',
-                    link: 'https://meet.google.com/sifo-drive-weekend',
-                    badge: 'Weekend',
-                  },
-                ].map((cls, idx) => (
-                  <div
-                    key={idx}
-                    className="canvas-card"
-                    style={{
-                      padding: '18px 22px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      flexWrap: 'wrap',
-                      gap: '14px',
-                      backgroundColor: '#FFFFFF',
-                    }}
-                  >
-                    <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                        <span
-                          style={{
-                            fontSize: '0.68rem',
-                            fontWeight: 700,
-                            backgroundColor: idx === 0 ? '#DCFCE7' : '#EFF6FF',
-                            color: idx === 0 ? '#15803D' : '#0055A5',
-                            padding: '2px 8px',
-                            borderRadius: '2px',
-                          }}
-                        >
-                          {cls.badge}
-                        </span>
-                        <h4 style={{ fontSize: '1rem', fontWeight: 700, color: '#1E293B', margin: 0 }}>
-                          {cls.title}
-                        </h4>
-                      </div>
-                      <div style={{ fontSize: '0.8rem', color: '#64748B' }}>
-                        {cls.time} • Instructor: <strong>{cls.instructor}</strong>
-                      </div>
-                    </div>
-
-                    <a
-                      href={cls.link}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="canvas-btn canvas-btn-primary"
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        padding: '8px 16px',
-                        fontSize: '0.82rem',
-                        textDecoration: 'none',
-                      }}
-                    >
-                      <Video size={15} />
-                      <span>Join Google Meet</span>
-                      <ExternalLink size={12} />
-                    </a>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <CourseLiveClassesTab isTutor={Boolean(isTutor)} cohortId={activeCohortId} />
           )}
         </main>
 
@@ -1791,33 +2666,40 @@ export const CanvasCourseWorkspace: React.FC<CanvasCourseWorkspaceProps> = ({
             justifyContent: 'center',
             padding: '20px',
           }}
-          onClick={() => setShowPostAnnouncementModal(false)}
+          onClick={() => !submittingAnnouncement && setShowPostAnnouncementModal(false)}
         >
           <div
             className="canvas-card"
             style={{
-              maxWidth: '520px',
+              maxWidth: '540px',
               width: '100%',
               padding: '28px',
               backgroundColor: '#FFFFFF',
-              borderRadius: '4px',
+              borderRadius: '6px',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#1E293B', margin: 0 }}>
-                Post Course Announcement
-              </h3>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
+              <div>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#1E293B', margin: 0 }}>
+                  Post Course Announcement
+                </h3>
+                <p style={{ fontSize: '0.8rem', color: '#64748B', margin: '4px 0 0 0' }}>
+                  Send timely notices and briefings directly to your students' course feeds.
+                </p>
+              </div>
               <button
                 type="button"
-                onClick={() => setShowPostAnnouncementModal(false)}
+                onClick={() => !submittingAnnouncement && setShowPostAnnouncementModal(false)}
+                disabled={submittingAnnouncement}
                 style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: '#64748B' }}
               >
                 ✕
               </button>
             </div>
 
-            <form onSubmit={handleCreateAnnouncement} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <form onSubmit={handleCreateAnnouncement} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#374151', marginBottom: '4px' }}>
                   Announcement Title *
@@ -1828,14 +2710,109 @@ export const CanvasCourseWorkspace: React.FC<CanvasCourseWorkspaceProps> = ({
                   placeholder="e.g. Schedule Change: Friday Q&A Review Session"
                   value={announcementTitle}
                   onChange={(e) => setAnnouncementTitle(e.target.value)}
+                  disabled={submittingAnnouncement}
                   style={{
                     width: '100%',
-                    padding: '8px 12px',
+                    padding: '9px 12px',
                     border: '1px solid #CBD5E1',
-                    borderRadius: '2px',
-                    fontSize: '0.85rem',
+                    borderRadius: '4px',
+                    fontSize: '0.86rem',
                   }}
                 />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#374151', marginBottom: '6px' }}>
+                  Audience & Visibility *
+                </label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <label
+                    style={{
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: '10px',
+                      padding: '10px 12px',
+                      borderRadius: '6px',
+                      border: announcementTargetType === 'ALL_ASSIGNED_COHORTS' ? '1.5px solid #0055A5' : '1px solid #E2E8F0',
+                      backgroundColor: announcementTargetType === 'ALL_ASSIGNED_COHORTS' ? '#F0F7FF' : '#FAFAFA',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <input
+                      type="radio"
+                      name="announcementTarget"
+                      checked={announcementTargetType === 'ALL_ASSIGNED_COHORTS'}
+                      onChange={() => setAnnouncementTargetType('ALL_ASSIGNED_COHORTS')}
+                      disabled={submittingAnnouncement}
+                      style={{ marginTop: '3px' }}
+                    />
+                    <div>
+                      <div style={{ fontSize: '0.86rem', fontWeight: 700, color: '#1E293B' }}>
+                        All Cohorts Assigned to Me
+                      </div>
+                      <div style={{ fontSize: '0.75rem', color: '#64748B', marginTop: '2px' }}>
+                        Broadcast to learners across all {tutorCohorts.length > 0 ? `${tutorCohorts.length} cohorts` : 'cohorts'} assigned to you for this course.
+                      </div>
+                    </div>
+                  </label>
+
+                  <label
+                    style={{
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: '10px',
+                      padding: '10px 12px',
+                      borderRadius: '6px',
+                      border: announcementTargetType === 'SINGLE_COHORT' ? '1.5px solid #0055A5' : '1px solid #E2E8F0',
+                      backgroundColor: announcementTargetType === 'SINGLE_COHORT' ? '#F0F7FF' : '#FAFAFA',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <input
+                      type="radio"
+                      name="announcementTarget"
+                      checked={announcementTargetType === 'SINGLE_COHORT'}
+                      onChange={() => setAnnouncementTargetType('SINGLE_COHORT')}
+                      disabled={submittingAnnouncement}
+                      style={{ marginTop: '3px' }}
+                    />
+                    <div>
+                      <div style={{ fontSize: '0.86rem', fontWeight: 700, color: '#1E293B' }}>
+                        One Specific Cohort
+                      </div>
+                      <div style={{ fontSize: '0.75rem', color: '#64748B', marginTop: '2px' }}>
+                        Visible exclusively to students in the selected learning group.
+                      </div>
+                    </div>
+                  </label>
+                </div>
+
+                {announcementTargetType === 'SINGLE_COHORT' && (
+                  <div style={{ marginTop: '10px', paddingLeft: '4px' }}>
+                    <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>
+                      Select Target Cohort *
+                    </label>
+                    <select
+                      value={announcementCohortId || activeCohortId || (tutorCohorts[0]?.id ?? '')}
+                      onChange={(e) => setAnnouncementCohortId(e.target.value)}
+                      disabled={submittingAnnouncement}
+                      style={{
+                        width: '100%',
+                        padding: '8px 12px',
+                        border: '1px solid #CBD5E1',
+                        borderRadius: '4px',
+                        fontSize: '0.85rem',
+                        backgroundColor: '#FFFFFF',
+                      }}
+                    >
+                      {tutorCohorts.map((cohort) => (
+                        <option key={cohort.id} value={cohort.id}>
+                          {cohort.name} ({cohort.code})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
               </div>
 
               <div>
@@ -1845,41 +2822,307 @@ export const CanvasCourseWorkspace: React.FC<CanvasCourseWorkspaceProps> = ({
                 <textarea
                   rows={4}
                   required
-                  placeholder="Provide instructions, meeting time adjustments, or preparation guidance..."
+                  placeholder="Provide instructions, timetable adjustments, or exam preparation guidance..."
                   value={announcementContent}
                   onChange={(e) => setAnnouncementContent(e.target.value)}
+                  disabled={submittingAnnouncement}
                   style={{
                     width: '100%',
-                    padding: '8px 12px',
+                    padding: '10px 12px',
                     border: '1px solid #CBD5E1',
-                    borderRadius: '2px',
-                    fontSize: '0.85rem',
+                    borderRadius: '4px',
+                    fontSize: '0.86rem',
                     fontFamily: 'inherit',
                   }}
                 />
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '6px' }}>
                 <button
                   type="button"
                   onClick={() => setShowPostAnnouncementModal(false)}
+                  disabled={submittingAnnouncement}
                   className="canvas-btn"
-                  style={{ fontSize: '0.82rem' }}
+                  style={{ fontSize: '0.84rem' }}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
+                  disabled={submittingAnnouncement}
                   className="canvas-btn canvas-btn-primary"
-                  style={{ fontSize: '0.82rem' }}
+                  style={{ fontSize: '0.84rem', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                 >
-                  Publish Announcement
+                  {submittingAnnouncement ? (
+                    <>
+                      <Loader2 size={14} className="animate-spin" />
+                      <span>Publishing...</span>
+                    </>
+                  ) : (
+                    <span>Publish Announcement</span>
+                  )}
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
+
+      {/* Tutor Quiz Update Modal */}
+      {updatingAssignment && (
+        <TutorQuizUpdateModal
+          isOpen={Boolean(updatingAssignment)}
+          assignment={updatingAssignment}
+          onClose={() => setUpdatingAssignment(null)}
+          onSuccess={handleQuizUpdatedByTutor}
+        />
+      )}
+
+      {/* Tutor Student Grading Modal */}
+      {gradingStudentModal && selectedAssignmentId && (() => {
+        const activeAsgForModal = assignmentsData.find((a) => a.id === selectedAssignmentId);
+        if (!activeAsgForModal) return null;
+        return (
+          <TutorStudentGradingModal
+            isOpen={Boolean(gradingStudentModal)}
+            student={gradingStudentModal}
+            maxPoints={activeAsgForModal.points}
+            onClose={() => setGradingStudentModal(null)}
+            onSaveGrade={(studentId, score, feedback) =>
+              handleSaveStudentGrade(activeAsgForModal.id, studentId, score, feedback)
+            }
+          />
+        );
+      })()}
+    </div>
+  );
+};
+
+interface TutorStudentGradingModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  student: {
+    studentId: string;
+    name: string;
+    studentRollNo: string;
+    category: string;
+    score: string;
+    feedback: string;
+    completed: boolean;
+  } | null;
+  maxPoints: number;
+  onSaveGrade: (studentId: string, score: string, feedback: string) => void;
+}
+
+const TutorStudentGradingModal: React.FC<TutorStudentGradingModalProps> = ({
+  isOpen,
+  onClose,
+  student,
+  maxPoints,
+  onSaveGrade,
+}) => {
+  if (!isOpen || !student) return null;
+
+  const currentPointsValue = student.score
+    ? student.score.split('/')[0].trim()
+    : '';
+
+  const [pointsInput, setPointsInput] = useState(currentPointsValue);
+  const [feedbackInput, setFeedbackInput] = useState(student.feedback || '');
+
+  const handleSave = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSaveGrade(student.studentId, pointsInput, feedbackInput);
+  };
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        backgroundColor: 'rgba(15, 23, 42, 0.6)',
+        backdropFilter: 'blur(3px)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 9999,
+        padding: '16px',
+      }}
+      onClick={onClose}
+    >
+      <div
+        className="canvas-card"
+        style={{
+          width: '100%',
+          maxWidth: '460px',
+          backgroundColor: '#FFFFFF',
+          borderRadius: '8px',
+          boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+          overflow: 'hidden',
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div
+          style={{
+            padding: '16px 20px',
+            borderBottom: '1px solid #E2E8F0',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            backgroundColor: '#F8FAFC',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Award size={18} color="#0055A5" />
+            <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#1E293B', margin: 0 }}>
+              Grade Assessment Submission
+            </h3>
+          </div>
+          <button
+            onClick={onClose}
+            style={{
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              color: '#64748B',
+              padding: '4px',
+            }}
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <form onSubmit={handleSave} style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div
+            style={{
+              padding: '12px 14px',
+              backgroundColor: '#F1F5F9',
+              borderRadius: '6px',
+              border: '1px solid #E2E8F0',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}
+          >
+            <div>
+              <div style={{ fontWeight: 700, color: '#1E293B', fontSize: '0.9rem' }}>{student.name}</div>
+              <div style={{ fontSize: '0.75rem', color: '#64748B' }}>
+                Roll: {student.studentRollNo} • {student.category}
+              </div>
+            </div>
+            <div
+              style={{
+                fontSize: '0.72rem',
+                fontWeight: 700,
+                color: student.completed ? '#15803D' : '#B45309',
+                backgroundColor: student.completed ? '#DCFCE7' : '#FEF3C7',
+                padding: '3px 8px',
+                borderRadius: '4px',
+              }}
+            >
+              {student.completed ? 'Submitted' : 'Pending Submission'}
+            </div>
+          </div>
+
+          <div>
+            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
+              Score (Max Points: {maxPoints})
+            </label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <input
+                type="number"
+                min="0"
+                max={maxPoints}
+                value={pointsInput}
+                onChange={(e) => setPointsInput(e.target.value)}
+                placeholder="e.g. 18"
+                style={{
+                  width: '120px',
+                  padding: '8px 12px',
+                  borderRadius: '4px',
+                  border: '1px solid #CBD5E1',
+                  fontSize: '0.9rem',
+                  fontWeight: 700,
+                  color: '#1E293B',
+                }}
+                required
+              />
+              <span style={{ fontSize: '0.88rem', color: '#64748B', fontWeight: 600 }}>/ {maxPoints} pts</span>
+            </div>
+          </div>
+
+          <div>
+            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
+              Tutor Feedback & Evaluation Notes (Optional)
+            </label>
+            <textarea
+              rows={3}
+              value={feedbackInput}
+              onChange={(e) => setFeedbackInput(e.target.value)}
+              placeholder="Provide constructive feedback or rubric evaluation comments..."
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                borderRadius: '4px',
+                border: '1px solid #CBD5E1',
+                fontSize: '0.84rem',
+                color: '#1E293B',
+                boxSizing: 'border-box',
+                resize: 'vertical',
+              }}
+            />
+          </div>
+
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'flex-end',
+              gap: '10px',
+              paddingTop: '10px',
+              borderTop: '1px solid #F1F5F9',
+            }}
+          >
+            <button
+              type="button"
+              onClick={onClose}
+              className="canvas-btn"
+              style={{
+                padding: '7px 14px',
+                fontSize: '0.82rem',
+                fontWeight: 600,
+                backgroundColor: '#FFFFFF',
+                color: '#475569',
+                border: '1px solid #CBD5E1',
+                borderRadius: '4px',
+                cursor: 'pointer',
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="canvas-btn"
+              style={{
+                padding: '7px 18px',
+                fontSize: '0.82rem',
+                fontWeight: 700,
+                backgroundColor: '#0055A5',
+                color: '#FFFFFF',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}
+            >
+              <Check size={14} />
+              <span>Save Grade</span>
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 };

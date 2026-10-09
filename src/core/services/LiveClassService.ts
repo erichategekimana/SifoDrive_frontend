@@ -42,6 +42,67 @@ export class LiveClassService {
   }
 
   /**
+   * Post or update recent session recording (Tutor as host or Training Admin)
+   */
+  public async postRecording(classId: string, recordingUrl: string, notes?: string): Promise<LiveClass> {
+    logger.info(`Posting recording for live class ${classId}`);
+    try {
+      const data = await this.http.post<any>(ApiEndpoints.LIVE_CLASSES.RECORDING(classId), {
+        recording_url: recordingUrl,
+        notes: notes || undefined,
+      });
+      const dto: LiveClassDTO = data?.data || data;
+      return new LiveClass(dto);
+    } catch (err) {
+      logger.error('Failed to post live class recording:', err);
+      throw err;
+    }
+  }
+
+  /**
+   * Schedule new live class session (Training Admin)
+   */
+  public async scheduleClass(payload: Partial<LiveClassDTO>): Promise<LiveClass> {
+    logger.info('Scheduling live class');
+    try {
+      const data = await this.http.post<any>(ApiEndpoints.LIVE_CLASSES.LIST, payload);
+      const dto: LiveClassDTO = data?.data || data;
+      return new LiveClass(dto);
+    } catch (err) {
+      logger.error('Failed to schedule live class:', err);
+      throw err;
+    }
+  }
+
+  /**
+   * Update live class session details (Training Admin or Tutor)
+   */
+  public async updateClass(classId: string, payload: Partial<LiveClassDTO>): Promise<LiveClass> {
+    logger.info(`Updating live class ${classId}`);
+    try {
+      const data = await this.http.patch<any>(ApiEndpoints.LIVE_CLASSES.DETAIL(classId), payload);
+      const dto: LiveClassDTO = data?.data || data;
+      return new LiveClass(dto);
+    } catch (err) {
+      logger.error('Failed to update live class:', err);
+      throw err;
+    }
+  }
+
+  /**
+   * Delete a live class schedule (Training Admin or System Admin)
+   */
+  public async deleteClass(classId: string): Promise<void> {
+    logger.info(`Deleting live class ${classId}`);
+    try {
+      await this.http.delete<any>(ApiEndpoints.LIVE_CLASSES.DETAIL(classId));
+    } catch (err) {
+      logger.error('Failed to delete live class:', err);
+      throw err;
+    }
+  }
+
+  /**
    * Get attendance summary
    */
   public async getAttendanceSummary(): Promise<{ attendance_rate: number; total_sessions: number; attended: number }> {

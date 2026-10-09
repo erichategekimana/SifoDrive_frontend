@@ -82,6 +82,7 @@ export const ApiEndpoints = {
     SUPPORT_TICKETS: `${API_BASE_URL}/lms/support/tickets/`,
     SUPPORT_TICKET_DETAIL: (id: string) => `${API_BASE_URL}/lms/support/tickets/${id}/`,
     SUPPORT_ANNOUNCEMENTS: `${API_BASE_URL}/lms/support/announcements/`,
+    SUPPORT_ANNOUNCEMENT_DETAIL: (id: string) => `${API_BASE_URL}/lms/support/announcements/${id}/`,
 
     // Training Admin: Tutor Assignments
     ADMIN_TUTORS: `${API_BASE_URL}/lms/admin/tutors/`,
@@ -106,12 +107,31 @@ export const ApiEndpoints = {
     STUDENT_COHORT_ACTIVITIES: (cohortId?: string) =>
       cohortId ? `${API_BASE_URL}/lms/cohorts/${cohortId}/activities/` : `${API_BASE_URL}/lms/cohorts/activities/`,
     STUDENT_COHORT_ACTIVITY_SUBMIT: (cohortId: string, activityId: string) => `${API_BASE_URL}/lms/cohorts/${cohortId}/activities/${activityId}/submit/`,
+
+    // Course Discussions & Moderation
+    COURSE_DISCUSSIONS: (courseId: string) => `${API_BASE_URL}/lms/courses/${courseId}/discussions/`,
+    DISCUSSION_DETAIL: (topicId: string) => `${API_BASE_URL}/lms/discussions/${topicId}/`,
+    DISCUSSION_TOGGLE_LOCK: (topicId: string) => `${API_BASE_URL}/lms/discussions/${topicId}/toggle-lock/`,
+    DISCUSSION_TOGGLE_LIKE: (topicId: string) => `${API_BASE_URL}/lms/discussions/${topicId}/toggle-like/`,
+    DISCUSSION_REPLIES: (topicId: string) => `${API_BASE_URL}/lms/discussions/${topicId}/replies/`,
+    DISCUSSION_REPLY_TOGGLE_LIKE: (topicId: string, replyId: string) => `${API_BASE_URL}/lms/discussions/${topicId}/replies/${replyId}/toggle-like/`,
+    DISCUSSION_REPLY_DELETE: (topicId: string, replyId: string) => `${API_BASE_URL}/lms/discussions/${topicId}/replies/${replyId}/`,
+
+    // Course People: Roster & Study Groups & Group Chat
+    COURSE_ROSTER: (courseId: string) => `${API_BASE_URL}/lms/courses/${courseId}/roster/`,
+    COURSE_GROUPS: (courseId: string) => `${API_BASE_URL}/lms/courses/${courseId}/groups/`,
+    COURSE_GROUP_DETAIL: (groupId: string) => `${API_BASE_URL}/lms/groups/${groupId}/`,
+    COURSE_GROUP_TOGGLE_JOIN: (groupId: string) => `${API_BASE_URL}/lms/groups/${groupId}/toggle-join/`,
+    COURSE_GROUP_MESSAGES: (groupId: string) => `${API_BASE_URL}/lms/groups/${groupId}/messages/`,
   },
 
   // Live Classes & Google Meet Hub
   LIVE_CLASSES: {
     LIST: `${API_BASE_URL}/live-classes/classes/`,
     DETAIL: (id: string) => `${API_BASE_URL}/live-classes/classes/${id}/`,
+    SCHEDULES: `${API_BASE_URL}/live-classes/schedules/`,
+    SCHEDULE_DETAIL: (id: string) => `${API_BASE_URL}/live-classes/schedules/${id}/`,
+    RECORDING: (id: string) => `${API_BASE_URL}/live-classes/classes/${id}/recording/`,
     MY_ATTENDANCE: `${API_BASE_URL}/live-classes/my-attendance/`,
     COHORTS: `${API_BASE_URL}/live-classes/cohorts/`,
   },
@@ -194,6 +214,8 @@ export const ApiEndpoints = {
     CLASSES: `${API_BASE_URL}/live-classes/classes/`,
     CLASS_RECURRING: `${API_BASE_URL}/live-classes/classes/recurring/`,
     CLASS_DETAIL: (id: string) => `${API_BASE_URL}/live-classes/classes/${id}/`,
+    SCHEDULES: `${API_BASE_URL}/live-classes/schedules/`,
+    SCHEDULE_DETAIL: (id: string) => `${API_BASE_URL}/live-classes/schedules/${id}/`,
     CLASS_START: (id: string) => `${API_BASE_URL}/live-classes/classes/${id}/start/`,
     CLASS_END: (id: string) => `${API_BASE_URL}/live-classes/classes/${id}/end/`,
     CLASS_CANCEL: (id: string) => `${API_BASE_URL}/live-classes/classes/${id}/cancel/`,

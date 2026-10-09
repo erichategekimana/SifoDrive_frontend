@@ -39,15 +39,30 @@ export const ScheduleClassModal: React.FC<ScheduleClassModalProps> = ({
       warning('Title and scheduled time are required.');
       return;
     }
+    const meetLink = classMeetingLink.trim();
+    if (!/^https?:\/\//i.test(meetLink)) {
+      warning('A Google Meet link is required.');
+      return;
+    }
+    const [datePart, timePart = '00:00'] = classScheduledAt.split('T');
+    const [sh, sm] = timePart.split(':').map(Number);
+    const endTotal = sh * 60 + sm + (Number(classDuration) || 60);
+    if (endTotal >= 24 * 60) {
+      warning('A class cannot run past midnight. Shorten the duration or start earlier.');
+      return;
+    }
+    const pad = (n: number) => String(n).padStart(2, '0');
     setIsSubmitting(true);
     try {
       await adminService.createLiveClass({
         title: classTitle.trim(),
-        cohort_id: classCohortId || undefined,
-        tutor_id: classTutorId || undefined,
-        scheduled_at: classScheduledAt,
-        duration_minutes: Number(classDuration) || 60,
-        meeting_link: classMeetingLink.trim() || undefined,
+        cohort: classCohortId || undefined,
+        tutor: classTutorId || undefined,
+        scheduled_date: datePart,
+        start_time: `${pad(sh)}:${pad(sm)}`,
+        end_time: `${pad(Math.floor(endTotal / 60))}:${pad(endTotal % 60)}`,
+        google_meet_url: meetLink,
+        is_published: true,
       });
       success(`Scheduled live class "${classTitle}".`);
       setClassTitle('');

@@ -243,6 +243,77 @@ export const QuizInspectionModal: React.FC<QuizInspectionModalProps> = ({
           </div>
         </div>
 
+        {/* Tutor Permissions / Access Control summary */}
+        <div
+          style={{
+            padding: '14px 16px',
+            borderRadius: 'var(--radius-lg)',
+            background: 'rgba(255,255,255,0.02)',
+            border: '1px solid var(--border-subtle)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '8px',
+          }}
+        >
+          <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#ffffff' }}>
+            Tutor Permissions & Access Control:
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+            <span
+              style={{
+                fontSize: '0.74rem',
+                fontWeight: 600,
+                padding: '3px 8px',
+                borderRadius: '4px',
+                background: quiz.allow_tutor_scheduling !== false ? 'rgba(5, 135, 40, 0.12)' : 'rgba(209, 56, 56, 0.12)',
+                color: quiz.allow_tutor_scheduling !== false ? '#4ade80' : '#f87171',
+                border: quiz.allow_tutor_scheduling !== false ? '1px solid rgba(5, 135, 40, 0.3)' : '1px solid rgba(209, 56, 56, 0.3)',
+              }}
+            >
+              {quiz.allow_tutor_scheduling !== false ? '✓ Edit Schedules' : '✕ No Schedule Edit'}
+            </span>
+            <span
+              style={{
+                fontSize: '0.74rem',
+                fontWeight: 600,
+                padding: '3px 8px',
+                borderRadius: '4px',
+                background: quiz.allow_tutor_edit_instructions !== false ? 'rgba(5, 135, 40, 0.12)' : 'rgba(209, 56, 56, 0.12)',
+                color: quiz.allow_tutor_edit_instructions !== false ? '#4ade80' : '#f87171',
+                border: quiz.allow_tutor_edit_instructions !== false ? '1px solid rgba(5, 135, 40, 0.3)' : '1px solid rgba(209, 56, 56, 0.3)',
+              }}
+            >
+              {quiz.allow_tutor_edit_instructions !== false ? '✓ Edit Instructions' : '✕ No Instruction Edit'}
+            </span>
+            <span
+              style={{
+                fontSize: '0.74rem',
+                fontWeight: 600,
+                padding: '3px 8px',
+                borderRadius: '4px',
+                background: quiz.allow_tutor_edit_duration !== false ? 'rgba(5, 135, 40, 0.12)' : 'rgba(209, 56, 56, 0.12)',
+                color: quiz.allow_tutor_edit_duration !== false ? '#4ade80' : '#f87171',
+                border: quiz.allow_tutor_edit_duration !== false ? '1px solid rgba(5, 135, 40, 0.3)' : '1px solid rgba(209, 56, 56, 0.3)',
+              }}
+            >
+              {quiz.allow_tutor_edit_duration !== false ? '✓ Edit Duration' : '✕ No Duration Edit'}
+            </span>
+            <span
+              style={{
+                fontSize: '0.74rem',
+                fontWeight: 600,
+                padding: '3px 8px',
+                borderRadius: '4px',
+                background: quiz.allow_tutor_edit_attempts !== false ? 'rgba(5, 135, 40, 0.12)' : 'rgba(209, 56, 56, 0.12)',
+                color: quiz.allow_tutor_edit_attempts !== false ? '#4ade80' : '#f87171',
+                border: quiz.allow_tutor_edit_attempts !== false ? '1px solid rgba(5, 135, 40, 0.3)' : '1px solid rgba(209, 56, 56, 0.3)',
+              }}
+            >
+              {quiz.allow_tutor_edit_attempts !== false ? '✓ Edit Attempts' : '✕ No Attempt Edit'}
+            </span>
+          </div>
+        </div>
+
         {/* Rubric */}
         <div>
           <h5 style={{ margin: '0 0 6px 0', fontSize: '0.88rem', fontWeight: 700, color: '#ffffff' }}>

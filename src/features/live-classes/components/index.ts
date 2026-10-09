@@ -5,3 +5,5 @@ export * from './LiveClassesTableView';
 export * from './CreateCohortModal';
 export * from './ScheduleClassModal';
 export * from './ClassDetailModal';
+export * from './EditClassModal';
+export * from './EditScheduleModal';

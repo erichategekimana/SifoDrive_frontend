@@ -26,6 +26,8 @@ export interface SupportAnnouncementDTO {
   id: string;
   title: string;
   author: string;
+  author_name?: string;
+  author_role?: string;
   date: string;
   category: string;
   content: string;
@@ -33,7 +35,12 @@ export interface SupportAnnouncementDTO {
   course_id?: string;
   course_name?: string;
   course_title?: string;
+  target_type?: 'SINGLE_COHORT' | 'ALL_ASSIGNED_COHORTS' | 'COURSE_WIDE';
+  cohort_id?: string | null;
+  cohort_name?: string | null;
+  cohort_names?: string[];
   target_url?: string;
+  created_at?: string;
 }
 
 export class SupportTicketService {
@@ -78,12 +85,16 @@ export class SupportTicketService {
     return this.http.post<HelpTicketDTO>(ApiEndpoints.LMS.SUPPORT_TICKETS, payload);
   }
 
-  public async getAnnouncements(): Promise<SupportAnnouncementDTO[]> {
-    logger.info('Fetching support bulletins and announcements');
+  public async getAnnouncements(params?: { course_id?: string; cohort_id?: string }): Promise<SupportAnnouncementDTO[]> {
+    logger.info('Fetching support bulletins and announcements', params);
     try {
-      const res = await this.http.get<SupportAnnouncementDTO[]>(
-        ApiEndpoints.LMS.SUPPORT_ANNOUNCEMENTS
-      );
+      const query = new URLSearchParams();
+      if (params?.course_id) query.append('course_id', params.course_id);
+      if (params?.cohort_id) query.append('cohort_id', params.cohort_id);
+      const qs = query.toString();
+      const url = qs ? `${ApiEndpoints.LMS.SUPPORT_ANNOUNCEMENTS}?${qs}` : ApiEndpoints.LMS.SUPPORT_ANNOUNCEMENTS;
+
+      const res = await this.http.get<SupportAnnouncementDTO[]>(url);
       if (Array.isArray(res)) return res;
       if (res && Array.isArray((res as any).data)) return (res as any).data;
       return [];
@@ -91,6 +102,28 @@ export class SupportTicketService {
       logger.error('Failed to load announcements:', err);
       return [];
     }
+  }
+
+  public async createAnnouncement(payload: {
+    course_id?: string;
+    title: string;
+    content: string;
+    target_type: 'SINGLE_COHORT' | 'ALL_ASSIGNED_COHORTS';
+    cohort_id?: string;
+    category?: string;
+  }): Promise<SupportAnnouncementDTO> {
+    logger.info(`Creating announcement: ${payload.title}`, payload);
+    const res = await this.http.post<{ data: SupportAnnouncementDTO } | SupportAnnouncementDTO>(
+      ApiEndpoints.LMS.SUPPORT_ANNOUNCEMENTS,
+      payload
+    );
+    if (res && (res as any).data) return (res as any).data;
+    return res as SupportAnnouncementDTO;
+  }
+
+  public async deleteAnnouncement(id: string): Promise<void> {
+    logger.info(`Deleting announcement: ${id}`);
+    await this.http.delete(ApiEndpoints.LMS.SUPPORT_ANNOUNCEMENT_DETAIL(id));
   }
 
   public async resolveTicket(

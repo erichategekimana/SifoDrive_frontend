@@ -4,7 +4,7 @@ import {
   GraduationCap,
   Users,
   HelpCircle,
-  Video,
+  UserCheck,
   RefreshCw,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
@@ -35,7 +35,6 @@ export const AdminCoursesPage: React.FC = () => {
     students,
     guests,
     questions,
-    liveClasses,
     quizzes,
     isLoading,
     isRefetching,
@@ -121,7 +120,7 @@ export const AdminCoursesPage: React.FC = () => {
           className={`btn btn-sm ${activeSection === 'tutors' ? 'btn-primary' : 'btn-secondary'}`}
           style={{ display: 'flex', alignItems: 'center', gap: '8px', borderRadius: 'var(--radius-lg)' }}
         >
-          <Video size={15} />
+          <UserCheck size={15} />
           <span>{t('admin.courses.tabTutors')} ({tutors.length})</span>
         </button>
       </div>
@@ -175,7 +174,6 @@ export const AdminCoursesPage: React.FC = () => {
           {activeSection === 'tutors' && (
             <TutorsSection
               tutors={tutors}
-              liveClasses={liveClasses}
               cohorts={cohorts}
               curricula={curricula}
               courses={courses}

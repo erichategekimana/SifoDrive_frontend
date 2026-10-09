@@ -26,10 +26,21 @@ type TutorLmsTab = 'modules' | 'quizzes' | 'activities';
 
 export const TutorLmsStudio: React.FC = () => {
   const [cohorts, setCohorts] = useState<CohortSelectorItem[]>([]);
-  const [selectedCohortId, setSelectedCohortId] = useState<string>('');
+  const [selectedCohortId, setSelectedCohortId] = useState<string>(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('cohort') || localStorage.getItem('sifo_tutor_active_cohort') || '';
+  });
 
   const [courses, setCourses] = useState<CohortCourseItem[]>([]);
   const [selectedCourseId, setSelectedCourseId] = useState<string>('');
+
+  const handleCohortChange = (cohortId: string) => {
+    if (!cohortId || cohortId === selectedCohortId) return;
+    localStorage.setItem('sifo_tutor_active_cohort', cohortId);
+    const params = new URLSearchParams(window.location.search);
+    params.set('cohort', cohortId);
+    window.location.search = params.toString();
+  };
 
   const [activeTab, setActiveTab] = useState<TutorLmsTab>('modules');
 
@@ -48,15 +59,19 @@ export const TutorLmsStudio: React.FC = () => {
     try {
       const data = await TutorLmsService.getInstance().getTutorCohorts();
       setCohorts(data);
-      if (data.length > 0 && !selectedCohortId) {
-        setSelectedCohortId(data[0].id);
+      if (data.length > 0) {
+        const savedCohortId = new URLSearchParams(window.location.search).get('cohort') || localStorage.getItem('sifo_tutor_active_cohort');
+        const matched = data.find((c) => c.id === savedCohortId);
+        const finalId = matched ? matched.id : data[0].id;
+        setSelectedCohortId(finalId);
+        localStorage.setItem('sifo_tutor_active_cohort', finalId);
       }
     } catch (err) {
       console.error('Failed to load tutor cohorts:', err);
     } finally {
       setIsLoadingCohorts(false);
     }
-  }, [selectedCohortId]);
+  }, []);
 
   useEffect(() => {
     loadCohorts();
@@ -187,7 +202,7 @@ export const TutorLmsStudio: React.FC = () => {
               <GraduationCap size={18} color="#0055A5" />
               <select
                 value={selectedCohortId}
-                onChange={(e) => setSelectedCohortId(e.target.value)}
+                onChange={(e) => handleCohortChange(e.target.value)}
                 style={{
                   padding: '8px 14px',
                   borderRadius: 'var(--radius-md)',
