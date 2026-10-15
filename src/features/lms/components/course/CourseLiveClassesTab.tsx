@@ -1,6 +1,21 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Video, ExternalLink, PlayCircle, Loader2, CalendarX, Link2, Check, X, Edit2, Trash2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import {
+  Video,
+  ExternalLink,
+  PlayCircle,
+  Loader2,
+  CalendarX,
+  Link2,
+  Check,
+  X,
+  Edit2,
+  Trash2,
+  Calendar,
+  Clock,
+} from 'lucide-react';
 import { LiveClassService } from '../../../../core/services/LiveClassService';
+import { AdminService, type LiveClassScheduleItem } from '../../../../core/services/AdminService';
 import type { LiveClass } from '../../../../core/models/LiveClass';
 import { useToast } from '../../../../context/ToastContext';
 import { useAuth } from '../../../../context/AuthContext';
@@ -46,10 +61,12 @@ const linkBtnStyle: React.CSSProperties = {
 };
 
 export const CourseLiveClassesTab: React.FC<CourseLiveClassesTabProps> = ({ isTutor, cohortId }) => {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const isTrainingAdmin = Boolean(user?.isAnyAdmin());
   const { success: toastSuccess, error: toastError } = useToast();
   const [classes, setClasses] = useState<LiveClass[]>([]);
+  const [schedules, setSchedules] = useState<LiveClassScheduleItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Recording editor state (tutor)
@@ -66,18 +83,46 @@ export const CourseLiveClassesTab: React.FC<CourseLiveClassesTabProps> = ({ isTu
 
   const [saving, setSaving] = useState(false);
 
+  const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const formatDays = (days: number[] | undefined): string => {
+    if (!days || days.length === 0) return '';
+    return days.map((d) => dayNames[d] ?? d).join(', ');
+  };
+
   const load = useCallback(async () => {
     setLoading(true);
-    const list = await LiveClassService.getInstance().getClasses(
-      isTutor && cohortId ? { cohort: cohortId } : undefined
-    );
-    setClasses(list);
-    setLoading(false);
+    try {
+      const [list, scheduleList] = await Promise.all([
+        LiveClassService.getInstance().getClasses(
+          isTutor && cohortId ? { cohort: cohortId } : undefined
+        ),
+        LiveClassService.getInstance().getSchedules(
+          isTutor && cohortId ? { cohort: cohortId } : undefined
+        ),
+      ]);
+      setClasses(list);
+      setSchedules(scheduleList);
+    } catch {
+      // Ignored
+    } finally {
+      setLoading(false);
+    }
   }, [isTutor, cohortId]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  const deleteScheduleOffering = async (scheduleId: string) => {
+    if (!window.confirm('Delete this class schedule and all its sessions?')) return;
+    try {
+      await AdminService.getInstance().deleteLiveClassSchedule(scheduleId);
+      toastSuccess('Schedule and all associated sessions deleted.');
+      await load();
+    } catch {
+      toastError('Could not delete schedule.');
+    }
+  };
 
   const { upcoming, awaitingRecording, recordings } = useMemo(() => {
     const active = classes.filter((c) => c.status !== 'CANCELLED');
@@ -404,12 +449,14 @@ export const CourseLiveClassesTab: React.FC<CourseLiveClassesTabProps> = ({ isTu
         </p>
       </div>
 
-      {/* Upcoming */}
+      {/* Upcoming Schedules */}
       <section style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        {sectionTitle('Upcoming Classes', 'Google Meet links for your scheduled sessions.')}
-        {upcoming.length === 0
-          ? empty('No upcoming live classes have been scheduled yet.')
-          : upcoming.map((c) => {
+        {sectionTitle('Scheduled Classes & Series', 'Google Meet links and timetable.')}
+        {schedules.length === 0 ? (
+          upcoming.length === 0 ? (
+            empty('No upcoming live classes have been scheduled yet.')
+          ) : (
+            upcoming.map((c) => {
               const live = c.isLiveNow();
               return (
                 <div key={c.id} className="canvas-card" style={cardStyle}>
@@ -465,7 +512,109 @@ export const CourseLiveClassesTab: React.FC<CourseLiveClassesTabProps> = ({ isTu
                   </div>
                 </div>
               );
-            })}
+            })
+          )
+        ) : (
+          schedules.map((sch) => {
+            const childSessions = classes.filter(
+              (c) => (c as any).schedule === sch.id || (c as any).schedule_id === sch.id
+            );
+            const formattedDays = formatDays(sch.days_of_week);
+            const isRecurring = sch.schedule_mode === 'RECURRING';
+
+            return (
+              <div key={sch.id} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div className="canvas-card" style={cardStyle}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>
+                      <span style={badgeStyle('#F1F5F9', '#475569')}>
+                        {sch.total_sessions_count ?? childSessions.length} SESSIONS
+                      </span>
+                      <h4 style={{ fontSize: '1.02rem', fontWeight: 700, color: '#1E293B', margin: 0 }}>
+                        {sch.title}
+                      </h4>
+                    </div>
+
+                    {sch.topic && <div style={{ fontSize: '0.82rem', color: '#475569', marginBottom: '6px' }}>{sch.topic}</div>}
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap', fontSize: '0.8rem', color: '#64748B' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontWeight: 600, color: '#1E293B' }}>
+                        <Clock size={13} color="#0055A5" />
+                        <span>
+                          {isRecurring && formattedDays ? `Every ${formattedDays} • ` : ''}
+                          {sch.start_time?.slice(0, 5)} - {sch.end_time?.slice(0, 5)}
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                        <Calendar size={13} color="#058728" />
+                        <span>
+                          {sch.start_date}
+                          {sch.end_date ? ` → ${sch.end_date}` : ''}
+                          {sch.period_months ? ` (${sch.period_months} ${sch.period_unit || 'months'})` : ''}
+                        </span>
+                      </div>
+                      {sch.cohort_name && <span>Cohort: <strong>{sch.cohort_name}</strong></span>}
+                      {sch.tutor_name && <span>Instructor: <strong>{sch.tutor_name}</strong></span>}
+                    </div>
+
+                    {sch.next_upcoming_session && (
+                      <div style={{ marginTop: '8px', fontSize: '0.78rem', color: '#0055A5', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '5px' }}>
+                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#058728' }} />
+                        <span>Next Session: {formatDate(sch.next_upcoming_session.scheduled_date)} at {sch.next_upcoming_session.start_time?.slice(0, 5)}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    {sch.google_meet_url ? (
+                      <a
+                        href={sch.google_meet_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="canvas-btn canvas-btn-primary"
+                        style={linkBtnStyle}
+                      >
+                        <Video size={15} />
+                        <span>{isTutor || isTrainingAdmin ? 'Host / Join Meet' : 'Join Google Meet'}</span>
+                        <ExternalLink size={12} />
+                      </a>
+                    ) : (
+                      <span style={{ fontSize: '0.78rem', color: '#94A3B8' }}>Meet link not set</span>
+                    )}
+
+                    <button
+                      className="canvas-btn"
+                      onClick={() => navigate('/calendar')}
+                      style={{
+                        ...linkBtnStyle,
+                        cursor: 'pointer',
+                        background: '#F8FAFC',
+                        border: '1px solid #E2E8F0',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                      }}
+                    >
+                      <Calendar size={14} color="#0055A5" />
+                      <span>View Dates</span>
+                    </button>
+
+                    {isTrainingAdmin && (
+                      <button
+                        className="canvas-btn"
+                        onClick={() => deleteScheduleOffering(sch.id)}
+                        style={{ ...linkBtnStyle, cursor: 'pointer', color: '#DC2626' }}
+                        title="Delete Schedule & Sessions"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })
+        )}
       </section>
 
       {/* Tutor: past sessions still missing a recording */}

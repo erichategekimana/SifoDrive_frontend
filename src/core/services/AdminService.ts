@@ -2,7 +2,6 @@ import { ApiEndpoints } from '../api/ApiEndpoints';
 import { HttpClient } from '../api/HttpClient';
 import { LocalStorageService } from '../storage/LocalStorageService';
 import { Logger } from '../utils/Logger';
-import { DEFAULT_LMS_QUIZZES } from '../../features/lms/data/mockQuizzes';
 
 const logger = new Logger('AdminService');
 
@@ -207,6 +206,9 @@ export interface QuizItem {
   course_title: string;
   module?: string | null;
   module_title?: string | null;
+  quiz_type?: 'LIVE_TIMED' | 'WORK_SUBMISSION';
+  enable_proctoring?: boolean;
+  max_tab_switches_allowed?: number;
   title: string;
   title_kinyarwanda?: string;
   description?: string;
@@ -226,6 +228,8 @@ export interface QuizItem {
   shuffle_questions: boolean;
   is_published: boolean;
   is_locked?: boolean;
+  release_grades_immediately?: boolean;
+  grades_published?: boolean;
   allow_tutor_scheduling?: boolean;
   allow_tutor_edit_instructions?: boolean;
   allow_tutor_edit_duration?: boolean;
@@ -251,6 +255,9 @@ export interface QuizPayload {
   course_title?: string;
   module?: string | null;
   module_title?: string | null;
+  quiz_type?: 'LIVE_TIMED' | 'WORK_SUBMISSION';
+  enable_proctoring?: boolean;
+  max_tab_switches_allowed?: number;
   title: string;
   title_kinyarwanda?: string;
   description?: string;
@@ -268,11 +275,63 @@ export interface QuizPayload {
   max_attempts?: number;
   shuffle_questions?: boolean;
   is_published?: boolean;
+  release_grades_immediately?: boolean;
   allow_tutor_scheduling?: boolean;
   allow_tutor_edit_instructions?: boolean;
   allow_tutor_edit_duration?: boolean;
   allow_tutor_edit_attempts?: boolean;
   items?: QuizQuestionItem[];
+}
+
+export interface QuizSubmissionItem {
+  id: string;
+  quiz: string;
+  quiz_title: string;
+  student: string;
+  student_name: string;
+  student_phone: string;
+  cohort?: string | null;
+  cohort_name?: string | null;
+  attempt_number: number;
+  quiz_type: 'LIVE_TIMED' | 'WORK_SUBMISSION';
+  score: number | null;
+  total_score: number;
+  percentage: number | null;
+  is_passed: boolean | null;
+  is_grades_published?: boolean;
+  student_answers?: Record<string, string>;
+  work_submission_text?: string;
+  work_submission_file?: string | null;
+  work_submission_file_url?: string | null;
+  question_breakdown?: Array<{
+    item_id: string;
+    order: number;
+    question_text: string;
+    points: number;
+    options: Record<string, string>;
+    correct_option: string;
+    explanation?: string;
+    student_answer?: string;
+    is_correct: boolean;
+    is_flagged_for_review?: boolean;
+  }>;
+  flagged_questions?: Array<string | number>;
+  time_spent_seconds: number;
+  tab_switch_count: number;
+  proctoring_violations?: Array<{ timestamp: string; event?: string; reason?: string }>;
+  is_flagged: boolean;
+  is_auto_graded?: boolean;
+  auto_score?: number | null;
+  is_grade_overridden?: boolean;
+  grade_overridden_by?: string | null;
+  grade_overridden_by_name?: string | null;
+  grade_overridden_at?: string | null;
+  grade_override_reason?: string | null;
+  feedback?: string;
+  graded_by?: string | null;
+  graded_by_name?: string | null;
+  graded_at?: string | null;
+  created_at: string;
 }
 
 export interface SMSLogItem {
@@ -783,14 +842,15 @@ export class AdminService {
   // -------------------------------------------------------------------------
   // 2.2 LMS Quizzes (Quiz Bank Engine)
   // -------------------------------------------------------------------------
-  // In-memory fallback cache to ensure quizzes are always available even when backend DB is empty
-  private fallbackQuizzes: QuizItem[] = [...DEFAULT_LMS_QUIZZES];
+  // In-memory cache for quizzes
+  private fallbackQuizzes: QuizItem[] = [];
 
   public async getQuizzes(params?: {
     course?: string;
     module?: string;
     status?: string;
     search?: string;
+    cohort?: string;
   }): Promise<QuizItem[]> {
     try {
       const query = new URLSearchParams();
@@ -798,6 +858,7 @@ export class AdminService {
       if (params?.module) query.set('module', params.module);
       if (params?.status) query.set('status', params.status);
       if (params?.search) query.set('search', params.search);
+      if (params?.cohort) query.set('cohort', params.cohort);
       const url = `${ApiEndpoints.LMS.QUIZZES}${query.toString() ? `?${query.toString()}` : ''}`;
       const res = await this.http.get<any>(url);
       let list: QuizItem[] = [];
@@ -806,7 +867,7 @@ export class AdminService {
       else if (res?.results && Array.isArray(res.results)) list = res.results;
 
       if (res !== undefined && res !== null) {
-        return list.map((item) => {
+        const formatted = list.map((item) => {
           const authorName = item.created_by_detail?.full_name || (item as any).created_by_name || 'Eric Hategekimana';
           return {
             ...item,
@@ -820,12 +881,13 @@ export class AdminService {
             },
           };
         });
+        this.fallbackQuizzes = formatted;
+        return formatted;
       }
     } catch (err) {
-      logger.warn('Failed to fetch quizzes from backend, using fallback data:', err);
+      logger.warn('Failed to fetch quizzes from backend:', err);
     }
 
-    // Return fallback dataset filtered if params provided
     return this.fallbackQuizzes.filter((q) => {
       if (params?.course && String(q.course) !== String(params.course)) return false;
       if (params?.module && String(q.module) !== String(params.module)) return false;
@@ -844,7 +906,7 @@ export class AdminService {
   public async getQuizDetail(id: string): Promise<QuizItem> {
     try {
       const res = await this.http.get<any>(ApiEndpoints.LMS.QUIZ_DETAIL(id));
-      if (res?.id) {
+      if (res?.id || res?.data?.id) {
         const item = res?.data || res;
         const authorName = item.created_by_detail?.full_name || item.created_by_name || 'Eric Hategekimana';
         item.created_by_detail = {
@@ -857,36 +919,12 @@ export class AdminService {
         };
         return item;
       }
-    } catch {
-      // Fallback
+    } catch (err) {
+      logger.warn(`Failed to fetch quiz detail for id ${id}:`, err);
     }
     const found = this.fallbackQuizzes.find((q) => q.id === id);
     if (found) return found;
-    return {
-      id,
-      course: '',
-      course_title: 'Theory Course',
-      title: 'Quiz Assessment',
-      time_limit_minutes: 20,
-      total_score: 20,
-      passing_score: 70,
-      max_attempts: 1,
-      shuffle_questions: false,
-      is_published: true,
-      status: 'OPEN',
-      question_count: 0,
-      created_by: 'admin-1',
-      created_by_detail: {
-        id: 'admin-1',
-        phone_number: '+250788111222',
-        first_name: 'Eric',
-        last_name: 'Hategekimana',
-        full_name: 'Eric Hategekimana',
-        role: 'TRAINING_ADMIN',
-      },
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
+    throw new Error(`Quiz with id "${id}" not found.`);
   }
 
   public async createQuiz(payload: QuizPayload): Promise<QuizItem> {
@@ -903,7 +941,7 @@ export class AdminService {
         ...payload,
         created_by: authorId,
       });
-      if (res?.id) {
+      if (res?.id || res?.data?.id) {
         const item = res?.data || res;
         if (!item.created_by_detail || !item.created_by_detail.full_name) {
           item.created_by_detail = {
@@ -928,134 +966,145 @@ export class AdminService {
         return item;
       }
     } catch (err) {
-      logger.warn('Backend createQuiz failed, saving to local state:', err);
+      logger.error('Backend createQuiz failed:', err);
+      throw err;
     }
-
-    const newQuiz: QuizItem = {
-      id: `quiz-${Date.now()}`,
-      course: payload.course,
-      course_title: payload.course_title || 'Target Course',
-      module: payload.module || null,
-      module_title: payload.module_title || (payload.module ? 'Course Module' : null),
-      title: payload.title,
-      title_kinyarwanda: payload.title_kinyarwanda || '',
-      description: payload.description || '',
-      description_kinyarwanda: payload.description_kinyarwanda || '',
-      open_date: payload.open_date || null,
-      deadline: payload.deadline || null,
-      closing_date: payload.closing_date || null,
-      allow_late_submission: Boolean(payload.allow_late_submission),
-      is_final_exam: Boolean(payload.is_final_exam),
-      time_limit_minutes: payload.time_limit_minutes || 0,
-      total_score: payload.total_score || 20,
-      calculated_total_points: payload.total_score || 20,
-      passing_score: payload.passing_score || 70,
-      rubric: payload.rubric || '',
-      rubric_kinyarwanda: payload.rubric_kinyarwanda || '',
-      max_attempts: payload.max_attempts || 1,
-      shuffle_questions: Boolean(payload.shuffle_questions),
-      is_published: false,
-      status: 'DRAFT',
-      question_count: payload.items?.length || 0,
-      items: payload.items || [],
-      created_by: authorId,
-      created_by_detail: {
-        id: authorId,
-        phone_number: authorPhone,
-        first_name: authorFirstName,
-        last_name: authorLastName,
-        full_name: authorFullName,
-        role: authorRole,
-      },
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-    this.fallbackQuizzes.unshift(newQuiz);
-    return newQuiz;
+    throw new Error('Failed to create quiz: invalid response from server.');
   }
 
   public async updateQuiz(id: string, payload: Partial<QuizPayload>): Promise<QuizItem> {
     try {
       const res = await this.http.patch<any>(ApiEndpoints.LMS.QUIZ_DETAIL(id), payload);
-      if (res?.id) {
+      if (res?.id || res?.data?.id) {
         const item = res?.data || res;
         this.fallbackQuizzes = this.fallbackQuizzes.map((q) => (q.id === id ? item : q));
         return item;
       }
     } catch (err) {
-      logger.warn('Backend updateQuiz failed, updating local state:', err);
+      logger.error('Backend updateQuiz failed:', err);
+      throw err;
     }
-
-    const idx = this.fallbackQuizzes.findIndex((q) => q.id === id);
-    if (idx !== -1) {
-      const existing = this.fallbackQuizzes[idx];
-      const updated: QuizItem = {
-        ...existing,
-        course: payload.course ?? existing.course,
-        course_title: payload.course_title ?? existing.course_title,
-        module: payload.module !== undefined ? payload.module : existing.module,
-        module_title: payload.module_title !== undefined ? payload.module_title : existing.module_title,
-        title: payload.title ?? existing.title,
-        title_kinyarwanda: payload.title_kinyarwanda ?? existing.title_kinyarwanda,
-        description: payload.description ?? existing.description,
-        description_kinyarwanda: payload.description_kinyarwanda ?? existing.description_kinyarwanda,
-        open_date: payload.open_date !== undefined ? payload.open_date : existing.open_date,
-        deadline: payload.deadline !== undefined ? payload.deadline : existing.deadline,
-        closing_date: payload.closing_date !== undefined ? payload.closing_date : existing.closing_date,
-        allow_late_submission: payload.allow_late_submission ?? existing.allow_late_submission,
-        is_final_exam: payload.is_final_exam ?? existing.is_final_exam,
-        time_limit_minutes: payload.time_limit_minutes ?? existing.time_limit_minutes,
-        total_score: payload.total_score ?? existing.total_score,
-        calculated_total_points: payload.total_score ?? existing.calculated_total_points,
-        passing_score: payload.passing_score ?? existing.passing_score,
-        max_attempts: payload.max_attempts ?? existing.max_attempts,
-        shuffle_questions: payload.shuffle_questions ?? existing.shuffle_questions,
-        rubric: payload.rubric ?? existing.rubric,
-        rubric_kinyarwanda: payload.rubric_kinyarwanda ?? existing.rubric_kinyarwanda,
-        question_count: payload.items?.length ?? existing.question_count,
-        items: payload.items ?? existing.items,
-        updated_at: new Date().toISOString(),
-      };
-      this.fallbackQuizzes[idx] = updated;
-      return updated;
-    }
-    return this.getQuizDetail(id);
+    throw new Error('Failed to update quiz: invalid response from server.');
   }
 
   public async deleteQuiz(id: string): Promise<void> {
     try {
       await this.http.delete(ApiEndpoints.LMS.QUIZ_DETAIL(id));
-    } catch {
-      // Fallback
+      this.fallbackQuizzes = this.fallbackQuizzes.filter((q) => q.id !== id);
+    } catch (err) {
+      logger.error('Backend deleteQuiz failed:', err);
+      throw err;
     }
-    this.fallbackQuizzes = this.fallbackQuizzes.filter((q) => q.id !== id);
   }
 
   public async togglePublishQuiz(id: string): Promise<QuizItem> {
     try {
       const res = await this.http.post<any>(ApiEndpoints.LMS.QUIZ_PUBLISH(id), {});
-      if (res?.id) {
+      if (res?.id || res?.data?.id) {
         const item = res?.data || res;
         this.fallbackQuizzes = this.fallbackQuizzes.map((q) => (q.id === id ? item : q));
         return item;
       }
-    } catch {
-      // Fallback
+    } catch (err) {
+      logger.error('Backend togglePublishQuiz failed:', err);
+      throw err;
     }
-    const idx = this.fallbackQuizzes.findIndex((q) => q.id === id);
-    if (idx !== -1) {
-      const existing = this.fallbackQuizzes[idx];
-      const nextPublished = !existing.is_published;
-      const updated: QuizItem = {
-        ...existing,
-        is_published: nextPublished,
-        status: nextPublished ? 'OPEN' : 'DRAFT',
-        updated_at: new Date().toISOString(),
-      };
-      this.fallbackQuizzes[idx] = updated;
-      return updated;
+    throw new Error('Failed to toggle quiz publish state: invalid response from server.');
+  }
+
+  public async submitQuiz(
+    quizId: string,
+    payload: {
+      cohort_id?: string;
+      student_answers?: Record<string, string>;
+      flagged_for_review_questions?: Array<string | number>;
+      work_submission_text?: string;
+      work_submission_file?: File | null;
+      time_spent_seconds?: number;
+      tab_switch_count?: number;
+      proctoring_violations?: Array<{ timestamp: string; event?: string; reason?: string }>;
     }
-    return this.getQuizDetail(id);
+  ): Promise<QuizSubmissionItem> {
+    try {
+      const formData = new FormData();
+      if (payload.cohort_id) {
+        formData.append('cohort_id', payload.cohort_id);
+      }
+      if (payload.student_answers) {
+        formData.append('student_answers', JSON.stringify(payload.student_answers));
+      }
+      if (payload.flagged_for_review_questions) {
+        formData.append('flagged_for_review_questions', JSON.stringify(payload.flagged_for_review_questions));
+      }
+      if (payload.work_submission_text) {
+        formData.append('work_submission_text', payload.work_submission_text);
+      }
+      if (payload.work_submission_file) {
+        formData.append('work_submission_file', payload.work_submission_file);
+      }
+      formData.append('time_spent_seconds', String(payload.time_spent_seconds || 0));
+      formData.append('tab_switch_count', String(payload.tab_switch_count || 0));
+      if (payload.proctoring_violations) {
+        formData.append('proctoring_violations', JSON.stringify(payload.proctoring_violations));
+      }
+
+      const res = await this.http.post<any>(ApiEndpoints.LMS.QUIZ_SUBMIT(quizId), formData);
+      return res?.data || res;
+    } catch (err) {
+      logger.error('Failed to submit quiz to backend:', err);
+      throw err;
+    }
+  }
+
+  public async publishQuizGrades(quizId: string, cohortId?: string): Promise<any> {
+    try {
+      const url = `${ApiEndpoints.LMS.QUIZZES}${quizId}/publish-grades/`;
+      return await this.http.post(url, { cohort_id: cohortId });
+    } catch (e) {
+      logger.warn('Backend publish quiz grades failed, setting local state', e);
+      localStorage.setItem(`sifo_quiz_grades_published_${quizId}`, 'true');
+    }
+  }
+
+  public async getQuizSubmissions(quizId: string, isFlagged?: boolean, cohortId?: string): Promise<QuizSubmissionItem[]> {
+    try {
+      let url = ApiEndpoints.LMS.QUIZ_SUBMISSIONS(quizId);
+      const params = new URLSearchParams();
+      if (isFlagged !== undefined) {
+        params.append('is_flagged', String(isFlagged));
+      }
+      if (cohortId) {
+        params.append('cohort_id', cohortId);
+      }
+      const qs = params.toString();
+      if (qs) {
+        url += `?${qs}`;
+      }
+      const res = await this.http.get<any>(url);
+      if (Array.isArray(res)) return res;
+      if (res?.data && Array.isArray(res.data)) return res.data;
+      if (res?.results && Array.isArray(res.results)) return res.results;
+      if (res?.data?.results && Array.isArray(res.data.results)) return res.data.results;
+      return [];
+    } catch (err) {
+      logger.warn('Failed to fetch quiz submissions:', err);
+      return [];
+    }
+  }
+
+  public async gradeQuizSubmission(
+    quizId: string,
+    submissionId: string,
+    payload: { score: number; feedback?: string; reason?: string }
+  ): Promise<QuizSubmissionItem> {
+    try {
+      const url = ApiEndpoints.LMS.QUIZ_GRADE_SUBMISSION(quizId, submissionId);
+      const res = await this.http.post<any>(url, payload);
+      return res?.data || res;
+    } catch (err) {
+      logger.warn('Failed to submit manual grade to backend:', err);
+      return {} as any;
+    }
   }
 
 

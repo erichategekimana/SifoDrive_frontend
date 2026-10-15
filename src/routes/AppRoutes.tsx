@@ -15,6 +15,8 @@ import { EnterpriseDashboard } from '../pages/dashboard/EnterpriseDashboard';
 import { BoardReviewerDashboard } from '../pages/dashboard/BoardReviewerDashboard';
 import { AgentDashboard } from '../pages/dashboard/AgentDashboard';
 import { LessonViewPage } from '../pages/lms/LessonViewPage';
+import { StudentQuizPage } from '../pages/lms/StudentQuizPage';
+import { StudentQuizReviewPage } from '../pages/lms/StudentQuizReviewPage';
 import { RoadSignsPage } from '../pages/lms/RoadSignsPage';
 import { LiveClassesPage } from '../pages/live-classes/LiveClassesPage';
 import { BookingWizardPage } from '../pages/booking/BookingWizardPage';
@@ -42,6 +44,9 @@ import { AdminExaminationsPage } from '../pages/admin/AdminExaminationsPage';
 import { AdminAnalyticsPage } from '../pages/admin/AdminAnalyticsPage';
 import { AdminSettingsPage } from '../pages/admin/AdminSettingsPage';
 import { AdminAgentsStaffPage } from '../pages/admin/AdminAgentsStaffPage';
+import { AdminTicketsPage } from '../pages/admin/AdminTicketsPage';
+import { AdminQuizBankPage } from '../pages/admin/AdminQuizBankPage';
+import { BroadcastStudioPage } from '../pages/admin/BroadcastStudioPage';
 import { CertificateVerificationPage } from '../pages/public/CertificateVerificationPage';
 
 export const AppRoutes: React.FC = () => {
@@ -75,7 +80,15 @@ export const AppRoutes: React.FC = () => {
           <Route path="/booking" element={<BookingWizardPage />} />
           <Route path="/booking/my-bookings" element={<MyBookingsPage />} />
           <Route path="/profile" element={<AccountView />} />
+          {/* Assessment Review & Grade Detail Pages */}
+          <Route path="/courses/:courseId/quiz/:quizId/review" element={<StudentQuizReviewPage />} />
+          <Route path="/quiz/:quizId/review" element={<StudentQuizReviewPage />} />
+          <Route path="/courses/:courseId/activity/:activityId/review" element={<StudentQuizReviewPage />} />
+          <Route path="/activity/:activityId/review" element={<StudentQuizReviewPage />} />
         </Route>
+        {/* Full-screen distraction-free Quiz Player */}
+        <Route path="/quiz/:quizId" element={<StudentQuizPage />} />
+        <Route path="/courses/:courseId/quiz/:quizId" element={<StudentQuizPage />} />
       </Route>
 
 
@@ -83,9 +96,13 @@ export const AppRoutes: React.FC = () => {
       <Route element={<SystemAdminRoute />}>
         <Route element={<AdminLayout />}>
           <Route path="/admin" element={<AdminDashboardPage />} />
+          <Route path="/admin/tickets" element={<AdminTicketsPage />} />
+          <Route path="/admin/broadcast-studio" element={<BroadcastStudioPage />} />
+          <Route path="/admin/broadcasts" element={<BroadcastStudioPage />} />
           <Route path="/admin/analytics" element={<AdminAnalyticsPage />} />
           <Route path="/admin/users" element={<AdminUsersPage />} />
           <Route path="/admin/courses" element={<AdminCoursesPage />} />
+          <Route path="/admin/quizzes" element={<AdminQuizBankPage />} />
           <Route path="/admin/examinations" element={<AdminExaminationsPage />} />
           <Route path="/admin/bookings" element={<AdminBookingsPage />} />
           <Route path="/admin/schedules" element={<AdminSchedulesPage />} />

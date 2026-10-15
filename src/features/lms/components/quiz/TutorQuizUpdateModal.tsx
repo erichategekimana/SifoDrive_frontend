@@ -65,6 +65,7 @@ export const TutorQuizUpdateModal: React.FC<TutorQuizUpdateModalProps> = ({
   const [allowLateSubmission, setAllowLateSubmission] = useState(false);
   const [timeLimitMinutes, setTimeLimitMinutes] = useState(20);
   const [maxAttempts, setMaxAttempts] = useState(1);
+  const [releaseGradesImmediately, setReleaseGradesImmediately] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -81,6 +82,12 @@ export const TutorQuizUpdateModal: React.FC<TutorQuizUpdateModalProps> = ({
       setAllowLateSubmission(Boolean(assignment.allowLateSubmission));
       setTimeLimitMinutes(assignment.timeLimitMinutes || 20);
       setMaxAttempts(assignment.attemptsAllowed || 1);
+      const isImm = Boolean(
+        (assignment as any).release_grades_immediately ||
+        (assignment as any).releaseGradesImmediately ||
+        localStorage.getItem(`sifo_quiz_release_immediately_${assignment.id}`) === 'true'
+      );
+      setReleaseGradesImmediately(isImm);
     }
   }, [assignment]);
 
@@ -125,6 +132,10 @@ export const TutorQuizUpdateModal: React.FC<TutorQuizUpdateModalProps> = ({
         payload.max_attempts = Number(maxAttempts);
       }
 
+      // Grade release policy
+      payload.release_grades_immediately = releaseGradesImmediately;
+      localStorage.setItem(`sifo_quiz_release_immediately_${assignment.id}`, String(releaseGradesImmediately));
+
       await AdminService.getInstance().updateQuiz(assignment.id, payload);
 
       // Construct partial update for local parent view
@@ -150,6 +161,8 @@ export const TutorQuizUpdateModal: React.FC<TutorQuizUpdateModalProps> = ({
       if (canEditAttempts) {
         updatedFields.attemptsAllowed = Number(maxAttempts);
       }
+      (updatedFields as any).release_grades_immediately = releaseGradesImmediately;
+      (updatedFields as any).releaseGradesImmediately = releaseGradesImmediately;
 
       onSuccess(updatedFields);
       success('Quiz rules updated successfully.');
@@ -879,6 +892,115 @@ export const TutorQuizUpdateModal: React.FC<TutorQuizUpdateModalProps> = ({
                     : 'Attempt limit is controlled exclusively by Training Administrator.'}
                 </span>
               </div>
+            </div>
+          </div>
+
+          {/* Section 5: Grade Release Policy */}
+          <div
+            style={{
+              padding: '18px',
+              borderRadius: '8px',
+              backgroundColor: '#FFFFFF',
+              border: '1px solid #CBD5E1',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginBottom: '12px',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <CheckCircle2 size={17} color="#0055A5" />
+                <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: '#1E293B' }}>
+                  5. Grade Release Policy
+                </h4>
+              </div>
+              <span
+                style={{
+                  fontSize: '0.72rem',
+                  fontWeight: 700,
+                  padding: '3px 8px',
+                  borderRadius: '4px',
+                  backgroundColor: '#F0FDF4',
+                  color: '#166534',
+                  border: '1px solid #DCFCE7',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                }}
+              >
+                <CheckCircle2 size={12} />
+                <span>Configurable</span>
+              </span>
+            </div>
+
+            <p style={{ fontSize: '0.82rem', color: '#64748B', margin: '0 0 14px 0' }}>
+              Control when students can see their numerical scores, percentages, and performance results.
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '12px',
+                  padding: '12px 14px',
+                  borderRadius: '8px',
+                  border: `1.5px solid ${!releaseGradesImmediately ? '#0055A5' : '#E2E8F0'}`,
+                  backgroundColor: !releaseGradesImmediately ? '#F0F7FF' : '#FFFFFF',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <input
+                  type="radio"
+                  name="quizGradeReleasePolicy"
+                  checked={!releaseGradesImmediately}
+                  onChange={() => setReleaseGradesImmediately(false)}
+                  style={{ marginTop: '3px', accentColor: '#0055A5', width: '16px', height: '16px' }}
+                />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                  <span style={{ fontSize: '0.86rem', fontWeight: 700, color: '#1E293B' }}>
+                    Manual Release by Tutor (Recommended / Default)
+                  </span>
+                  <span style={{ fontSize: '0.78rem', color: '#64748B', lineHeight: 1.4 }}>
+                    Students cannot view results or numerical scores after submitting. They will see "Submitted • Awaiting Grade Release" until you manually review and click <strong>Publish Grades</strong>.
+                  </span>
+                </div>
+              </label>
+
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '12px',
+                  padding: '12px 14px',
+                  borderRadius: '8px',
+                  border: `1.5px solid ${releaseGradesImmediately ? '#0055A5' : '#E2E8F0'}`,
+                  backgroundColor: releaseGradesImmediately ? '#F0F7FF' : '#FFFFFF',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <input
+                  type="radio"
+                  name="quizGradeReleasePolicy"
+                  checked={releaseGradesImmediately}
+                  onChange={() => setReleaseGradesImmediately(true)}
+                  style={{ marginTop: '3px', accentColor: '#0055A5', width: '16px', height: '16px' }}
+                />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                  <span style={{ fontSize: '0.86rem', fontWeight: 700, color: '#1E293B' }}>
+                    Immediate Grade Release
+                  </span>
+                  <span style={{ fontSize: '0.78rem', color: '#64748B', lineHeight: 1.4 }}>
+                    Publish results and evaluation score directly to each student immediately upon completing the quiz.
+                  </span>
+                </div>
+              </label>
             </div>
           </div>
 

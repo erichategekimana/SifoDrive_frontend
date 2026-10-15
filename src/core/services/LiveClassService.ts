@@ -1,6 +1,8 @@
 import { ApiEndpoints } from '../api/ApiEndpoints';
 import { HttpClient } from '../api/HttpClient';
 import { LiveClass, type LiveClassDTO } from '../models/LiveClass';
+import type { LiveClassScheduleItem } from './AdminService';
+export type { LiveClassScheduleItem };
 import { Logger } from '../utils/Logger';
 
 const logger = new Logger('LiveClassService');
@@ -18,6 +20,39 @@ export class LiveClassService {
       LiveClassService.instance = new LiveClassService();
     }
     return LiveClassService.instance;
+  }
+
+  /**
+   * Fetch master class schedules (one record per recurring course offering)
+   */
+  public async getSchedules(params?: { cohort?: string }): Promise<LiveClassScheduleItem[]> {
+    logger.info('Fetching live class master schedules');
+    try {
+      let url = ApiEndpoints.LIVE_CLASSES.SCHEDULES;
+      if (params?.cohort) {
+        url += `?cohort=${encodeURIComponent(params.cohort)}`;
+      }
+      const data = await this.http.get<any>(url);
+      const results = Array.isArray(data) ? data : data?.results || [];
+      return results;
+    } catch (err) {
+      logger.error('Failed to load master schedules:', err);
+      return [];
+    }
+  }
+
+  /**
+   * Fetch single master schedule detail with child session dates
+   */
+  public async getScheduleDetail(scheduleId: string): Promise<LiveClassScheduleItem | null> {
+    logger.info(`Fetching live class schedule detail ${scheduleId}`);
+    try {
+      const data = await this.http.get<any>(ApiEndpoints.LIVE_CLASSES.SCHEDULE_DETAIL(scheduleId));
+      return data?.data || data;
+    } catch (err) {
+      logger.error(`Failed to load schedule detail ${scheduleId}:`, err);
+      return null;
+    }
   }
 
   /**

@@ -43,6 +43,18 @@ export interface CohortSelectorItem {
   student_count: number;
 }
 
+export interface CohortStudentItem {
+  id: string;
+  name: string;
+  first_name?: string;
+  last_name?: string;
+  student_id: string;
+  phone_number: string;
+  email?: string;
+  category: string;
+  enrolled_at?: string;
+}
+
 export interface CohortDeadlineItem {
   id: string;
   type: 'QUIZ' | 'ACTIVITY';
@@ -94,9 +106,10 @@ export interface CohortQuizItem {
   is_locked: boolean;
 }
 
-export type ActivityType = 'ASSIGNMENT' | 'PRACTICAL_DRILL' | 'CASE_STUDY' | 'OBSERVATION';
-export type SubmissionType = 'ONLINE_TEXT' | 'FILE_UPLOAD' | 'BOTH' | 'PRACTICAL_CHECKLIST';
-export type SubmissionStatus = 'PENDING' | 'SUBMITTED' | 'GRADED' | 'RESUBMISSION_REQUESTED';
+export type ActivityType = 'ASSIGNMENT' | 'PRACTICAL_DRILL' | 'CASE_STUDY' | 'DISCUSSION' | 'READING_EXERCISE' | string;
+export type SubmissionType = 'FILE_UPLOAD' | 'TEXT_RESPONSE' | 'ONLINE_TEXT' | 'BOTH' | 'PRACTICAL_CHECKLIST' | 'PRACTICAL_EVALUATION' | 'NONE' | string;
+export type SubmissionStatus = 'PENDING' | 'SUBMITTED' | 'GRADED' | 'RESUBMISSION_REQUESTED' | string;
+export type ActivityResourceType = 'TEXT' | 'IMAGE' | 'GOOGLE_SLIDES' | 'PDF' | 'LINK';
 
 export interface CohortActivityItem {
   id: string;
@@ -104,22 +117,40 @@ export interface CohortActivityItem {
   cohort_name?: string;
   course: string;
   course_title?: string;
-  tutor: string;
+  module?: string | null;
+  module_title?: string | null;
+  created_by?: string;
+  created_by_name?: string;
+  tutor?: string;
   tutor_name?: string;
   title: string;
-  activity_type: ActivityType;
+  title_kinyarwanda?: string;
   description: string;
-  instructions: string;
+  description_kinyarwanda?: string;
+  instructions?: string;
+  activity_type: ActivityType;
   submission_type: SubmissionType;
-  max_score: number;
-  pass_score: number;
-  open_date: string | null;
+  allowed_submission_methods?: string[];
+  resource_type?: ActivityResourceType;
+  attachment?: string | null;
+  attachment_file?: string | null;
+  attachment_url?: string;
+  total_points?: number;
+  passing_points?: number;
+  max_score?: number;
+  pass_score?: number;
+  open_date?: string | null;
   due_date: string | null;
-  allow_late_submissions: boolean;
-  late_penalty_percent: number;
+  allow_late_submission?: boolean;
+  allow_late_submissions?: boolean;
+  late_penalty_percent?: number;
   is_published: boolean;
+  is_locked: boolean;
+  grades_published?: boolean;
+  release_grades_immediately?: boolean;
   submission_count: number;
   graded_count: number;
+  submission?: StudentActivitySubmissionItem | null;
   my_submission?: StudentActivitySubmissionItem | null;
   created_at?: string;
   updated_at?: string;
@@ -132,17 +163,25 @@ export interface StudentActivitySubmissionItem {
   student: string;
   student_name?: string;
   student_phone?: string;
-  submission_type: SubmissionType;
-  text_content: string;
-  attachment_file: string | null;
+  submission_type?: SubmissionType;
+  submission_method?: string;
+  submission_text?: string;
+  submission_link?: string;
+  text_content?: string;
+  attachment?: string | null;
+  attachment_file?: string | null;
   status: SubmissionStatus;
   score: number | null;
+  is_score_published?: boolean;
   max_score?: number;
-  feedback: string;
-  tutor: string | null;
+  tutor_feedback?: string;
+  feedback?: string;
+  tutor?: string | null;
   tutor_name?: string | null;
+  graded_by?: string;
+  graded_by_name?: string;
   submitted_at: string;
-  graded_at: string | null;
+  graded_at?: string | null;
 }
 
 export class TutorLmsService {
@@ -194,6 +233,18 @@ export class TutorLmsService {
 
   public async getTutorCohorts(): Promise<CohortSelectorItem[]> {
     return this.http.get<CohortSelectorItem[]>(ApiEndpoints.LMS.TUTOR_COHORTS);
+  }
+
+  public async getCohortStudents(cohortId: string): Promise<CohortStudentItem[]> {
+    try {
+      const url = ApiEndpoints.LMS.TUTOR_COHORT_STUDENTS(cohortId);
+      const res = await this.http.get<any>(url);
+      const data = res?.data || res || [];
+      return Array.isArray(data) ? data : [];
+    } catch (err) {
+      console.warn('Failed to fetch cohort students:', err);
+      return [];
+    }
   }
 
   public async getTutorDeadlines(): Promise<CohortDeadlineItem[]> {
@@ -263,7 +314,10 @@ export class TutorLmsService {
     return this.http.get<CohortActivityItem[]>(url);
   }
 
-  public async createCohortActivity(cohortId: string, data: Partial<CohortActivityItem>): Promise<CohortActivityItem> {
+  public async createCohortActivity(
+    cohortId: string,
+    data: Partial<CohortActivityItem> | FormData
+  ): Promise<CohortActivityItem> {
     const url = ApiEndpoints.LMS.TUTOR_COHORT_ACTIVITIES(cohortId);
     return this.http.post<CohortActivityItem>(url, data);
   }
@@ -271,7 +325,7 @@ export class TutorLmsService {
   public async updateCohortActivity(
     cohortId: string,
     activityId: string,
-    data: Partial<CohortActivityItem>
+    data: Partial<CohortActivityItem> | FormData
   ): Promise<CohortActivityItem> {
     const url = ApiEndpoints.LMS.TUTOR_COHORT_ACTIVITY_DETAIL(cohortId, activityId);
     return this.http.patch<CohortActivityItem>(url, data);
@@ -295,6 +349,11 @@ export class TutorLmsService {
   ): Promise<StudentActivitySubmissionItem> {
     const url = ApiEndpoints.LMS.TUTOR_COHORT_ACTIVITY_GRADE(cohortId, activityId, submissionId);
     return this.http.post<StudentActivitySubmissionItem>(url, payload);
+  }
+
+  public async publishActivityGrades(cohortId: string, activityId: string): Promise<CohortActivityItem> {
+    const url = ApiEndpoints.LMS.TUTOR_COHORT_ACTIVITY_PUBLISH_GRADES(cohortId, activityId);
+    return this.http.post<CohortActivityItem>(url, {});
   }
 
   // --- Student Cohort Activities ---

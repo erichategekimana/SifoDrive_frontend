@@ -79,8 +79,16 @@ export const ApiEndpoints = {
     QUIZZES: `${API_BASE_URL}/lms/quizzes/`,
     QUIZ_DETAIL: (id: string) => `${API_BASE_URL}/lms/quizzes/${id}/`,
     QUIZ_PUBLISH: (id: string) => `${API_BASE_URL}/lms/quizzes/${id}/publish/`,
+    QUIZ_SUBMIT: (id: string) => `${API_BASE_URL}/lms/quizzes/${id}/submit/`,
+    QUIZ_SUBMISSIONS: (id: string) => `${API_BASE_URL}/lms/quizzes/${id}/submissions/`,
+    QUIZ_GRADE_SUBMISSION: (quizId: string, subId: string) =>
+      `${API_BASE_URL}/lms/quizzes/${quizId}/submissions/${subId}/grade/`,
     SUPPORT_TICKETS: `${API_BASE_URL}/lms/support/tickets/`,
     SUPPORT_TICKET_DETAIL: (id: string) => `${API_BASE_URL}/lms/support/tickets/${id}/`,
+    SUPPORT_TICKET_FORWARD: (id: string) => `${API_BASE_URL}/lms/support/tickets/${id}/forward/`,
+    SUPPORT_TICKET_STATUS: (id: string) => `${API_BASE_URL}/lms/support/tickets/${id}/status/`,
+    SUPPORT_TICKET_FEEDBACK: (id: string) => `${API_BASE_URL}/lms/support/tickets/${id}/feedback/`,
+    SUPPORT_ASSIGNABLE_USERS: `${API_BASE_URL}/lms/support/assignable-users/`,
     SUPPORT_ANNOUNCEMENTS: `${API_BASE_URL}/lms/support/announcements/`,
     SUPPORT_ANNOUNCEMENT_DETAIL: (id: string) => `${API_BASE_URL}/lms/support/announcements/${id}/`,
 
@@ -91,6 +99,7 @@ export const ApiEndpoints = {
 
     // Tutor LMS Studio: Cohorts & Content
     TUTOR_COHORTS: `${API_BASE_URL}/lms/tutor/cohorts/`,
+    TUTOR_COHORT_STUDENTS: (cohortId: string) => `${API_BASE_URL}/lms/tutor/cohorts/${cohortId}/students/`,
     TUTOR_DEADLINES: `${API_BASE_URL}/lms/tutor/deadlines/`,
     TUTOR_COHORT_COURSES: (cohortId: string) => `${API_BASE_URL}/lms/tutor/cohorts/${cohortId}/courses/`,
     TUTOR_COHORT_MODULES: (cohortId: string, courseId: string) => `${API_BASE_URL}/lms/tutor/cohorts/${cohortId}/courses/${courseId}/modules/`,
@@ -104,6 +113,7 @@ export const ApiEndpoints = {
     TUTOR_COHORT_ACTIVITY_DETAIL: (cohortId: string, activityId: string) => `${API_BASE_URL}/lms/tutor/cohorts/${cohortId}/activities/${activityId}/`,
     TUTOR_COHORT_ACTIVITY_SUBMISSIONS: (cohortId: string, activityId: string) => `${API_BASE_URL}/lms/tutor/cohorts/${cohortId}/activities/${activityId}/submissions/`,
     TUTOR_COHORT_ACTIVITY_GRADE: (cohortId: string, activityId: string, submissionId: string) => `${API_BASE_URL}/lms/tutor/cohorts/${cohortId}/activities/${activityId}/submissions/${submissionId}/grade/`,
+    TUTOR_COHORT_ACTIVITY_PUBLISH_GRADES: (cohortId: string, activityId: string) => `${API_BASE_URL}/lms/tutor/cohorts/${cohortId}/activities/${activityId}/publish-grades/`,
     STUDENT_COHORT_ACTIVITIES: (cohortId?: string) =>
       cohortId ? `${API_BASE_URL}/lms/cohorts/${cohortId}/activities/` : `${API_BASE_URL}/lms/cohorts/activities/`,
     STUDENT_COHORT_ACTIVITY_SUBMIT: (cohortId: string, activityId: string) => `${API_BASE_URL}/lms/cohorts/${cohortId}/activities/${activityId}/submit/`,
@@ -118,6 +128,7 @@ export const ApiEndpoints = {
     DISCUSSION_REPLY_DELETE: (topicId: string, replyId: string) => `${API_BASE_URL}/lms/discussions/${topicId}/replies/${replyId}/`,
 
     // Course People: Roster & Study Groups & Group Chat
+    ALL_GROUPS: `${API_BASE_URL}/lms/groups/`,
     COURSE_ROSTER: (courseId: string) => `${API_BASE_URL}/lms/courses/${courseId}/roster/`,
     COURSE_GROUPS: (courseId: string) => `${API_BASE_URL}/lms/courses/${courseId}/groups/`,
     COURSE_GROUP_DETAIL: (groupId: string) => `${API_BASE_URL}/lms/groups/${groupId}/`,
@@ -204,6 +215,10 @@ export const ApiEndpoints = {
     QUIZ_UPDATE: (id: string) => `${API_BASE_URL}/lms/quizzes/${id}/`,
     QUIZ_DELETE: (id: string) => `${API_BASE_URL}/lms/quizzes/${id}/`,
     QUIZ_PUBLISH: (id: string) => `${API_BASE_URL}/lms/quizzes/${id}/publish/`,
+    QUIZ_SUBMIT: (id: string) => `${API_BASE_URL}/lms/quizzes/${id}/submit/`,
+    QUIZ_SUBMISSIONS: (id: string) => `${API_BASE_URL}/lms/quizzes/${id}/submissions/`,
+    QUIZ_GRADE_SUBMISSION: (quizId: string, subId: string) =>
+      `${API_BASE_URL}/lms/quizzes/${quizId}/submissions/${subId}/grade/`,
 
     // Live Classes & Cohort Dispatch
     COHORTS: `${API_BASE_URL}/live-classes/cohorts/`,

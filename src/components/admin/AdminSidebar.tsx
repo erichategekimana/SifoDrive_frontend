@@ -15,6 +15,9 @@ import {
   UserCheck,
   Video,
   GraduationCap,
+  LifeBuoy,
+  Radio,
+  HelpCircle,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTranslation } from '../../context/I18nContext';
@@ -34,10 +37,13 @@ export const AdminSidebar: React.FC = () => {
 
   const systemAdminNavItems: NavItem[] = [
     { to: '/admin', label: t('admin.sidebar.commandCenter'), icon: <LayoutDashboard size={18} />, end: true },
+    { to: '/admin/tickets', label: t('admin.sidebar.tickets') || 'Tickets & Inquiries', icon: <LifeBuoy size={18} /> },
+    { to: '/admin/broadcast-studio', label: 'Broadcast Studio', icon: <Radio size={18} /> },
     { to: '/admin/analytics', label: t('admin.sidebar.analytics'), icon: <TrendingUp size={18} /> },
     { to: '/admin/users', label: t('admin.sidebar.users'), icon: <Users size={18} /> },
     { to: '/admin/agents-staff', label: t('admin.sidebar.agentsStaff'), icon: <UserCheck size={18} /> },
     { to: '/admin/courses', label: t('admin.sidebar.lmsStudio'), icon: <BookOpen size={18} /> },
+    { to: '/admin/quizzes', label: 'Quiz Bank', icon: <HelpCircle size={18} /> },
     { to: '/admin/examinations', label: t('admin.sidebar.examinations'), icon: <Award size={18} /> },
     { to: '/admin/schedules', label: t('admin.sidebar.schedules'), icon: <CalendarDays size={18} /> },
     { to: '/admin/sms', label: t('admin.sidebar.sms'), icon: <MessageSquare size={18} /> },
@@ -47,7 +53,9 @@ export const AdminSidebar: React.FC = () => {
 
   const trainingAdminNavItems: NavItem[] = [
     { to: '/admin', label: t('admin.sidebar.commandCenter'), icon: <LayoutDashboard size={18} />, end: true },
+    { to: '/admin/tickets', label: t('admin.sidebar.tickets') || 'Tickets & Inquiries', icon: <LifeBuoy size={18} /> },
     { to: '/admin/courses', label: t('admin.sidebar.lmsStudio'), icon: <BookOpen size={18} /> },
+    { to: '/admin/quizzes', label: 'Quiz Bank', icon: <HelpCircle size={18} /> },
     { to: '/admin/examinations', label: t('admin.sidebar.examinations'), icon: <Award size={18} /> },
     { to: '/admin/schedules', label: t('admin.sidebar.schedules'), icon: <CalendarDays size={18} /> },
     { to: '/admin/live-classes', label: t('admin.sidebar.liveClasses'), icon: <Video size={18} /> },

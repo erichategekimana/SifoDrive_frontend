@@ -361,6 +361,12 @@
   border: 1px solid #E2E8F0;
 }
 
+.canvas-badge-reopened {
+  background-color: #FFF5F5;
+  color: #C53030;
+  border: 1px solid #FEB2B2;
+}
+
 /* Canvas Form Controls */
 .canvas-input {
   background-color: var(--canvas-input-bg);
@@ -562,6 +568,12 @@
   background-color: rgba(148, 163, 184, 0.15);
   color: #CBD5E1;
   border-color: rgba(148, 163, 184, 0.3);
+}
+
+[data-theme="dark"] .canvas-badge-reopened {
+  background-color: rgba(239, 68, 68, 0.2);
+  color: #F87171;
+  border-color: rgba(239, 68, 68, 0.3);
 }
 
 [data-theme="dark"] .account-sub-nav-btn {

@@ -3,7 +3,6 @@ import {
   Layers,
   GraduationCap,
   Users,
-  HelpCircle,
   UserCheck,
   RefreshCw,
 } from 'lucide-react';
@@ -14,10 +13,9 @@ import { useLmsStudioData } from '../../features/lms/hooks/useLmsStudioData';
 import { CurriculaSection } from '../../features/lms/components/CurriculaSection';
 import { CohortsSection } from '../../features/lms/components/CohortsSection';
 import { LearnersSection } from '../../features/lms/components/LearnersSection';
-import { QuizzesSection } from '../../features/lms/components/QuizzesSection';
 import { TutorsSection } from '../../features/lms/components/TutorsSection';
 
-type LMSStudioSection = 'curricula' | 'cohorts' | 'learners' | 'quizzes' | 'tutors';
+type LMSStudioSection = 'curricula' | 'cohorts' | 'learners' | 'tutors';
 
 export const AdminCoursesPage: React.FC = () => {
   const { user } = useAuth();
@@ -34,8 +32,6 @@ export const AdminCoursesPage: React.FC = () => {
     tutors,
     students,
     guests,
-    questions,
-    quizzes,
     isLoading,
     isRefetching,
     refetch,
@@ -107,15 +103,6 @@ export const AdminCoursesPage: React.FC = () => {
         </button>
 
         <button
-          onClick={() => setActiveSection('quizzes')}
-          className={`btn btn-sm ${activeSection === 'quizzes' ? 'btn-primary' : 'btn-secondary'}`}
-          style={{ display: 'flex', alignItems: 'center', gap: '8px', borderRadius: 'var(--radius-lg)' }}
-        >
-          <HelpCircle size={15} />
-          <span>{t('admin.courses.tabQuizzes')} ({quizzes.length})</span>
-        </button>
-
-        <button
           onClick={() => setActiveSection('tutors')}
           className={`btn btn-sm ${activeSection === 'tutors' ? 'btn-primary' : 'btn-secondary'}`}
           style={{ display: 'flex', alignItems: 'center', gap: '8px', borderRadius: 'var(--radius-lg)' }}
@@ -157,17 +144,6 @@ export const AdminCoursesPage: React.FC = () => {
               cohorts={cohorts}
               tutors={tutors}
               refetch={refetch}
-            />
-          )}
-
-          {activeSection === 'quizzes' && (
-            <QuizzesSection
-              quizzes={quizzes}
-              courses={courses}
-              questions={questions}
-              refetch={refetch}
-              isSystemAdmin={isSystemAdmin}
-              isTrainingAdmin={isTrainingAdmin}
             />
           )}
 

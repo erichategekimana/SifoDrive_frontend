@@ -31,6 +31,8 @@ export interface CourseGroupMemberDTO {
 
 export interface CourseGroupDTO {
   id: string;
+  course_id?: string;
+  course_title?: string;
   name: string;
   description: string;
   category: string;
@@ -40,6 +42,7 @@ export interface CourseGroupDTO {
   is_member: boolean;
   created_at_formatted: string;
   created_at: string;
+  last_activity?: string;
 }
 
 export interface CourseGroupDetailDTO extends CourseGroupDTO {
@@ -48,6 +51,7 @@ export interface CourseGroupDetailDTO extends CourseGroupDTO {
 }
 
 export interface CreateCourseGroupPayload {
+  course_id?: string;
   name: string;
   description?: string;
   category?: string;
@@ -82,12 +86,34 @@ export class CourseGroupService {
   }
 
   /**
-   * Fetch study groups for a course.
+   * Fetch study groups for a single course.
    */
   public async getGroups(courseId: string): Promise<CourseGroupDTO[]> {
     const res = await this.http.get<{ data: CourseGroupDTO[] } | CourseGroupDTO[]>(
       ApiEndpoints.LMS.COURSE_GROUPS(courseId)
     );
+    if (res && 'data' in res && Array.isArray(res.data)) {
+      return res.data;
+    }
+    return Array.isArray(res) ? res : [];
+  }
+
+  /**
+   * Fetch all study groups across all courses accessible to the student.
+   */
+  public async getAllGroups(params?: {
+    courseId?: string;
+    myGroupsOnly?: boolean;
+    search?: string;
+  }): Promise<CourseGroupDTO[]> {
+    const query = new URLSearchParams();
+    if (params?.courseId) query.set('course_id', params.courseId);
+    if (params?.myGroupsOnly) query.set('my_groups', 'true');
+    if (params?.search) query.set('search', params.search);
+
+    const queryString = query.toString();
+    const url = `${ApiEndpoints.LMS.ALL_GROUPS}${queryString ? `?${queryString}` : ''}`;
+    const res = await this.http.get<{ data: CourseGroupDTO[] } | CourseGroupDTO[]>(url);
     if (res && 'data' in res && Array.isArray(res.data)) {
       return res.data;
     }
@@ -113,6 +139,20 @@ export class CourseGroupService {
   public async createGroup(courseId: string, payload: CreateCourseGroupPayload): Promise<CourseGroupDetailDTO> {
     const res = await this.http.post<{ data: CourseGroupDetailDTO } | CourseGroupDetailDTO>(
       ApiEndpoints.LMS.COURSE_GROUPS(courseId),
+      payload
+    );
+    if (res && 'data' in res && res.data) {
+      return res.data;
+    }
+    return res as CourseGroupDetailDTO;
+  }
+
+  /**
+   * Create a new study group across any of the student's courses.
+   */
+  public async createGlobalGroup(payload: CreateCourseGroupPayload): Promise<CourseGroupDetailDTO> {
+    const res = await this.http.post<{ data: CourseGroupDetailDTO } | CourseGroupDetailDTO>(
+      ApiEndpoints.LMS.ALL_GROUPS,
       payload
     );
     if (res && 'data' in res && res.data) {

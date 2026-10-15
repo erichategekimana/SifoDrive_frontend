@@ -9,17 +9,35 @@ export interface HelpTicketDTO {
   user?: string;
   user_name?: string;
   user_phone?: string;
-  recipient_role: 'TUTOR' | 'TECH_SUPPORT';
-  category: 'CONTENT_INQUIRY' | 'TECHNICAL_ISSUE' | 'EXAM_DISPUTE' | 'ACCOUNT_BILLING' | 'OTHER';
+  user_role?: string;
+  user_email?: string;
+  recipient_role: 'TUTOR' | 'TECH_SUPPORT' | 'TRAINING_ADMIN';
+  category: 'CONTENT_INQUIRY' | 'TECHNICAL_ISSUE' | 'EXAM_DISPUTE' | 'ACCOUNT_BILLING' | 'ADMINISTRATIVE' | 'OTHER';
   subject: string;
   message: string;
   priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
-  status: 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED';
+  status: 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED' | 'REOPENED';
   assigned_to?: string;
   assigned_to_name?: string;
+  forwarded_by?: string;
+  forwarded_by_name?: string;
+  forwarded_at?: string;
+  internal_notes?: string;
   response?: string;
   resolved_at?: string;
+  feedback_rating?: 'LIKE' | 'DISLIKE' | null;
+  feedback_resolution?: 'SOLVED' | 'UNSOLVED' | null;
+  feedback_notes?: string;
+  feedback_submitted_at?: string;
   created_at: string;
+}
+
+export interface AssignableUserDTO {
+  id: string;
+  full_name: string;
+  phone_number: string;
+  role: string;
+  email: string;
 }
 
 export interface SupportAnnouncementDTO {
@@ -75,8 +93,8 @@ export class SupportTicketService {
   }
 
   public async createTicket(payload: {
-    recipient_role: 'TUTOR' | 'TECH_SUPPORT';
-    category: 'CONTENT_INQUIRY' | 'TECHNICAL_ISSUE' | 'EXAM_DISPUTE' | 'ACCOUNT_BILLING' | 'OTHER';
+    recipient_role: 'TUTOR' | 'TECH_SUPPORT' | 'TRAINING_ADMIN';
+    category: 'CONTENT_INQUIRY' | 'TECHNICAL_ISSUE' | 'EXAM_DISPUTE' | 'ACCOUNT_BILLING' | 'ADMINISTRATIVE' | 'OTHER';
     subject: string;
     message: string;
     priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
@@ -108,9 +126,10 @@ export class SupportTicketService {
     course_id?: string;
     title: string;
     content: string;
-    target_type: 'SINGLE_COHORT' | 'ALL_ASSIGNED_COHORTS';
+    target_type?: 'SINGLE_COHORT' | 'ALL_ASSIGNED_COHORTS' | 'PLATFORM_WIDE' | 'COURSE_WIDE';
     cohort_id?: string;
     category?: string;
+    is_pinned?: boolean;
   }): Promise<SupportAnnouncementDTO> {
     logger.info(`Creating announcement: ${payload.title}`, payload);
     const res = await this.http.post<{ data: SupportAnnouncementDTO } | SupportAnnouncementDTO>(
@@ -135,5 +154,49 @@ export class SupportTicketService {
       response,
       status,
     });
+  }
+
+  public async forwardTicket(
+    id: string,
+    payload: { assigned_to: string; internal_notes?: string }
+  ): Promise<HelpTicketDTO> {
+    logger.info(`Forwarding ticket ${id} to user ${payload.assigned_to}`);
+    return this.http.post<HelpTicketDTO>(ApiEndpoints.LMS.SUPPORT_TICKET_FORWARD(id), payload);
+  }
+
+  public async updateTicketStatus(
+    id: string,
+    payload: { status: string; response?: string; internal_notes?: string; assigned_to?: string }
+  ): Promise<HelpTicketDTO> {
+    logger.info(`Updating ticket status ${id} to ${payload.status}`);
+    return this.http.patch<HelpTicketDTO>(ApiEndpoints.LMS.SUPPORT_TICKET_STATUS(id), payload);
+  }
+
+  public async submitFeedback(
+    id: string,
+    payload: {
+      rating: 'LIKE' | 'DISLIKE';
+      resolution: 'SOLVED' | 'UNSOLVED';
+      notes?: string;
+    }
+  ): Promise<HelpTicketDTO> {
+    logger.info(`Submitting feedback for ticket ${id}:`, payload);
+    return this.http.post<HelpTicketDTO>(ApiEndpoints.LMS.SUPPORT_TICKET_FEEDBACK(id), payload);
+  }
+
+  public async getAssignableUsers(): Promise<AssignableUserDTO[]> {
+    logger.info('Fetching assignable users for ticket forwarding');
+    try {
+      const res = await this.http.get<{ results?: AssignableUserDTO[] } | AssignableUserDTO[]>(
+        ApiEndpoints.LMS.SUPPORT_ASSIGNABLE_USERS
+      );
+      if (Array.isArray(res)) return res;
+      if (res && Array.isArray((res as any).data)) return (res as any).data;
+      if (res && Array.isArray((res as any).results)) return (res as any).results;
+      return [];
+    } catch (err) {
+      logger.error('Failed to load assignable users:', err);
+      return [];
+    }
   }
 }

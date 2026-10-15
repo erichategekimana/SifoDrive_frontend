@@ -22,7 +22,6 @@ import type {
   CurriculumItem,
   QuizItem,
 } from '../../../core/services/AdminService';
-import { DEFAULT_LMS_QUIZZES } from '../data/mockQuizzes';
 
 export interface LmsStudioData {
   curricula: CurriculumItem[];
@@ -50,7 +49,7 @@ export function useLmsStudioData(): LmsStudioData {
   const [guests, setGuests] = useState<AdminUserItem[]>([]);
   const [questions, setQuestions] = useState<any[]>([]);
   const [liveClasses, setLiveClasses] = useState<LiveClassAdminItem[]>([]);
-  const [quizzes, setQuizzes] = useState<QuizItem[]>(DEFAULT_LMS_QUIZZES);
+  const [quizzes, setQuizzes] = useState<QuizItem[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isRefetching, setIsRefetching] = useState<boolean>(false);
 
@@ -90,7 +89,7 @@ export function useLmsStudioData(): LmsStudioData {
       if (quizzesRes.status === 'fulfilled' && Array.isArray(quizzesRes.value)) {
         setQuizzes(quizzesRes.value);
       } else {
-        setQuizzes((prev) => (prev.length > 0 ? prev : DEFAULT_LMS_QUIZZES));
+        setQuizzes([]);
       }
     } catch (err) {
       console.error('Failed to load LMS data:', err);

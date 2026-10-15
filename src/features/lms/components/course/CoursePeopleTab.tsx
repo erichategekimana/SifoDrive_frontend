@@ -28,6 +28,7 @@ interface CoursePeopleTabProps {
   activeGroupId?: string | null;
   onSelectGroup?: (groupId: string | null) => void;
   initialGroupId?: string | null;
+  onGroupsLoaded?: (groups: CourseGroupDTO[]) => void;
 }
 
 export const CoursePeopleTab: React.FC<CoursePeopleTabProps> = ({
@@ -35,6 +36,7 @@ export const CoursePeopleTab: React.FC<CoursePeopleTabProps> = ({
   activeGroupId: propActiveGroupId,
   onSelectGroup,
   initialGroupId,
+  onGroupsLoaded,
 }) => {
   const { user } = useAuth();
   const groupService = CourseGroupService.getInstance();
@@ -114,12 +116,13 @@ export const CoursePeopleTab: React.FC<CoursePeopleTabProps> = ({
     try {
       const data = await groupService.getGroups(course.id);
       setCourseGroups(data);
+      onGroupsLoaded?.(data);
     } catch (err) {
       console.error('Failed to load course groups:', err);
     } finally {
       setIsLoadingGroups(false);
     }
-  }, [course.id, groupService]);
+  }, [course.id, groupService, onGroupsLoaded]);
 
   // 3. Fetch Selected Group Detail & Messages
   const fetchGroupDetail = useCallback(async (groupId: string, silent = false) => {
@@ -188,7 +191,11 @@ export const CoursePeopleTab: React.FC<CoursePeopleTabProps> = ({
         category: newGroupCategory,
       });
 
-      setCourseGroups((prev) => [created, ...prev]);
+      setCourseGroups((prev) => {
+        const next = [created, ...prev];
+        onGroupsLoaded?.(next);
+        return next;
+      });
       setActiveGroupId(created.id);
       setActiveGroupDetail(created);
       setShowCreateModal(false);

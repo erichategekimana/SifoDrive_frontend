@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   Clock,
   MessageSquare,
@@ -15,6 +15,7 @@ import {
   Calendar,
   CheckCircle2,
   BookOpen,
+  Layers,
 } from 'lucide-react';
 import { useTranslation } from '../../context/I18nContext';
 import { TutorService, type TutorAssignedStudentDTO } from '../../core/services/TutorService';
@@ -25,6 +26,7 @@ import {
 } from '../../core/services/TutorLmsService';
 import { LiveClassService } from '../../core/services/LiveClassService';
 import { LiveClass } from '../../core/models/LiveClass';
+import type { LiveClassScheduleItem } from '../../core/services/AdminService';
 import {
   SupportTicketService,
   type HelpTicketDTO,
@@ -33,15 +35,23 @@ import {
 import { Spinner } from '../../components/common/Spinner';
 
 export const TutorDashboard: React.FC = () => {
+  const navigate = useNavigate();
   const { t } = useTranslation();
 
   // Operational Database State
   const [cohorts, setCohorts] = useState<CohortSelectorItem[]>([]);
   const [students, setStudents] = useState<TutorAssignedStudentDTO[]>([]);
   const [upcomingClasses, setUpcomingClasses] = useState<LiveClass[]>([]);
+  const [schedules, setSchedules] = useState<LiveClassScheduleItem[]>([]);
   const [deadlines, setDeadlines] = useState<CohortDeadlineItem[]>([]);
   const [announcements, setAnnouncements] = useState<SupportAnnouncementDTO[]>([]);
   const [tickets, setTickets] = useState<HelpTicketDTO[]>([]);
+
+  const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const formatDays = (days: number[] | undefined): string => {
+    if (!days || days.length === 0) return '';
+    return days.map((d) => dayNames[d] ?? d).join(', ');
+  };
 
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -58,6 +68,7 @@ export const TutorDashboard: React.FC = () => {
         cohortsRes,
         studentsRes,
         classesRes,
+        schedulesRes,
         deadlinesRes,
         announcementsRes,
         ticketsRes,
@@ -65,6 +76,7 @@ export const TutorDashboard: React.FC = () => {
         TutorLmsService.getInstance().getTutorCohorts(),
         TutorService.getInstance().getAssignedStudents(),
         LiveClassService.getInstance().getClasses({ upcoming: true }),
+        LiveClassService.getInstance().getSchedules(),
         TutorLmsService.getInstance().getTutorDeadlines(),
         SupportTicketService.getInstance().getAnnouncements(),
         SupportTicketService.getInstance().getTickets(),
@@ -73,6 +85,7 @@ export const TutorDashboard: React.FC = () => {
       if (cohortsRes.status === 'fulfilled') setCohorts(cohortsRes.value || []);
       if (studentsRes.status === 'fulfilled') setStudents(studentsRes.value || []);
       if (classesRes.status === 'fulfilled') setUpcomingClasses(classesRes.value || []);
+      if (schedulesRes.status === 'fulfilled') setSchedules(schedulesRes.value || []);
       if (deadlinesRes.status === 'fulfilled') setDeadlines(deadlinesRes.value || []);
       if (announcementsRes.status === 'fulfilled') setAnnouncements(announcementsRes.value || []);
       if (ticketsRes.status === 'fulfilled') setTickets(ticketsRes.value || []);
@@ -157,12 +170,193 @@ export const TutorDashboard: React.FC = () => {
               color: 'var(--text-secondary)',
             }}
           >
-            {upcomingClasses.length} {upcomingClasses.length === 1 ? 'session' : 'sessions'}
+            {schedules.length > 0
+              ? `${schedules.length} ${schedules.length === 1 ? 'master schedule' : 'master schedules'}`
+              : `${upcomingClasses.length} ${upcomingClasses.length === 1 ? 'session' : 'sessions'}`}
           </span>
         </div>
 
         <div style={{ padding: '18px 22px' }}>
-          {upcomingClasses.length > 0 ? (
+          {schedules.length > 0 ? (
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(380px, 1fr))',
+                gap: '16px',
+              }}
+            >
+              {schedules.map((sch) => {
+                const sessionCount = sch.sessions?.length || sch.total_sessions_count;
+
+                return (
+                  <div
+                    key={sch.id}
+                    style={{
+                      padding: '18px 20px',
+                      borderRadius: 'var(--radius-md)',
+                      border: '1px solid var(--border-subtle)',
+                      background: 'var(--bg-surface-elevated)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '12px',
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}>
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                          <span
+                            style={{
+                              fontSize: '0.72rem',
+                              fontWeight: 700,
+                              padding: '2px 8px',
+                              borderRadius: '4px',
+                              background: 'rgba(0, 85, 165, 0.1)',
+                              color: '#0055A5',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                            }}
+                          >
+                            <Layers size={11} /> Master Schedule
+                          </span>
+                          <span
+                            style={{
+                              fontSize: '0.72rem',
+                              fontWeight: 600,
+                              padding: '2px 8px',
+                              borderRadius: '4px',
+                              background: 'var(--bg-surface)',
+                              border: '1px solid var(--border-subtle)',
+                              color: 'var(--text-secondary)',
+                            }}
+                          >
+                            {sessionCount} sessions total
+                          </span>
+                        </div>
+                        <div style={{ fontWeight: 700, fontSize: '1.05rem', color: 'var(--text-primary)' }}>
+                          {sch.title}
+                        </div>
+                        <div style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                          {sch.cohort_name || 'Platform-wide cohort'}
+                        </div>
+                      </div>
+                      <span
+                        style={{
+                          fontSize: '0.74rem',
+                          fontWeight: 700,
+                          padding: '3px 10px',
+                          borderRadius: 'var(--radius-sm)',
+                          background: sch.is_active ? 'rgba(5, 135, 40, 0.12)' : 'var(--bg-surface)',
+                          color: sch.is_active ? '#058728' : 'var(--text-secondary)',
+                          border: sch.is_active ? '1px solid rgba(5, 135, 40, 0.3)' : '1px solid var(--border-subtle)',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {sch.is_active ? 'ACTIVE' : 'ARCHIVED'}
+                      </span>
+                    </div>
+
+                    {sch.topic && (
+                      <div style={{ fontSize: '0.86rem', color: 'var(--text-secondary)', lineHeight: '1.45' }}>
+                        {sch.topic}
+                      </div>
+                    )}
+
+                    <div
+                      style={{
+                        padding: '10px 12px',
+                        background: 'var(--bg-surface)',
+                        borderRadius: 'var(--radius-sm)',
+                        border: '1px solid var(--border-subtle)',
+                        fontSize: '0.82rem',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '6px',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-primary)', fontWeight: 600 }}>
+                        <Clock size={13} style={{ color: '#0055A5' }} />
+                        <span>Every {formatDays(sch.days_of_week)} • {sch.start_time?.slice(0, 5)} - {sch.end_time?.slice(0, 5)}</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-secondary)' }}>
+                        <Calendar size={13} />
+                        <span>
+                          {sch.start_date} {sch.end_date ? `to ${sch.end_date}` : ''}
+                          {sch.period_months ? ` (${sch.period_months} ${sch.period_unit || 'months'})` : ''}
+                        </span>
+                      </div>
+                      {sch.next_upcoming_session && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#058728', fontWeight: 600 }}>
+                          <CheckCircle2 size={13} />
+                          <span>Next Class Session: {sch.next_upcoming_session.scheduled_date}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        marginTop: '2px',
+                        paddingTop: '8px',
+                        borderTop: '1px solid var(--border-subtle)',
+                        gap: '8px',
+                        flexWrap: 'wrap',
+                      }}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => navigate('/calendar')}
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          color: '#0055A5',
+                          fontSize: '0.8rem',
+                          fontWeight: 600,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          cursor: 'pointer',
+                          padding: '4px 0',
+                        }}
+                      >
+                        <Calendar size={14} color="#0055A5" />
+                        <span>View Dates</span>
+                      </button>
+
+                      {sch.google_meet_url && (
+                        <a
+                          href={sch.google_meet_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            fontSize: '0.84rem',
+                            padding: '6px 16px',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            background: '#058728',
+                            color: '#ffffff',
+                            border: 'none',
+                            borderRadius: 'var(--radius-sm)',
+                            fontWeight: 600,
+                            textDecoration: 'none',
+                            cursor: 'pointer',
+                            marginLeft: 'auto',
+                          }}
+                        >
+                          <Video size={14} />
+                          <span>Launch Classroom</span>
+                          <ExternalLink size={13} />
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : upcomingClasses.length > 0 ? (
             <div
               style={{
                 display: 'grid',
@@ -260,7 +454,7 @@ export const TutorDashboard: React.FC = () => {
             </div>
           ) : (
             <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-              No upcoming live classes scheduled.
+              No upcoming live class schedules assigned.
             </div>
           )}
         </div>

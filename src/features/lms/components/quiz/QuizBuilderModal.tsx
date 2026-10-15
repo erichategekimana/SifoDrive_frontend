@@ -12,6 +12,8 @@ import {
   Sparkles,
   ShieldCheck,
   Clock,
+  ShieldAlert,
+  Layers,
 } from 'lucide-react';
 import { AdminService } from '../../../../core/services/AdminService';
 import type { QuizQuestionItem, QuizPayload } from '../../../../core/services/AdminService';
@@ -53,6 +55,9 @@ export const QuizBuilderModal: React.FC<QuizBuilderModalProps> = ({
   const adminService = AdminService.getInstance();
 
   const [quizActiveTab, setQuizActiveTab] = useState<'settings' | 'questions' | 'rubric' | 'accessControl'>('settings');
+  const [quizType, setQuizType] = useState<'LIVE_TIMED' | 'WORK_SUBMISSION'>('LIVE_TIMED');
+  const [enableProctoring, setEnableProctoring] = useState<boolean>(true);
+  const [maxTabSwitchesAllowed, setMaxTabSwitchesAllowed] = useState<number>(3);
   const [quizCourseId, setQuizCourseId] = useState<string>('');
   const [quizModuleId, setQuizModuleId] = useState<string>('');
   const [quizTitle, setQuizTitle] = useState<string>('');
@@ -119,6 +124,9 @@ export const QuizBuilderModal: React.FC<QuizBuilderModalProps> = ({
           setAllowTutorInstructions(detail.allow_tutor_edit_instructions !== false);
           setAllowTutorDuration(detail.allow_tutor_edit_duration !== false);
           setAllowTutorAttempts(detail.allow_tutor_edit_attempts !== false);
+          setQuizType(detail.quiz_type || 'LIVE_TIMED');
+          setEnableProctoring(detail.enable_proctoring !== false);
+          setMaxTabSwitchesAllowed(detail.max_tab_switches_allowed || 3);
           setQuizItems(detail.items || []);
 
           if (detail.course) {
@@ -131,6 +139,9 @@ export const QuizBuilderModal: React.FC<QuizBuilderModalProps> = ({
         .finally(() => setIsLoadingDetails(false));
     } else {
       setQuizActiveTab('settings');
+      setQuizType('LIVE_TIMED');
+      setEnableProctoring(true);
+      setMaxTabSwitchesAllowed(3);
       const defaultCourseId = courses[0]?.id || '';
       setQuizCourseId(defaultCourseId);
       setQuizModuleId('');
@@ -252,6 +263,9 @@ export const QuizBuilderModal: React.FC<QuizBuilderModalProps> = ({
         course_title: targetCourseObj?.title || targetCourseObj?.name || '',
         module: quizModuleId || null,
         module_title: targetModuleObj?.title || targetModuleObj?.name || null,
+        quiz_type: quizType,
+        enable_proctoring: quizType === 'LIVE_TIMED' ? enableProctoring : false,
+        max_tab_switches_allowed: Number(maxTabSwitchesAllowed) || 3,
         title: quizTitle.trim(),
         title_kinyarwanda: quizTitleRw.trim(),
         description: quizDescription.trim(),
@@ -456,6 +470,119 @@ export const QuizBuilderModal: React.FC<QuizBuilderModalProps> = ({
             {/* TAB 1: SETTINGS & SCHEDULE */}
             {quizActiveTab === 'settings' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {/* Quiz Type & Proctoring Mode */}
+                <div
+                  style={{
+                    padding: '16px',
+                    borderRadius: 'var(--radius-lg)',
+                    background: 'rgba(255, 255, 255, 0.03)',
+                    border: '1px solid var(--border-subtle)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '12px',
+                  }}
+                >
+                  <div style={{ fontSize: '0.86rem', fontWeight: 700, color: '#ffffff', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Layers size={16} style={{ color: '#38bdf8' }} />
+                    <span>Quiz Assessment Mode</span>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <div
+                      onClick={() => setQuizType('LIVE_TIMED')}
+                      style={{
+                        padding: '14px',
+                        borderRadius: 'var(--radius-md)',
+                        border: quizType === 'LIVE_TIMED' ? '2px solid #38bdf8' : '1px solid var(--border-subtle)',
+                        background: quizType === 'LIVE_TIMED' ? 'rgba(56, 189, 248, 0.12)' : 'var(--bg-surface-elevated)',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                        <Clock size={16} style={{ color: '#38bdf8' }} />
+                        <span style={{ fontWeight: 700, fontSize: '0.88rem', color: '#ffffff' }}>Live Timed (Proctored)</span>
+                      </div>
+                      <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: 0, lineHeight: 1.4 }}>
+                        Live test with time countdown, maximum attempts, and simple proctoring tracking if student leaves the active tab.
+                      </p>
+                    </div>
+
+                    <div
+                      onClick={() => setQuizType('WORK_SUBMISSION')}
+                      style={{
+                        padding: '14px',
+                        borderRadius: 'var(--radius-md)',
+                        border: quizType === 'WORK_SUBMISSION' ? '2px solid #a855f7' : '1px solid var(--border-subtle)',
+                        background: quizType === 'WORK_SUBMISSION' ? 'rgba(168, 85, 247, 0.12)' : 'var(--bg-surface-elevated)',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                        <FileCheck size={16} style={{ color: '#c084fc' }} />
+                        <span style={{ fontWeight: 700, fontSize: '0.88rem', color: '#ffffff' }}>Work Submission (Take-Home)</span>
+                      </div>
+                      <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: 0, lineHeight: 1.4 }}>
+                        Self-paced assessment where students submit their written work, project answers, or documents.
+                      </p>
+                    </div>
+                  </div>
+
+                  {quizType === 'LIVE_TIMED' && (
+                    <div
+                      style={{
+                        marginTop: '4px',
+                        padding: '12px 14px',
+                        borderRadius: 'var(--radius-md)',
+                        background: 'rgba(56, 189, 248, 0.05)',
+                        border: '1px solid rgba(56, 189, 248, 0.2)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '10px',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <ShieldAlert size={16} style={{ color: '#38bdf8' }} />
+                          <span style={{ fontSize: '0.82rem', fontWeight: 600, color: '#ffffff' }}>
+                            Enable Tab-Switch Proctoring Telemetry
+                          </span>
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={enableProctoring}
+                          onChange={(e) => setEnableProctoring(e.target.checked)}
+                          style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                        />
+                      </div>
+                      {enableProctoring && (
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', paddingTop: '6px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                          <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                            Max tab switches before flag / auto-submit warning:
+                          </span>
+                          <input
+                            type="number"
+                            min={1}
+                            max={10}
+                            value={maxTabSwitchesAllowed}
+                            onChange={(e) => setMaxTabSwitchesAllowed(Number(e.target.value) || 3)}
+                            style={{
+                              width: '72px',
+                              padding: '5px 8px',
+                              borderRadius: 'var(--radius-sm)',
+                              background: 'var(--bg-surface-elevated)',
+                              border: '1px solid var(--border-subtle)',
+                              color: '#ffffff',
+                              textAlign: 'center',
+                            }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
                   <div>
                     <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>

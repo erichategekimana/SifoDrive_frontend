@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, BookOpen, Compass, Video, Calendar, UserCheck, Award, Shield } from 'lucide-react';
+import { LayoutDashboard, BookOpen, Compass, Video, Calendar, UserCheck, Award, Shield, LifeBuoy } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTranslation } from '../../context/I18nContext';
 
@@ -13,6 +13,7 @@ export const Sidebar: React.FC = () => {
   const navItems = isBoardReviewer
     ? [
         { to: '/dashboard', label: 'Exam Review Console', icon: <Award size={18} color="#0055A5" /> },
+        { to: '/help', label: 'Support & Inquiries', icon: <LifeBuoy size={18} color="#0055A5" /> },
         { to: '/profile', label: t('nav.myProfile'), icon: <UserCheck size={18} /> },
       ]
     : [
@@ -30,6 +31,7 @@ export const Sidebar: React.FC = () => {
         { to: '/road-signs', label: t('nav.roadSigns'), icon: <Compass size={18} /> },
         { to: '/live-classes', label: t('nav.liveClasses'), icon: <Video size={18} /> },
         { to: '/booking', label: t('nav.booking'), icon: <Calendar size={18} /> },
+        { to: '/help', label: 'Support & Inquiries', icon: <LifeBuoy size={18} color="#0284c7" /> },
         { to: '/profile', label: t('nav.myProfile'), icon: <UserCheck size={18} /> },
         ...(user?.isSystemAdmin()
           ? [{ to: '/admin', label: 'Admin Console', icon: <Shield size={18} color="#ef4444" /> }]

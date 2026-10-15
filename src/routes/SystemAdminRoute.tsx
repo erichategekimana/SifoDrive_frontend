@@ -107,8 +107,14 @@ export const SystemAdminRoute: React.FC = () => {
     return <Navigate to="/admin/examinations" replace />;
   }
 
-  // System Admin exclusive sections (Agents, Audits, System Settings)
-  const systemAdminOnlyPaths = ['/admin/agents-staff', '/admin/audit', '/admin/settings'];
+  // System Admin exclusive sections (Agents, Audits, System Settings, Broadcast Studio)
+  const systemAdminOnlyPaths = [
+    '/admin/agents-staff',
+    '/admin/audit',
+    '/admin/settings',
+    '/admin/broadcast-studio',
+    '/admin/broadcasts',
+  ];
   const isRestrictedPath = systemAdminOnlyPaths.some((p) => location.pathname.startsWith(p));
   if (user.isTrainingAdmin() && isRestrictedPath) {
     return <Navigate to="/admin" replace />;

@@ -59,6 +59,21 @@ export const CohortActivitiesPanel: React.FC<CohortActivitiesPanelProps> = ({
     }
   };
 
+  if (activityForSubmissions) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <ReviewSubmissionsModal
+          isOpen={true}
+          cohortId={activityForSubmissions.cohort || cohortId}
+          activity={activityForSubmissions}
+          onClose={() => setActivityForSubmissions(null)}
+          onSuccess={onRefresh}
+          backLabel="Back to Activities"
+        />
+      </div>
+    );
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
@@ -238,13 +253,7 @@ export const CohortActivitiesPanel: React.FC<CohortActivitiesPanelProps> = ({
         onSuccess={onRefresh}
       />
 
-      <ReviewSubmissionsModal
-        isOpen={!!activityForSubmissions}
-        cohortId={cohortId}
-        activity={activityForSubmissions}
-        onClose={() => setActivityForSubmissions(null)}
-        onSuccess={onRefresh}
-      />
+
     </div>
   );
 };

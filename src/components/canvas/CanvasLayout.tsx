@@ -18,6 +18,7 @@ import { CanvasTopBar } from './CanvasTopBar';
 import { ConsentModal } from '../legal/ConsentModal';
 
 import { LmsService } from '../../core/services/LmsService';
+import { CourseGroupService } from '../../core/services/CourseGroupService';
 
 export const CanvasLayout: React.FC = () => {
   const { user, logout } = useAuth();
@@ -45,13 +46,19 @@ export const CanvasLayout: React.FC = () => {
 
   // Real published course items loaded dynamically from database
   const [coursesList, setCoursesList] = useState<ChildSidebarItem[]>([]);
+  // Real study groups across courses loaded dynamically
+  const [groupsList, setGroupsList] = useState<ChildSidebarItem[]>([]);
 
   useEffect(() => {
     let isMounted = true;
-    const fetchDrawerCourses = async () => {
+    const fetchDrawerData = async () => {
       try {
-        const courses = await LmsService.getInstance().getCourses();
+        const [courses, groups] = await Promise.all([
+          LmsService.getInstance().getCourses().catch(() => []),
+          CourseGroupService.getInstance().getAllGroups().catch(() => []),
+        ]);
         if (!isMounted) return;
+
         setCoursesList(
           courses.map((c) => ({
             id: c.id,
@@ -63,44 +70,26 @@ export const CanvasLayout: React.FC = () => {
             path: `/courses/${c.id}`,
           }))
         );
+
+        setGroupsList(
+          groups.map((g) => ({
+            id: g.id,
+            code: g.category?.slice(0, 5).toUpperCase() || 'GRP',
+            title: g.name,
+            subtitle: g.course_title ? `${g.course_title} • ${g.creator_name}` : g.description || 'Study Group',
+            badge: `${g.members_count || 1} Members`,
+            path: `/groups/${g.id}`,
+          }))
+        );
       } catch (err) {
-        console.error('Failed to load drawer courses from DB:', err);
+        console.error('Failed to load drawer data from DB:', err);
       }
     };
-    fetchDrawerCourses();
+    fetchDrawerData();
     return () => {
       isMounted = false;
     };
   }, []);
-
-
-  // Sample groups for child-sidebar
-  const groupsList: ChildSidebarItem[] = [
-    {
-      id: 'grp-001',
-      code: 'KGL-A',
-      title: 'Kigali Cohort Alpha 2026',
-      subtitle: 'Mwarimu: Claude Kamanzi | 42 Abanyeshuri',
-      badge: 'Active Meet',
-      path: '/groups/grp-001',
-    },
-    {
-      id: 'grp-002',
-      code: 'STUDY-B',
-      title: 'Amatsinda yo Kwimenyereza (Mock Team)',
-      subtitle: 'Abanyeshuri 18 | Daily 19:00',
-      badge: 'Study Group',
-      path: '/groups/grp-002',
-    },
-    {
-      id: 'grp-003',
-      code: 'WKD-INT',
-      title: 'Weekend Intensive Study Cohort',
-      subtitle: 'Abanyeshuri 30 | Kuwa Gatandatu 09:00',
-      badge: 'Weekend',
-      path: '/groups/grp-003',
-    },
-  ];
 
   // Base 3 tabs for Guest; Full 6 tabs for Student & Tutor
   const tabs = [

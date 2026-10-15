@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Download, ExternalLink, FileText, Maximize2, Minimize2 } from 'lucide-react';
 import type { LessonContentItem } from '../../../../core/models/Lesson';
+import { PdfViewer } from '../common/PdfViewer';
 
 /* ------------------------------------------------------------------ */
 /* URL helpers: normalise whatever link the training admin pasted     */
@@ -41,6 +42,9 @@ export const toCanvaEmbed = (url: string): string | null => {
 };
 
 const isImageUrl = (url: string) => /\.(png|jpe?g|gif|webp|svg|avif)(\?|$)/i.test(url);
+
+export const isPdfUrl = (url: string) => /\.pdf(\?.*)?$/i.test(url) || url.toLowerCase().includes('.pdf');
+
 
 /* ------------------------------------------------------------------ */
 /* Shared neutral building blocks                                     */
@@ -256,6 +260,15 @@ const ContentBody: React.FC<{ item: LessonContentItem }> = ({ item }) => {
     if (embed) return <GoogleSlidesViewer src={embed} original={url} title={item.title || 'Google Slides'} />;
   }
 
+  // PDF documents: render interactive PDF viewer no matter if saved as DOCUMENT or other content type
+  if (url && (item.documentType === 'PDF' || isPdfUrl(url))) {
+    return (
+      <div style={{ width: '100%', maxWidth: '880px', margin: '0 auto' }}>
+        <PdfViewer url={url} title={item.title || 'Lesson PDF Document'} minHeight="620px" />
+      </div>
+    );
+  }
+
   switch (item.contentType) {
     case 'TEXT':
       return item.contentText ? <RichText text={item.contentText} /> : null;
@@ -290,9 +303,12 @@ const ContentBody: React.FC<{ item: LessonContentItem }> = ({ item }) => {
       ) : null;
 
     case 'DOCUMENT': {
-      // PDF & PowerPoint: download only
-      if (item.documentType === 'PDF') {
-        return <DownloadRow title={item.title || 'PDF document'} subtitle="PDF · download to view" href={url || null} />;
+      if (item.documentType === 'PDF' || (url && isPdfUrl(url))) {
+        return (
+          <div style={{ width: '100%', maxWidth: '880px', margin: '0 auto' }}>
+            <PdfViewer url={url} title={item.title || 'Lesson PDF Document'} minHeight="620px" />
+          </div>
+        );
       }
       if (item.documentType === 'POWERPOINT') {
         return <DownloadRow title={item.title || 'PowerPoint slides'} subtitle="PowerPoint · download to view" href={url || null} />;
