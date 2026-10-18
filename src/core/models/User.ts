@@ -70,7 +70,31 @@ export class User {
     this.firstName = dto.firstName || dto.first_name || '';
     this.lastName = dto.lastName || dto.last_name || '';
     this.fullName = dto.fullName || dto.full_name || `${this.firstName} ${this.lastName}`.trim() || 'User';
-    this.profilePhoto = dto.profilePhoto ?? dto.profile_photo ?? null;
+    let photo = dto.profilePhoto ?? dto.profile_photo ?? null;
+    if (photo && typeof photo === 'string') {
+      const trimmed = photo.trim();
+      if (trimmed) {
+        if (
+          trimmed.startsWith('http://') ||
+          trimmed.startsWith('https://') ||
+          trimmed.startsWith('data:') ||
+          trimmed.startsWith('blob:')
+        ) {
+          photo = trimmed;
+        } else if (trimmed.startsWith('/media/')) {
+          photo = trimmed;
+        } else if (trimmed.startsWith('media/')) {
+          photo = `/${trimmed}`;
+        } else if (trimmed.startsWith('/')) {
+          photo = `/media${trimmed}`;
+        } else {
+          photo = `/media/${trimmed}`;
+        }
+      } else {
+        photo = null;
+      }
+    }
+    this.profilePhoto = photo;
     this.biography = dto.biography || '';
     this.links = Array.isArray(dto.links) ? dto.links : [];
     this.contactMethods = Array.isArray(dto.contactMethods || dto.contact_methods) ? (dto.contactMethods || dto.contact_methods)! : [];

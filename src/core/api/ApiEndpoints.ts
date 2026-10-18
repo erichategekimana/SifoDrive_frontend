@@ -133,6 +133,8 @@ export const ApiEndpoints = {
     COURSE_GROUPS: (courseId: string) => `${API_BASE_URL}/lms/courses/${courseId}/groups/`,
     COURSE_GROUP_DETAIL: (groupId: string) => `${API_BASE_URL}/lms/groups/${groupId}/`,
     COURSE_GROUP_TOGGLE_JOIN: (groupId: string) => `${API_BASE_URL}/lms/groups/${groupId}/toggle-join/`,
+    COURSE_GROUP_MEMBERS: (groupId: string) => `${API_BASE_URL}/lms/groups/${groupId}/members/`,
+    COURSE_GROUP_MEMBER_REMOVE: (groupId: string, userId: string) => `${API_BASE_URL}/lms/groups/${groupId}/members/${userId}/`,
     COURSE_GROUP_MESSAGES: (groupId: string) => `${API_BASE_URL}/lms/groups/${groupId}/messages/`,
   },
 
@@ -143,8 +145,12 @@ export const ApiEndpoints = {
     SCHEDULES: `${API_BASE_URL}/live-classes/schedules/`,
     SCHEDULE_DETAIL: (id: string) => `${API_BASE_URL}/live-classes/schedules/${id}/`,
     RECORDING: (id: string) => `${API_BASE_URL}/live-classes/classes/${id}/recording/`,
+    RECORDINGS_ADD: `${API_BASE_URL}/live-classes/recordings/`,
     MY_ATTENDANCE: `${API_BASE_URL}/live-classes/my-attendance/`,
     COHORTS: `${API_BASE_URL}/live-classes/cohorts/`,
+    CLASS_ATTENDANCE: (classId: string) => `${API_BASE_URL}/live-classes/classes/${classId}/attendance/`,
+    CLASS_ATTENDANCE_BATCH: (classId: string) => `${API_BASE_URL}/live-classes/classes/${classId}/attendance/batch/`,
+    STUDENT_ATTENDANCE: (studentId: string) => `${API_BASE_URL}/live-classes/students/${studentId}/attendance/`,
   },
 
   // Driving Test Booking Concierge (Irembo)

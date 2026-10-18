@@ -6,6 +6,7 @@ import {
   XCircle,
   Shield,
   Plus,
+  X,
   RefreshCw,
   Forward,
   MessageSquare,
@@ -25,6 +26,7 @@ import {
 } from '../../core/services/SupportTicketService';
 import { useTranslation } from '../../context/I18nContext';
 import { useAuth } from '../../context/AuthContext';
+import { SupportDeskHero, SUPPORT_CATEGORIES, type SupportDeskCategory } from '../../components/canvas/SupportDeskHero';
 
 export const HelpView: React.FC = () => {
   const supportService = SupportTicketService.getInstance();
@@ -38,7 +40,7 @@ export const HelpView: React.FC = () => {
   const [announcements, setAnnouncements] = useState<SupportAnnouncementDTO[]>([]);
   const [assignableUsers, setAssignableUsers] = useState<AssignableUserDTO[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [showNewTicketForm, setShowNewTicketForm] = useState(false);
+  const [showNewTicketForm, setShowNewTicketForm] = useState(true);
   const [selectedTicket, setSelectedTicket] = useState<HelpTicketDTO | null>(null);
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED' | 'REOPENED'>('ALL');
 
@@ -50,6 +52,23 @@ export const HelpView: React.FC = () => {
   const [message, setMessage] = useState('');
   const [formSuccess, setFormSuccess] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [selectedCategoryCardId, setSelectedCategoryCardId] = useState<string | null>('studies');
+
+  const handleSelectCategory = (item: SupportDeskCategory) => {
+    setSelectedCategoryCardId(item.id);
+    setCategory(item.category);
+    setRecipientRole(item.recipientRole);
+    if (!subject || subject.startsWith('[')) {
+      setSubject(`[${item.title}] `);
+    }
+    setShowNewTicketForm(true);
+    setTimeout(() => {
+      const formEl = document.getElementById('ticket-form-section');
+      if (formEl) {
+        formEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 100);
+  };
 
   // Admin Forward Modal State
   const [showForwardModal, setShowForwardModal] = useState(false);
@@ -331,7 +350,7 @@ export const HelpView: React.FC = () => {
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <h1 style={{ fontSize: '1.75rem', fontWeight: 700, color: '#0055A5', margin: 0 }}>
-              {isTrainingAdmin ? (t('canvasHelp.adminDesk') || 'Training Admin Support Desk') : (t('canvasHelp.title') || 'Support & Help Desk')}
+              {isTrainingAdmin ? (t('canvasHelp.adminDesk') || 'Training Admin Support Desk') : (t('canvasHelp.title') || 'Help & Support Desk')}
             </h1>
             {isTrainingAdmin && (
               <span style={{ fontSize: '0.72rem', backgroundColor: '#0055A5', color: '#FFF', fontWeight: 700, padding: '2px 8px', borderRadius: '12px' }}>
@@ -360,11 +379,29 @@ export const HelpView: React.FC = () => {
           {/* Student ticket creator button */}
           <button
             onClick={() => setShowNewTicketForm(!showNewTicketForm)}
-            className="canvas-btn canvas-btn-primary"
-            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+            className="canvas-btn"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              background: 'linear-gradient(135deg, #1e3a5f 0%, #155e75 45%, #2e2870 100%)',
+              color: '#FFFFFF',
+              border: 'none',
+              boxShadow: '0 2px 8px rgba(30, 58, 95, 0.25)',
+              fontFamily: "'Outfit', sans-serif",
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.filter = 'brightness(1.1)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.filter = 'none';
+            }}
           >
-            <Plus size={16} />
-            <span>{showNewTicketForm ? (t('canvasHelp.closeForm') || 'Close Form') : (t('canvasHelp.newTicket') || 'New Ticket')}</span>
+            {showNewTicketForm ? <X size={16} /> : <Plus size={16} />}
+            <span>{showNewTicketForm ? (t('canvasHelp.closeForm') || 'Close Form') : (t('canvasHelp.newTicket') || 'Support Ticket')}</span>
           </button>
         </div>
       </div>
@@ -375,223 +412,370 @@ export const HelpView: React.FC = () => {
           style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(5, 1fr)',
-            gap: '12px',
-            marginBottom: '20px',
+            gap: '14px',
+            marginBottom: '24px',
           }}
         >
-          <div style={{ padding: '12px 16px', backgroundColor: '#FFFFFF', border: '1px solid #E5E7EB', borderRadius: '4px', borderLeft: '4px solid #0055A5' }}>
-            <div style={{ fontSize: '0.75rem', color: '#6B7280', fontWeight: 600 }}>COLLECTED TICKETS</div>
-            <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#111827', marginTop: '2px' }}>{totalCount}</div>
+          <div style={{ padding: '14px 18px', backgroundColor: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '10px', borderLeft: '4px solid #0055A5', boxShadow: '0 1px 3px rgba(15, 23, 42, 0.04)' }}>
+            <div style={{ fontSize: '0.74rem', color: '#64748B', fontWeight: 600, letterSpacing: '0.02em', fontFamily: "'Outfit', sans-serif" }}>COLLECTED TICKETS</div>
+            <div style={{ fontSize: '1.45rem', fontWeight: 800, color: '#0F172A', marginTop: '3px', fontFamily: "'Outfit', sans-serif" }}>{totalCount}</div>
           </div>
-          <div style={{ padding: '12px 16px', backgroundColor: '#FFFFFF', border: '1px solid #E5E7EB', borderRadius: '4px', borderLeft: '4px solid #F59E0B' }}>
-            <div style={{ fontSize: '0.75rem', color: '#6B7280', fontWeight: 600 }}>OPEN & IN PROGRESS</div>
-            <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#D97706', marginTop: '2px' }}>{openCount}</div>
+          <div style={{ padding: '14px 18px', backgroundColor: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '10px', borderLeft: '4px solid #F59E0B', boxShadow: '0 1px 3px rgba(15, 23, 42, 0.04)' }}>
+            <div style={{ fontSize: '0.74rem', color: '#64748B', fontWeight: 600, letterSpacing: '0.02em', fontFamily: "'Outfit', sans-serif" }}>OPEN & IN PROGRESS</div>
+            <div style={{ fontSize: '1.45rem', fontWeight: 800, color: '#D97706', marginTop: '3px', fontFamily: "'Outfit', sans-serif" }}>{openCount}</div>
           </div>
-          <div style={{ padding: '12px 16px', backgroundColor: '#FFFFFF', border: '1px solid #E5E7EB', borderRadius: '4px', borderLeft: '4px solid #10B981' }}>
-            <div style={{ fontSize: '0.75rem', color: '#6B7280', fontWeight: 600 }}>RESOLVED / CLOSED</div>
-            <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#059669', marginTop: '2px' }}>{resolvedCount}</div>
+          <div style={{ padding: '14px 18px', backgroundColor: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '10px', borderLeft: '4px solid #10B981', boxShadow: '0 1px 3px rgba(15, 23, 42, 0.04)' }}>
+            <div style={{ fontSize: '0.74rem', color: '#64748B', fontWeight: 600, letterSpacing: '0.02em', fontFamily: "'Outfit', sans-serif" }}>RESOLVED / CLOSED</div>
+            <div style={{ fontSize: '1.45rem', fontWeight: 800, color: '#059669', marginTop: '3px', fontFamily: "'Outfit', sans-serif" }}>{resolvedCount}</div>
           </div>
-          <div style={{ padding: '12px 16px', backgroundColor: '#FFFFFF', border: '1px solid #E5E7EB', borderRadius: '4px', borderLeft: '4px solid #EF4444' }}>
-            <div style={{ fontSize: '0.75rem', color: '#6B7280', fontWeight: 600 }}>REOPENED / UNSOLVED</div>
-            <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#DC2626', marginTop: '2px' }}>{reopenedCount}</div>
+          <div style={{ padding: '14px 18px', backgroundColor: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '10px', borderLeft: '4px solid #EF4444', boxShadow: '0 1px 3px rgba(15, 23, 42, 0.04)' }}>
+            <div style={{ fontSize: '0.74rem', color: '#64748B', fontWeight: 600, letterSpacing: '0.02em', fontFamily: "'Outfit', sans-serif" }}>REOPENED / UNSOLVED</div>
+            <div style={{ fontSize: '1.45rem', fontWeight: 800, color: '#DC2626', marginTop: '3px', fontFamily: "'Outfit', sans-serif" }}>{reopenedCount}</div>
           </div>
-          <div style={{ padding: '12px 16px', backgroundColor: '#FFFFFF', border: '1px solid #E5E7EB', borderRadius: '4px', borderLeft: '4px solid #8B5CF6' }}>
-            <div style={{ fontSize: '0.75rem', color: '#6B7280', fontWeight: 600 }}>POSITIVE FEEDBACK</div>
-            <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#7C3AED', marginTop: '2px' }}>
+          <div style={{ padding: '14px 18px', backgroundColor: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '10px', borderLeft: '4px solid #8B5CF6', boxShadow: '0 1px 3px rgba(15, 23, 42, 0.04)' }}>
+            <div style={{ fontSize: '0.74rem', color: '#64748B', fontWeight: 600, letterSpacing: '0.02em', fontFamily: "'Outfit', sans-serif" }}>POSITIVE FEEDBACK</div>
+            <div style={{ fontSize: '1.45rem', fontWeight: 800, color: '#7C3AED', marginTop: '3px', fontFamily: "'Outfit', sans-serif" }}>
               {feedbackLikesCount} 👍
             </div>
           </div>
         </div>
       )}
 
-      {/* New Ticket Form (Expandable for students / staff) */}
-      {showNewTicketForm && (
-        <div className="canvas-card" style={{ marginBottom: '24px', borderLeft: '4px solid #0055A5' }}>
-          <div className="canvas-card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h2 style={{ fontSize: '1.05rem', margin: 0, color: '#0055A5' }}>
-              {t('canvasHelp.submitHeader') || 'Submit a New Support Ticket'}
-            </h2>
-            <span style={{ fontSize: '0.75rem', color: '#6B7280' }}>
-              Tickets will be reviewed and routed by Training Admin
-            </span>
-          </div>
-
-          {formSuccess && (
-            <div
-              style={{
-                padding: '12px 16px',
-                backgroundColor: '#F0FFF4',
-                border: '1px solid #C6F6D5',
-                color: '#22543D',
-                marginBottom: '16px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                fontSize: '0.85rem',
-              }}
-            >
-              <CheckCircle2 size={16} color="#058728" />
-              <span>{t('canvasHelp.successMsg') || 'Ticket submitted successfully! Training Admin has received your inquiry.'}</span>
-            </div>
-          )}
-
-          {formError && (
-            <div
-              style={{
-                padding: '12px 16px',
-                backgroundColor: '#FFF5F5',
-                border: '1px solid #FED7D7',
-                color: '#9B2C2C',
-                marginBottom: '16px',
-                fontSize: '0.85rem',
-              }}
-            >
-              {formError}
-            </div>
-          )}
-
-          <form onSubmit={handleSubmitTicket} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#2D3B45', marginBottom: '6px' }}>
-                  {t('canvasHelp.recipient') || 'Intended Recipient'}
-                </label>
-                <select
-                  value={recipientRole}
-                  onChange={(e) => setRecipientRole(e.target.value as any)}
-                  className="canvas-input"
-                  style={{ width: '100%', fontSize: '0.85rem' }}
-                >
-                  <option value="TUTOR">{t('canvasHelp.tutorRecipient') || 'Course Tutor / Instructor'}</option>
-                  <option value="TECH_SUPPORT">{t('canvasHelp.techRecipient') || 'Technical / Platform Support'}</option>
-                  <option value="TRAINING_ADMIN">Training Admin / Operations</option>
-                </select>
+      {/* Help & Support Desk Interactive Categories Grid Merged With Support Ticket */}
+      <SupportDeskHero
+        onSelectCategory={handleSelectCategory}
+        activeCategoryId={selectedCategoryCardId}
+      >
+        {/* Support Ticket Form */}
+        {showNewTicketForm && (
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <h2 style={{ fontSize: '1.2rem', fontWeight: 700, margin: 0, color: '#0F172A', fontFamily: "'Outfit', sans-serif" }}>
+                  {t('canvasHelp.submitHeader') || 'Support Ticket'}
+                </h2>
+                {selectedCategoryCardId && (
+                  <span
+                    style={{
+                      fontSize: '0.74rem',
+                      backgroundColor: '#E0EDFE',
+                      color: '#0055A5',
+                      border: '1px solid #BFDBFE',
+                      fontWeight: 700,
+                      padding: '3px 10px',
+                      borderRadius: '8px',
+                      fontFamily: "'Outfit', sans-serif",
+                    }}
+                  >
+                    Category: {SUPPORT_CATEGORIES.find((c) => c.id === selectedCategoryCardId)?.title || selectedCategoryCardId}
+                  </span>
+                )}
               </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#2D3B45', marginBottom: '6px' }}>
-                  {t('canvasHelp.category') || 'Category'}
-                </label>
-                <select
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value as any)}
-                  className="canvas-input"
-                  style={{ width: '100%', fontSize: '0.85rem' }}
-                >
-                  <option value="CONTENT_INQUIRY">{t('canvasHelp.catContent') || 'Lesson & Content Inquiry'}</option>
-                  <option value="TECHNICAL_ISSUE">{t('canvasHelp.catTech') || 'System & App Glitch'}</option>
-                  <option value="EXAM_DISPUTE">{t('canvasHelp.catExam') || 'Quiz / Examination Dispute'}</option>
-                  <option value="ACCOUNT_BILLING">{t('canvasHelp.catBilling') || 'Tuition & Payment'}</option>
-                  <option value="ADMINISTRATIVE">Administrative & Operations</option>
-                  <option value="OTHER">{t('canvasHelp.catOther') || 'Other Inquiries'}</option>
-                </select>
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#2D3B45', marginBottom: '6px' }}>
-                  {t('canvasHelp.priority') || 'Priority Level'}
-                </label>
-                <select
-                  value={priority}
-                  onChange={(e) => setPriority(e.target.value as any)}
-                  className="canvas-input"
-                  style={{ width: '100%', fontSize: '0.85rem' }}
-                >
-                  <option value="LOW">{t('canvasHelp.prioLow') || 'Low'}</option>
-                  <option value="MEDIUM">{t('canvasHelp.prioMedium') || 'Medium'}</option>
-                  <option value="HIGH">{t('canvasHelp.prioHigh') || 'High'}</option>
-                  <option value="URGENT">{t('canvasHelp.prioUrgent') || 'Urgent'}</option>
-                </select>
-              </div>
+              <span style={{ fontFamily: "'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif", fontSize: '0.8rem', color: '#64748B' }}>
+                Tickets will be reviewed and routed by Support Team
+              </span>
             </div>
 
-            <div>
-              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#2D3B45', marginBottom: '6px' }}>
-                {t('canvasHelp.subject') || 'Subject / Title'}
-              </label>
-              <input
-                type="text"
-                value={subject}
-                onChange={(e) => setSubject(e.target.value)}
-                placeholder={t('canvasHelp.subjectPlaceholder') || 'e.g., Question about Module 3 quiz question #4...'}
-                className="canvas-input"
-                style={{ width: '100%', fontSize: '0.85rem' }}
-              />
-            </div>
-
-            <div>
-              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#2D3B45', marginBottom: '6px' }}>
-                {t('canvasHelp.details') || 'Inquiry Details'}
-              </label>
-              <textarea
-                rows={4}
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                placeholder={t('canvasHelp.detailsPlaceholder') || 'Describe your situation with specific details so we can assist promptly...'}
-                className="canvas-input"
-                style={{ width: '100%', fontSize: '0.85rem', fontFamily: 'inherit' }}
-              />
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-              <button
-                type="button"
-                onClick={() => setShowNewTicketForm(false)}
-                className="canvas-btn"
+            {formSuccess && (
+              <div
+                style={{
+                  fontFamily: "'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+                  padding: '12px 16px',
+                  backgroundColor: '#F0FDF4',
+                  border: '1px solid #BBF7D0',
+                  borderRadius: '8px',
+                  color: '#166534',
+                  marginBottom: '18px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  fontSize: '0.86rem',
+                }}
               >
-                {t('canvasHelp.cancel') || 'Cancel'}
-              </button>
-              <button type="submit" className="canvas-btn canvas-btn-primary">
-                <Send size={14} />
-                <span>{t('canvasHelp.submit') || 'Submit Ticket'}</span>
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
+                <CheckCircle2 size={16} color="#166534" />
+                <span>{t('canvasHelp.successMsg') || 'Ticket submitted successfully! Training Admin has received your inquiry.'}</span>
+              </div>
+            )}
+
+            {formError && (
+              <div
+                style={{
+                  fontFamily: "'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+                  padding: '12px 16px',
+                  backgroundColor: '#FEF2F2',
+                  border: '1px solid #FECACA',
+                  borderRadius: '8px',
+                  color: '#991B1B',
+                  marginBottom: '18px',
+                  fontSize: '0.86rem',
+                }}
+              >
+                {formError}
+              </div>
+            )}
+
+            <form onSubmit={handleSubmitTicket} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px', alignItems: 'flex-start' }}>
+                <div>
+                  <label style={{ display: 'block', fontFamily: "'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif", fontSize: '0.86rem', fontWeight: 600, color: '#1E293B', marginBottom: '6px' }}>
+                    {t('canvasHelp.recipient') || 'Whom do you want to contact?'}
+                  </label>
+                  <select
+                    value={recipientRole}
+                    onChange={(e) => setRecipientRole(e.target.value as any)}
+                    style={{
+                      width: 'auto',
+                      minWidth: '240px',
+                      fontSize: '0.86rem',
+                      fontFamily: "'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+                      backgroundColor: '#F8FAFC',
+                      border: '1px solid #CBD5E1',
+                      borderRadius: '8px',
+                      padding: '9px 12px',
+                      color: '#0F172A',
+                      outline: 'none',
+                      transition: 'all 0.15s ease',
+                    }}
+                    onFocus={(e) => {
+                      e.target.style.backgroundColor = '#FFFFFF';
+                      e.target.style.borderColor = '#0055A5';
+                      e.target.style.boxShadow = '0 0 0 3px rgba(0, 85, 165, 0.12)';
+                    }}
+                    onBlur={(e) => {
+                      e.target.style.backgroundColor = '#F8FAFC';
+                      e.target.style.borderColor = '#CBD5E1';
+                      e.target.style.boxShadow = 'none';
+                    }}
+                  >
+                    <option value="TUTOR">{t('canvasHelp.tutorRecipient') || 'Course Tutor / Instructor'}</option>
+                    <option value="TECH_SUPPORT">{t('canvasHelp.techRecipient') || 'Technical / Platform Support'}</option>
+                    <option value="TRAINING_ADMIN">Training Admin / Operations</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontFamily: "'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif", fontSize: '0.86rem', fontWeight: 600, color: '#1E293B', marginBottom: '6px' }}>
+                    {t('canvasHelp.priority') || 'Priority Level'}
+                  </label>
+                  <select
+                    value={priority}
+                    onChange={(e) => setPriority(e.target.value as any)}
+                    style={{
+                      width: 'auto',
+                      minWidth: '130px',
+                      fontSize: '0.86rem',
+                      fontFamily: "'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+                      backgroundColor: '#F8FAFC',
+                      border: '1px solid #CBD5E1',
+                      borderRadius: '8px',
+                      padding: '9px 12px',
+                      color: '#0F172A',
+                      outline: 'none',
+                      transition: 'all 0.15s ease',
+                    }}
+                    onFocus={(e) => {
+                      e.target.style.backgroundColor = '#FFFFFF';
+                      e.target.style.borderColor = '#0055A5';
+                      e.target.style.boxShadow = '0 0 0 3px rgba(0, 85, 165, 0.12)';
+                    }}
+                    onBlur={(e) => {
+                      e.target.style.backgroundColor = '#F8FAFC';
+                      e.target.style.borderColor = '#CBD5E1';
+                      e.target.style.boxShadow = 'none';
+                    }}
+                  >
+                    <option value="LOW">{t('canvasHelp.prioLow') || 'Low'}</option>
+                    <option value="MEDIUM">{t('canvasHelp.prioMedium') || 'Medium'}</option>
+                    <option value="HIGH">{t('canvasHelp.prioHigh') || 'High'}</option>
+                    <option value="URGENT">{t('canvasHelp.prioUrgent') || 'Urgent'}</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontFamily: "'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif", fontSize: '0.86rem', fontWeight: 600, color: '#1E293B', marginBottom: '6px' }}>
+                  {t('canvasHelp.subject') || 'Subject / Topic'}
+                </label>
+                <input
+                  type="text"
+                  value={subject}
+                  onChange={(e) => setSubject(e.target.value)}
+                  placeholder={t('canvasHelp.subjectPlaceholder') || 'e.g., Question about Module 3 quiz question #4...'}
+                  style={{
+                    width: '100%',
+                    boxSizing: 'border-box',
+                    fontSize: '0.86rem',
+                    fontFamily: "'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+                    backgroundColor: '#F8FAFC',
+                    border: '1px solid #CBD5E1',
+                    borderRadius: '8px',
+                    padding: '10px 14px',
+                    color: '#0F172A',
+                    outline: 'none',
+                    transition: 'all 0.15s ease',
+                  }}
+                  onFocus={(e) => {
+                    e.target.style.backgroundColor = '#FFFFFF';
+                    e.target.style.borderColor = '#0055A5';
+                    e.target.style.boxShadow = '0 0 0 3px rgba(0, 85, 165, 0.12)';
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.backgroundColor = '#F8FAFC';
+                    e.target.style.borderColor = '#CBD5E1';
+                    e.target.style.boxShadow = 'none';
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontFamily: "'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif", fontSize: '0.86rem', fontWeight: 600, color: '#1E293B', marginBottom: '6px' }}>
+                  {t('canvasHelp.details') || 'Explain your issue or question in detail'}
+                </label>
+                <textarea
+                  rows={4}
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  placeholder={t('canvasHelp.detailsPlaceholder') || 'Describe your situation with specific details so we can assist promptly...'}
+                  style={{
+                    width: '100%',
+                    boxSizing: 'border-box',
+                    fontSize: '0.86rem',
+                    fontFamily: "'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+                    backgroundColor: '#F8FAFC',
+                    border: '1px solid #CBD5E1',
+                    borderRadius: '8px',
+                    padding: '10px 14px',
+                    color: '#0F172A',
+                    outline: 'none',
+                    transition: 'all 0.15s ease',
+                  }}
+                  onFocus={(e) => {
+                    e.target.style.backgroundColor = '#FFFFFF';
+                    e.target.style.borderColor = '#0055A5';
+                    e.target.style.boxShadow = '0 0 0 3px rgba(0, 85, 165, 0.12)';
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.backgroundColor = '#F8FAFC';
+                    e.target.style.borderColor = '#CBD5E1';
+                    e.target.style.boxShadow = 'none';
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '4px' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowNewTicketForm(false)}
+                  style={{
+                    fontFamily: "'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+                    fontWeight: 600,
+                    fontSize: '0.86rem',
+                    padding: '8px 18px',
+                    borderRadius: '8px',
+                    border: '1px solid #CBD5E1',
+                    backgroundColor: '#FFFFFF',
+                    color: '#475569',
+                    cursor: 'pointer',
+                    boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)',
+                    transition: 'all 0.15s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = '#F1F5F9';
+                    e.currentTarget.style.borderColor = '#94A3B8';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = '#FFFFFF';
+                    e.currentTarget.style.borderColor = '#CBD5E1';
+                  }}
+                >
+                  {t('canvasHelp.cancel') || 'Cancel'}
+                </button>
+                <button
+                  type="submit"
+                  style={{
+                    fontFamily: "'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+                    fontWeight: 600,
+                    fontSize: '0.86rem',
+                    padding: '8px 20px',
+                    borderRadius: '8px',
+                    border: '1px solid #0055A5',
+                    backgroundColor: '#0055A5',
+                    color: '#FFFFFF',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    boxShadow: '0 2px 6px rgba(0, 85, 165, 0.25)',
+                    transition: 'all 0.15s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = '#004080';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = '#0055A5';
+                  }}
+                >
+                  <Send size={14} />
+                  <span>{t('canvasHelp.submit') || 'Submit Ticket'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+      </SupportDeskHero>
 
       {/* Main Content Workspace: 2-Column layout */}
       <div style={{ display: 'grid', gridTemplateColumns: '1.9fr 1.1fr', gap: '24px' }}>
         {/* Left Column: Tickets List & Filtering */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          <div className="canvas-card" style={{ padding: 0 }}>
+          <div
+            style={{
+              backgroundColor: '#FFFFFF',
+              borderRadius: '12px',
+              border: '1px solid #E2E8F0',
+              boxShadow: '0 1px 3px rgba(15, 23, 42, 0.05), 0 8px 16px -4px rgba(15, 23, 42, 0.03)',
+              overflow: 'hidden',
+            }}
+          >
             {/* Table Header & Status Filter Pills */}
             <div
               style={{
-                padding: '12px 18px',
-                borderBottom: '1px solid #EAEAEA',
+                padding: '14px 20px',
+                borderBottom: '1px solid #E2E8F0',
                 backgroundColor: '#F8FAFC',
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
                 flexWrap: 'wrap',
-                gap: '10px',
+                gap: '12px',
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <h2 style={{ fontSize: '0.98rem', fontWeight: 700, color: '#0055A5', margin: 0 }}>
+                <h2 style={{ fontSize: '1rem', fontWeight: 700, color: '#0F172A', fontFamily: "'Outfit', sans-serif", margin: 0 }}>
                   {isTrainingAdmin ? (t('canvasHelp.allCollectedTickets') || 'Collected Student Tickets') : (t('canvasHelp.myTickets') || 'My Support Tickets')}
                 </h2>
-                <span style={{ fontSize: '0.75rem', color: '#6B7280', fontWeight: 600, backgroundColor: '#E2E8F0', padding: '1px 7px', borderRadius: '10px' }}>
+                <span style={{ fontSize: '0.74rem', color: '#475569', fontWeight: 700, backgroundColor: '#E2E8F0', padding: '2px 8px', borderRadius: '12px', fontFamily: "'Outfit', sans-serif" }}>
                   {filteredTickets.length}
                 </span>
               </div>
 
               {/* Status Filters */}
-              <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                 {(['ALL', 'OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED', 'REOPENED'] as const).map((st) => (
                   <button
                     key={st}
                     onClick={() => setStatusFilter(st)}
                     style={{
-                      padding: '3px 8px',
-                      fontSize: '0.72rem',
+                      padding: '4px 10px',
+                      fontSize: '0.74rem',
                       fontWeight: 600,
-                      borderRadius: '3px',
-                      border: statusFilter === st ? '1px solid #0055A5' : '1px solid #D1D5DB',
+                      borderRadius: '6px',
+                      border: statusFilter === st ? '1px solid #0055A5' : '1px solid #E2E8F0',
                       backgroundColor: statusFilter === st ? '#0055A5' : '#FFFFFF',
-                      color: statusFilter === st ? '#FFFFFF' : '#4B5563',
+                      color: statusFilter === st ? '#FFFFFF' : '#475569',
                       cursor: 'pointer',
+                      fontFamily: "'Outfit', sans-serif",
+                      boxShadow: statusFilter === st ? '0 1px 3px rgba(0, 85, 165, 0.2)' : '0 1px 2px rgba(15, 23, 42, 0.02)',
                       transition: 'all 0.15s ease',
                     }}
                   >
@@ -710,7 +894,16 @@ export const HelpView: React.FC = () => {
 
           {/* Selected Ticket Expanded Detail Card */}
           {selectedTicket && (
-            <div className="canvas-card" style={{ borderLeft: '4px solid #0055A5' }}>
+            <div
+              style={{
+                backgroundColor: '#FFFFFF',
+                borderRadius: '12px',
+                border: '1px solid #E2E8F0',
+                borderLeft: '4px solid #0055A5',
+                boxShadow: '0 1px 3px rgba(15, 23, 42, 0.05), 0 8px 16px -4px rgba(15, 23, 42, 0.03)',
+                padding: '24px',
+              }}
+            >
               {/* Header Info & Actions */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
                 <div>
@@ -1091,12 +1284,20 @@ export const HelpView: React.FC = () => {
 
         {/* Right Column: Training Admin & Support Bulletins */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          {/* Quick Help Guidelines */}
-          <div className="canvas-card" style={{ padding: 0 }}>
+          {/* Quick Help Guidelines / Announcements */}
+          <div
+            style={{
+              backgroundColor: '#FFFFFF',
+              borderRadius: '12px',
+              border: '1px solid #E2E8F0',
+              boxShadow: '0 1px 3px rgba(15, 23, 42, 0.05)',
+              overflow: 'hidden',
+            }}
+          >
             <div
               style={{
-                padding: '12px 16px',
-                borderBottom: '1px solid #EAEAEA',
+                padding: '14px 18px',
+                borderBottom: '1px solid #E2E8F0',
                 backgroundColor: '#F8FAFC',
                 display: 'flex',
                 alignItems: 'center',
@@ -1106,21 +1307,22 @@ export const HelpView: React.FC = () => {
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Shield size={16} color="#0055A5" />
-                <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#0055A5' }}>
-                  {t('canvasHelp.systemBulletins') || 'Official Academy Bulletins & Updates'}
+                <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#0F172A', fontFamily: "'Outfit', sans-serif" }}>
+                  {t('canvasHelp.systemBulletins') || 'Announcements'}
                 </span>
               </div>
               {isSystemAdmin && (
                 <Link
                   to="/admin/tickets"
                   style={{
-                    fontSize: '0.72rem',
+                    fontSize: '0.74rem',
                     fontWeight: 600,
                     color: '#7C3AED',
                     display: 'flex',
                     alignItems: 'center',
                     gap: '4px',
                     textDecoration: 'none',
+                    fontFamily: "'Outfit', sans-serif",
                   }}
                   title="Broadcast or manage bulletins in Super Admin console"
                 >
@@ -1206,15 +1408,23 @@ export const HelpView: React.FC = () => {
           </div>
 
           {/* Quick FAQ & Response Policy */}
-          <div className="canvas-card" style={{ padding: '16px' }}>
-            <h4 style={{ fontSize: '0.88rem', fontWeight: 700, color: '#1F2937', margin: '0 0 8px 0', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <HelpCircle size={15} color="#0055A5" />
-              Support Protocol & SLAs
+          <div
+            style={{
+              backgroundColor: '#FFFFFF',
+              borderRadius: '12px',
+              border: '1px solid #E2E8F0',
+              boxShadow: '0 1px 3px rgba(15, 23, 42, 0.05)',
+              padding: '18px 20px',
+            }}
+          >
+            <h4 style={{ fontSize: '0.92rem', fontWeight: 700, color: '#0F172A', margin: '0 0 10px 0', display: 'flex', alignItems: 'center', gap: '8px', fontFamily: "'Outfit', sans-serif" }}>
+              <HelpCircle size={16} color="#0055A5" />
+              Support Protocol
             </h4>
-            <ul style={{ margin: 0, paddingLeft: '18px', fontSize: '0.78rem', color: '#6B7280', lineHeight: 1.6 }}>
-              <li><strong>Urgent inquiries:</strong> Escalated to Training Admin & responded within 2 hours.</li>
-              <li><strong>Module content:</strong> Forwarded directly to certified cohort tutors.</li>
-              <li><strong>Feedback Loop:</strong> Resolving a ticket prompts the student to rate service. Unsolved ratings automatically reopen the ticket.</li>
+            <ul style={{ margin: 0, paddingLeft: '18px', fontSize: '0.78rem', color: '#64748B', lineHeight: 1.6 }}>
+              <li><strong style={{ color: '#334155' }}>Urgent inquiries:</strong> Escalated to Training Admin & responded within 2 hours.</li>
+              <li><strong style={{ color: '#334155' }}>Module content:</strong> Forwarded directly to certified cohort tutors.</li>
+              <li><strong style={{ color: '#334155' }}>Feedback Loop:</strong> Resolving a ticket prompts the student to rate service. Unsolved ratings automatically reopen the ticket.</li>
             </ul>
           </div>
         </div>

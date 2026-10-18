@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Loader2, CalendarX } from 'lucide-react';
+import { Loader2, CalendarX, Plus, Video } from 'lucide-react';
 import { LiveClassService } from '../../../../../core/services/LiveClassService';
 import { AdminService, type LiveClassScheduleItem } from '../../../../../core/services/AdminService';
 import type { LiveClass } from '../../../../../core/models/LiveClass';
@@ -9,6 +9,7 @@ import { useAuth } from '../../../../../context/AuthContext';
 import { LiveClassCard } from './LiveClassCard';
 import { ScheduleCard } from './ScheduleCard';
 import { EditClassScheduleModal } from './EditClassScheduleModal';
+import { AddRecordingModal } from './AddRecordingModal';
 
 export interface CourseLiveClassesTabProps {
   isTutor: boolean;
@@ -35,6 +36,9 @@ export const CourseLiveClassesTab: React.FC<CourseLiveClassesTabProps> = ({ isTu
   const [editStartTime, setEditStartTime] = useState('');
   const [editEndTime, setEditEndTime] = useState('');
   const [editMeetUrl, setEditMeetUrl] = useState('');
+
+  // Add Recording Modal state (tutor / admin)
+  const [showAddRecordingModal, setShowAddRecordingModal] = useState(false);
 
   const [saving, setSaving] = useState(false);
 
@@ -108,6 +112,40 @@ export const CourseLiveClassesTab: React.FC<CourseLiveClassesTabProps> = ({ isTu
       await load();
     } catch {
       toastError('Could not save the recording. Please try again.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSaveAddRecording = async (payload: {
+    date: string;
+    googleLink: string;
+  }) => {
+    setSaving(true);
+    try {
+      // Find if an awaiting session on that date exists
+      const matchedSession = awaitingRecording.find(
+        (s) => s.scheduledDate === payload.date
+      );
+
+      if (matchedSession) {
+        await LiveClassService.getInstance().postRecording(
+          matchedSession.id,
+          payload.googleLink
+        );
+      } else {
+        await LiveClassService.getInstance().addRecording({
+          date: payload.date,
+          googleLink: payload.googleLink,
+          cohortId: cohortId || undefined,
+        });
+      }
+      toastSuccess('Class recording published successfully.');
+      setShowAddRecordingModal(false);
+      await load();
+    } catch (err: any) {
+      console.error('Failed to publish recording:', err);
+      toastError(err?.message || 'Could not save the recording. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -200,15 +238,40 @@ export const CourseLiveClassesTab: React.FC<CourseLiveClassesTabProps> = ({ isTu
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
-      <div>
-        <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#2D3B45', margin: 0 }}>Live Classes</h2>
-        <p style={{ fontSize: '0.84rem', color: '#6B7280', margin: '3px 0 0 0' }}>
-          {isTrainingAdmin
-            ? 'Manage session timetables, Google Meet links, tutor assignments, and class recordings.'
-            : isTutor
-            ? 'Sessions scheduled by your Training Admin. You host each session on Google Meet and publish the recording afterwards.'
-            : 'Join your cohort’s scheduled Google Meet sessions and rewatch recent recordings.'}
-        </p>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
+        <div>
+          <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#2D3B45', margin: 0 }}>Live Classes</h2>
+          <p style={{ fontSize: '0.84rem', color: '#6B7280', margin: '3px 0 0 0' }}>
+            {isTrainingAdmin
+              ? 'Manage session timetables, Google Meet links, tutor assignments, and class recordings.'
+              : isTutor
+              ? 'Sessions scheduled by your Training Admin. You host each session on Google Meet and publish the recording afterwards.'
+              : 'Join your cohort’s scheduled Google Meet sessions and rewatch recent recordings.'}
+          </p>
+        </div>
+
+        {(isTutor || isTrainingAdmin) && (
+          <button
+            onClick={() => setShowAddRecordingModal(true)}
+            className="canvas-btn canvas-btn-primary"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '8px 16px',
+              fontSize: '0.84rem',
+              fontWeight: 700,
+              backgroundColor: '#0055A5',
+              color: '#FFFFFF',
+              borderRadius: '4px',
+              border: 'none',
+              cursor: 'pointer',
+            }}
+          >
+            <Video size={15} />
+            <span>Add Recording</span>
+          </button>
+        )}
       </div>
 
       {/* Upcoming Schedules */}
@@ -251,35 +314,33 @@ export const CourseLiveClassesTab: React.FC<CourseLiveClassesTabProps> = ({ isTu
         )}
       </section>
 
-      {/* Tutor: past sessions still missing a recording */}
-      {(isTutor || isTrainingAdmin) && (
-        <section style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          {sectionTitle('Awaiting Recording', 'Finished sessions without a recording. Add the link so students can watch.')}
-          {awaitingRecording.length === 0
-            ? empty('All finished sessions have recordings.')
-            : awaitingRecording.map((c) => (
-                <LiveClassCard
-                  key={c.id}
-                  liveClass={c}
-                  isTutor={isTutor}
-                  isTrainingAdmin={isTrainingAdmin}
-                  isEditing={editingId === c.id}
-                  recordingUrl={recordingUrl}
-                  setRecordingUrl={setRecordingUrl}
-                  saving={saving}
-                  onOpenRecordingEditor={openRecordingEditor}
-                  onCancelRecordingEditor={() => setEditingId(null)}
-                  onSaveRecording={saveRecording}
-                  onOpenScheduleEditor={openScheduleEditor}
-                  onDeleteScheduleClass={deleteScheduleClass}
-                />
-              ))}
-        </section>
-      )}
-
       {/* Recent recordings */}
       <section style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        {sectionTitle('Recent Recordings', 'Previous sessions posted by the tutor.')}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+          {sectionTitle('Recent Recordings', 'Previous sessions posted by the tutor.')}
+          {(isTutor || isTrainingAdmin) && (
+            <button
+              onClick={() => setShowAddRecordingModal(true)}
+              className="canvas-btn"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '5px 12px',
+                fontSize: '0.78rem',
+                fontWeight: 700,
+                backgroundColor: '#F0FDF4',
+                color: '#166534',
+                border: '1px solid #BBF7D0',
+                borderRadius: '4px',
+                cursor: 'pointer',
+              }}
+            >
+              <Plus size={14} />
+              <span>Add Recording</span>
+            </button>
+          )}
+        </div>
         {recordings.length === 0
           ? empty('No recordings have been posted yet.')
           : recordings.map((c) => (
@@ -318,6 +379,14 @@ export const CourseLiveClassesTab: React.FC<CourseLiveClassesTabProps> = ({ isTu
         onClose={() => setEditingScheduleClass(null)}
         onSave={saveScheduleEdit}
         onDelete={deleteScheduleClass}
+      />
+
+      {/* Add Recording Modal for Tutor / Training Admin */}
+      <AddRecordingModal
+        isOpen={showAddRecordingModal}
+        onClose={() => setShowAddRecordingModal(false)}
+        onSave={handleSaveAddRecording}
+        saving={saving}
       />
     </div>
   );

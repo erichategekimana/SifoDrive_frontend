@@ -31,6 +31,7 @@ export interface TutorAssignedStudentDTO {
   module_completion: number;
   cohort_name?: string | null;
   cohort_identifier?: string | null;
+  profile_photo?: string | null;
 }
 
 export class TutorService {

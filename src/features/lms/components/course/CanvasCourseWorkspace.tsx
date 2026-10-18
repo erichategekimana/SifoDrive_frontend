@@ -37,6 +37,7 @@ const CourseAnnouncementsTab = lazy(() => import('./announcements/CourseAnnounce
 const CourseDiscussionsTab = lazy(() => import('./discussions/CourseDiscussionsTab'));
 const CoursePeopleTab = lazy(() => import('./people/CoursePeopleTab'));
 const CourseLiveClassesTab = lazy(() => import('./live-classes/CourseLiveClassesTab'));
+const CourseAttendanceTab = lazy(() => import('./attendance/CourseAttendanceTab'));
 
 interface CanvasCourseWorkspaceProps {
   course: Course;
@@ -595,6 +596,16 @@ export const CanvasCourseWorkspace: React.FC<CanvasCourseWorkspaceProps> = ({
               {/* TAB 8: LIVE CLASSES */}
               {activeTab === 'live' && (
                 <CourseLiveClassesTab isTutor={Boolean(isTutor)} cohortId={activeCohortId} />
+              )}
+
+              {/* TAB 9: ATTENDANCE (TUTORS & ADMINS) */}
+              {activeTab === 'attendance' && (
+                <CourseAttendanceTab
+                  course={course}
+                  cohortId={activeCohortId}
+                  tutorCohorts={tutorCohorts}
+                  onCohortChange={handleCohortChange}
+                />
               )}
             </Suspense>
           )}

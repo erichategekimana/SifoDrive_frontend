@@ -7,6 +7,7 @@ export interface DiscussionReplyDTO {
   author_id: string;
   author_name: string;
   author_role: string;
+  author_photo?: string | null;
   is_author_tutor: boolean;
   parent_id?: string | null;
   content: string;
@@ -23,6 +24,7 @@ export interface DiscussionTopicDTO {
   author_id: string;
   author_name: string;
   author_role: string;
+  author_photo?: string | null;
   is_author_tutor: boolean;
   title: string;
   content: string;

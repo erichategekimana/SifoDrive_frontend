@@ -121,9 +121,19 @@ export const ProfilePage: React.FC = () => {
                   fontSize: '1.4rem',
                   fontWeight: 800,
                   color: '#ffffff',
+                  overflow: 'hidden',
+                  flexShrink: 0,
                 }}
               >
-                {user.getInitials()}
+                {user.profilePhoto ? (
+                  <img
+                    src={user.profilePhoto}
+                    alt={user.fullName}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  />
+                ) : (
+                  user.getInitials()
+                )}
               </div>
               <div>
                 <h3 style={{ fontSize: '1.1rem', color: '#ffffff' }}>{user.fullName}</h3>

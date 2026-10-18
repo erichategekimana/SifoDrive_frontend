@@ -115,9 +115,18 @@ export const PeopleRosterView: React.FC<PeopleRosterViewProps> = ({
                       fontSize: '0.85rem',
                       fontWeight: 800,
                       flexShrink: 0,
+                      overflow: 'hidden',
                     }}
                   >
-                    {u.name.substring(0, 2).toUpperCase()}
+                    {u.profile_photo ? (
+                      <img
+                        src={u.profile_photo}
+                        alt={u.name}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      />
+                    ) : (
+                      u.name.substring(0, 2).toUpperCase()
+                    )}
                   </div>
 
                   <div>

@@ -13,6 +13,7 @@ import {
   Clock,
   FileQuestion,
   Users,
+  BookOpen,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTranslation } from '../../context/I18nContext';
@@ -89,7 +90,7 @@ export const StudentCanvasDashboard: React.FC = () => {
 
   // Canvas UI Interactive States
   const [showSummaryCounts, setShowSummaryCounts] = useState(true);
-  const [showAllGrades, setShowAllGrades] = useState(true);
+  const [showAllGrades, setShowAllGrades] = useState(false);
   const [courseFilter, setCourseFilter] = useState('ALL');
   const [activeTab, setActiveTab] = useState<'dashboard' | 'courses'>('dashboard');
   const [attendanceSummary, setAttendanceSummary] = useState<{
@@ -122,7 +123,33 @@ export const StudentCanvasDashboard: React.FC = () => {
         setPublishedCourses(coursesData);
         setCohortActivities(activitiesData || []);
         setAnnouncements(announcementsData || []);
-        setQuizzes(quizData || []);
+
+        // Enrich quizzes with student's actual database submissions
+        let enrichedQuizzes: QuizItem[] = quizData || [];
+        if (quizData && quizData.length > 0) {
+          try {
+            enrichedQuizzes = await Promise.all(
+              quizData.map(async (q) => {
+                try {
+                  const subs = await AdminService.getInstance().getQuizSubmissions(q.id);
+                  if (subs && subs.length > 0) {
+                    const latestSub = subs[subs.length - 1];
+                    return {
+                      ...q,
+                      my_submission: latestSub,
+                      my_score: latestSub.score,
+                    };
+                  }
+                } catch {}
+                return q;
+              })
+            );
+          } catch (e) {
+            console.warn('Failed to enrich quiz submissions:', e);
+          }
+        }
+        setQuizzes(enrichedQuizzes);
+
         if (attRes) {
           setAttendanceSummary(attRes.data?.summary || attRes.summary || null);
         }
@@ -135,22 +162,103 @@ export const StudentCanvasDashboard: React.FC = () => {
     loadAll();
   }, []);
 
-  const attendanceRate = Math.round(
-    (attendanceSummary?.attendance_rate ?? eligibility?.criteria?.attendance_rate ?? 0.8) * 100
-  );
+  const attendanceRate = useMemo(() => {
+    const absentCount = (attendanceSummary as any)?.absent_count ?? 0;
+    const lateCount = (attendanceSummary as any)?.late_count ?? 0;
+    if (absentCount === 0 && lateCount === 0) {
+      return 100;
+    }
+    if ((attendanceSummary as any)?.percentage !== undefined) {
+      return Math.round((attendanceSummary as any).percentage);
+    }
+    if ((attendanceSummary as any)?.rate !== undefined) {
+      const r = (attendanceSummary as any).rate;
+      return Math.round(r <= 1 ? r * 100 : r);
+    }
+    if ((attendanceSummary as any)?.attendance_rate !== undefined) {
+      const r = (attendanceSummary as any).attendance_rate;
+      return Math.round(r <= 1 ? r * 100 : r);
+    }
+    if (eligibility?.criteria?.attendance_rate !== undefined) {
+      const r = eligibility.criteria.attendance_rate;
+      return Math.round(r <= 1 ? r * 100 : r);
+    }
+    return 100;
+  }, [attendanceSummary, eligibility]);
+
   const meetsAttendanceThreshold =
     attendanceSummary?.meets_threshold ?? (attendanceRate >= 75);
 
-  const averageGrade = useMemo(() => {
-    const graded = cohortActivities.filter((a) => a.my_submission?.score !== null && a.my_submission?.score !== undefined);
-    if (graded.length === 0) return 92;
-    const totalPercentage = graded.reduce((acc, curr) => {
-      const max = curr.max_score || 100;
-      const score = curr.my_submission?.score || 0;
-      return acc + (score / max) * 100;
-    }, 0);
-    return Math.round(totalPercentage / graded.length);
-  }, [cohortActivities]);
+
+  // Compute individual per-course metrics (Average Score, Live Attendance, Attendance Requirement)
+  const courseGradeMetrics = useMemo(() => {
+    return publishedCourses.map((c) => {
+      const courseId = String(c.id);
+      const courseTitleLower = (c.title || '').trim().toLowerCase();
+      const isSingleCourse = publishedCourses.length === 1;
+
+      const courseQuizzes = quizzes.filter(
+        (q) =>
+          String(q.course) === courseId ||
+          String((q as any).course_id) === courseId ||
+          (q.course_title && q.course_title.trim().toLowerCase() === courseTitleLower) ||
+          (isSingleCourse && !q.course)
+      );
+
+      const courseActivities = cohortActivities.filter(
+        (a) =>
+          String(a.course) === courseId ||
+          String((a as any).course_id) === courseId ||
+          (a.course_title && a.course_title.trim().toLowerCase() === courseTitleLower) ||
+          (isSingleCourse && !a.course)
+      );
+
+      const gradedQuizzes = courseQuizzes.filter(
+        (q) => (q as any).my_score !== null && (q as any).my_score !== undefined
+      );
+      const gradedActivities = courseActivities.filter(
+        (a) => a.my_submission?.score !== null && a.my_submission?.score !== undefined
+      );
+
+      const gradedCount = gradedQuizzes.length + gradedActivities.length;
+      let avgScore: number | null = null;
+
+      if (gradedCount > 0) {
+        let totalPct = 0;
+        for (const q of gradedQuizzes) {
+          const max = q.total_score || (q as any).max_score || 20;
+          const score = (q as any).my_score || 0;
+          totalPct += (score / max) * 100;
+        }
+        for (const act of gradedActivities) {
+          const max = act.max_score || 100;
+          const score = act.my_submission?.score || 0;
+          totalPct += (score / max) * 100;
+        }
+        avgScore = Math.round(totalPct / gradedCount);
+      }
+
+      return {
+        course: c,
+        quizzes: courseQuizzes,
+        activities: courseActivities,
+        gradedQuizzes,
+        gradedActivities,
+        averageScore: avgScore,
+        attendanceRate,
+        meetsAttendanceThreshold,
+        totalAssessmentsCount: courseQuizzes.length + courseActivities.length,
+        gradedAssessmentsCount: gradedCount,
+      };
+    });
+  }, [publishedCourses, quizzes, cohortActivities, attendanceRate, meetsAttendanceThreshold]);
+
+  const firstCourseTargetUrl = useMemo(() => {
+    if (publishedCourses && publishedCourses.length > 0) {
+      return `/courses/${publishedCourses[0].id}`;
+    }
+    return '/courses';
+  }, [publishedCourses]);
 
   // Compute top 5 upcoming dates prioritizing quizzes, exams, and class activities
   const todoList = useMemo(() => {
@@ -169,11 +277,12 @@ export const StudentCanvasDashboard: React.FC = () => {
     const secondaryItems: DashboardTodoItem[] = [];
     const seenIds = new Set<string>();
 
-    // 1. Quizzes & Exams from AdminService
+    // 1. Quizzes & Exams from AdminService (pending only)
     if (quizzes && quizzes.length > 0) {
       for (const q of quizzes) {
         if (!q.is_published || q.status === 'DRAFT') continue;
         if (seenIds.has(q.id) || dismissedTodoIds.has(q.id)) continue;
+        if ((q as any).my_submission || (q as any).my_score !== undefined) continue;
         seenIds.add(q.id);
         const isExam = q.is_final_exam || q.title?.toLowerCase().includes('exam');
         const dueDateStr = q.deadline || q.closing_date || q.open_date;
@@ -190,10 +299,11 @@ export const StudentCanvasDashboard: React.FC = () => {
       }
     }
 
-    // 2. Class activities / Cohort activities (TutorLmsService)
+    // 2. Class activities / Cohort activities (TutorLmsService) (pending only)
     if (cohortActivities && cohortActivities.length > 0) {
       for (const act of cohortActivities) {
         if (seenIds.has(act.id) || dismissedTodoIds.has(act.id)) continue;
+        if (act.my_submission) continue;
         seenIds.add(act.id);
         const rawMs = act.due_date ? new Date(act.due_date).getTime() : Number.MAX_SAFE_INTEGER;
         const actType = act.activity_type?.toUpperCase();
@@ -236,7 +346,7 @@ export const StudentCanvasDashboard: React.FC = () => {
       for (const cls of upcomingClasses) {
         if (seenIds.has(cls.id) || dismissedTodoIds.has(cls.id)) continue;
         seenIds.add(cls.id);
-        const timePart = cls.startTime ? cls.startTime.slice(0, 5) : '18:00';
+        const timePart = cls.startTime ? cls.startTime.slice(0, 5) : '00:00';
         const rawMs = cls.scheduledDate ? new Date(`${cls.scheduledDate}T${timePart}:00`).getTime() : Number.MAX_SAFE_INTEGER;
         secondaryItems.push({
           id: cls.id,
@@ -256,9 +366,6 @@ export const StudentCanvasDashboard: React.FC = () => {
 
     // Prioritization Rule:
     // Top 5 upcoming dates total.
-    // Quizzes, exams, or class activities are the priorities.
-    // If there are 6 upcoming quizzes, to do list will only be filled with quizzes.
-    // If there are only 2 upcoming quizzes, there will still be 3 free slots available for other upcoming dates.
     const MAX_ITEMS = 5;
     const topPriority = priorityItems.slice(0, MAX_ITEMS);
     const freeSlots = MAX_ITEMS - topPriority.length;
@@ -276,11 +383,80 @@ export const StudentCanvasDashboard: React.FC = () => {
     }
   };
 
+  const filteredActivities = useMemo(() => {
+    if (!courseFilter || courseFilter === 'ALL') {
+      return cohortActivities;
+    }
+    return cohortActivities.filter((a) => {
+      const cId = String((a as any).course || (a as any).course_id || '');
+      return cId === courseFilter;
+    });
+  }, [cohortActivities, courseFilter]);
+
   const recentGradedItems = useMemo(() => {
-    return cohortActivities
-      .filter((a) => a.my_submission?.score !== null && a.my_submission?.score !== undefined && (a.grades_published || a.release_grades_immediately))
+    interface FeedbackItem {
+      id: string;
+      title: string;
+      courseTitle?: string;
+      feedback?: string;
+      score: number;
+      maxScore: number;
+      isQuiz?: boolean;
+      rawItem: any;
+    }
+
+    const items: FeedbackItem[] = [];
+
+    for (const act of cohortActivities) {
+      if (
+        act.my_submission?.score !== null &&
+        act.my_submission?.score !== undefined &&
+        (act.grades_published || act.release_grades_immediately)
+      ) {
+        items.push({
+          id: act.id,
+          title: act.title,
+          courseTitle: act.course_title,
+          feedback: act.my_submission.feedback,
+          score: act.my_submission.score,
+          maxScore: act.max_score || 100,
+          isQuiz: false,
+          rawItem: act,
+        });
+      }
+    }
+
+    for (const q of quizzes) {
+      const sub = (q as any).my_submission;
+      const score = (q as any).my_score;
+      if (score !== null && score !== undefined) {
+        items.push({
+          id: q.id,
+          title: q.title,
+          courseTitle: q.title,
+          feedback: sub?.feedback || 'Automatic evaluation recorded',
+          score: score,
+          maxScore: q.total_score || (q as any).max_score || 20,
+          isQuiz: true,
+          rawItem: q,
+        });
+      }
+    }
+
+    return items.slice(0, 4);
+  }, [cohortActivities, quizzes]);
+
+  const recentAnnouncements = useMemo(() => {
+    return [...announcements]
+      .sort((a, b) => {
+        if (a.is_pinned && !b.is_pinned) return -1;
+        if (!a.is_pinned && b.is_pinned) return 1;
+        const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return timeB - timeA;
+      })
       .slice(0, 3);
-  }, [cohortActivities]);
+  }, [announcements]);
 
   if (isLoading) {
     return <Spinner message={t('dashboard.student.loadingHub')} />;
@@ -310,24 +486,11 @@ export const StudentCanvasDashboard: React.FC = () => {
             <h1 style={{ fontSize: '1.75rem', fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>
               {t('dashboard.student.greeting', { name: user?.fullName || 'Student' })}
             </h1>
-            <span
-              style={{
-                background: 'rgba(0, 85, 165, 0.12)',
-                color: '#0055A5',
-                padding: '4px 12px',
-                borderRadius: 'var(--radius-full)',
-                fontSize: '0.78rem',
-                fontWeight: 700,
-                border: '1px solid rgba(0, 85, 165, 0.25)',
-              }}
-            >
-              {studentProfile?.license_category ? `Category ${studentProfile.license_category}` : 'Provisional Theory Candidate'}
-            </span>
           </div>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '6px', marginBottom: 0 }}>
             {t('dashboard.student.headerSubtitle', {
-              id: user?.studentId || 'SIFO-STU-2026-0042',
-              streak: studentProfile?.current_streak_days || 5,
+              id: user?.studentId || (user as any)?.student_id || (user?.id ? `STU-${user.id.slice(0, 8).toUpperCase()}` : 'Student'),
+              streak: studentProfile?.current_streak_days ?? 0,
             })}
           </p>
         </div>
@@ -335,12 +498,12 @@ export const StudentCanvasDashboard: React.FC = () => {
         {/* View customization trigger */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <Link
-            to="/courses"
-            className="btn btn-primary btn-md"
-            style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#0055A5', borderColor: '#0055A5' }}
+            to="/groups"
+            className="btn btn-secondary btn-md"
+            style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
           >
-            <Rocket size={18} />
-            <span>{t('dashboard.student.startMockExamBtn')}</span>
+            <Users size={18} />
+            <span>Study Groups & People</span>
           </Link>
         </div>
       </div>
@@ -365,7 +528,7 @@ export const StudentCanvasDashboard: React.FC = () => {
           {t('dashboard.student.tabDashboard')}
         </button>
         <button
-          onClick={() => setActiveTab('courses')}
+          onClick={() => navigate('/courses')}
           style={{
             background: 'none',
             border: 'none',
@@ -387,110 +550,6 @@ export const StudentCanvasDashboard: React.FC = () => {
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(320px, 1fr)', gap: '28px' }}>
         {/* LEFT COLUMN: Course Work, Stats & Assignments */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          {/* Official Exam Eligibility Tracker (Canvas Grade Weighting Table Style) */}
-          <div
-            style={{
-              background: 'var(--bg-surface)',
-              borderRadius: 'var(--radius-lg)',
-              border: '1px solid var(--border-subtle)',
-              padding: '24px',
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <Award size={20} color="#0055A5" />
-                <h3 style={{ fontSize: '1.1rem', fontWeight: 700, margin: 0 }}>
-                  {t('dashboard.student.eligibilityTitle')}
-                </h3>
-              </div>
-              <span
-                style={{
-                  padding: '4px 12px',
-                  borderRadius: 'var(--radius-full)',
-                  fontSize: '0.78rem',
-                  fontWeight: 700,
-                  background: eligibility?.eligible ? 'rgba(5, 135, 40, 0.12)' : 'rgba(209, 56, 56, 0.12)',
-                  color: eligibility?.eligible ? '#058728' : '#d13838',
-                  border: `1px solid ${eligibility?.eligible ? 'rgba(5, 135, 40, 0.3)' : 'rgba(209, 56, 56, 0.3)'}`,
-                }}
-              >
-                {eligibility?.eligible
-                  ? t('dashboard.student.eligible')
-                  : t('dashboard.student.pendingCriteria')}
-              </span>
-            </div>
-
-            {/* Criteria Breakdown Grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px' }}>
-              {/* Pillar 1: Tuition */}
-              <div
-                style={{
-                  background: 'var(--bg-surface-elevated)',
-                  padding: '14px 16px',
-                  borderRadius: 'var(--radius-md)',
-                  border: '1px solid var(--border-subtle)',
-                }}
-              >
-                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '6px' }}>
-                  {t('dashboard.student.tuitionPayment')}
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <CheckCircle2 size={16} color={eligibility?.criteria?.tuition_paid ? '#058728' : '#d13838'} />
-                  <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>
-                    {eligibility?.criteria?.tuition_paid
-                      ? t('dashboard.student.paid')
-                      : t('dashboard.student.unpaid')}
-                  </span>
-                </div>
-              </div>
-
-              {/* Pillar 2: Live Attendance */}
-              <div
-                style={{
-                  background: 'var(--bg-surface-elevated)',
-                  padding: '14px 16px',
-                  borderRadius: 'var(--radius-md)',
-                  border: '1px solid var(--border-subtle)',
-                }}
-              >
-                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '6px' }}>
-                  {t('dashboard.student.liveAttendanceRequirement')}
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <CheckCircle2
-                    size={16}
-                    color={(eligibility?.criteria?.attendance_rate || 0) >= 0.75 ? '#058728' : '#d13838'}
-                  />
-                  <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>
-                    {Math.round((eligibility?.criteria?.attendance_rate || 0) * 100)}% / 75%
-                  </span>
-                </div>
-              </div>
-
-              {/* Pillar 3: Foundational Modules */}
-              <div
-                style={{
-                  background: 'var(--bg-surface-elevated)',
-                  padding: '14px 16px',
-                  borderRadius: 'var(--radius-md)',
-                  border: '1px solid var(--border-subtle)',
-                }}
-              >
-                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '6px' }}>
-                  {t('dashboard.student.foundationalModulesRequirement')}
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <CheckCircle2
-                    size={16}
-                    color={(eligibility?.criteria?.module_completion || 0) >= 1.0 ? '#058728' : '#0055A5'}
-                  />
-                  <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>
-                    {Math.round((eligibility?.criteria?.module_completion || 0) * 100)}%
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
 
           {/* Canvas Course Work Header with Show Summary Counts Toggle */}
           <div
@@ -531,7 +590,7 @@ export const StudentCanvasDashboard: React.FC = () => {
                   </span>
                 </label>
 
-                {/* Course Filter Dropdown */}
+                {/* Course Filter Dropdown (Dynamically loaded from database) */}
                 <select
                   value={courseFilter}
                   onChange={(e) => setCourseFilter(e.target.value)}
@@ -545,8 +604,11 @@ export const StudentCanvasDashboard: React.FC = () => {
                   }}
                 >
                   <option value="ALL">{t('dashboard.student.allCourses')}</option>
-                  <option value="CAT_B">Amategeko y'Umuhanda (Cat B)</option>
-                  <option value="SIGNS">Ibyapa byo ku Muhanda (Road Signs)</option>
+                  {publishedCourses.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.title}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>
@@ -568,7 +630,7 @@ export const StudentCanvasDashboard: React.FC = () => {
                     {t('dashboard.student.due')}
                   </div>
                   <div style={{ fontSize: '2rem', fontWeight: 800, color: '#0055A5', marginTop: '4px' }}>
-                    {cohortActivities.filter((a) => !a.my_submission).length}
+                    {filteredActivities.filter((a) => !a.my_submission).length}
                   </div>
                 </div>
 
@@ -586,7 +648,7 @@ export const StudentCanvasDashboard: React.FC = () => {
                     {t('dashboard.student.missing')}
                   </div>
                   <div style={{ fontSize: '2rem', fontWeight: 800, color: '#d13838', marginTop: '4px' }}>
-                    {cohortActivities.filter((a) => !a.my_submission && a.due_date && new Date(a.due_date) < new Date()).length}
+                    {filteredActivities.filter((a) => !a.my_submission && a.due_date && new Date(a.due_date) < new Date()).length}
                   </div>
                 </div>
 
@@ -604,7 +666,7 @@ export const StudentCanvasDashboard: React.FC = () => {
                     {t('dashboard.student.submitted')}
                   </div>
                   <div style={{ fontSize: '2rem', fontWeight: 800, color: '#058728', marginTop: '4px' }}>
-                    {cohortActivities.filter((a) => !!a.my_submission).length}
+                    {filteredActivities.filter((a) => !!a.my_submission).length}
                   </div>
                 </div>
               </div>
@@ -612,7 +674,7 @@ export const StudentCanvasDashboard: React.FC = () => {
 
             {/* Assignments List (Dynamic Real Cohort Activities) */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {cohortActivities.length === 0 ? (
+              {filteredActivities.length === 0 ? (
                 <div
                   style={{
                     padding: '36px',
@@ -624,7 +686,7 @@ export const StudentCanvasDashboard: React.FC = () => {
                   }}
                 >
                   <FileText size={28} color="var(--text-muted)" style={{ margin: '0 auto 8px' }} />
-                  <div style={{ fontWeight: 600, color: '#ffffff', fontSize: '0.9rem' }}>
+                  <div style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.9rem' }}>
                     No cohort activities or practical drills assigned yet
                   </div>
                   <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px' }}>
@@ -632,7 +694,7 @@ export const StudentCanvasDashboard: React.FC = () => {
                   </div>
                 </div>
               ) : (
-                cohortActivities.map((act) => {
+                filteredActivities.map((act) => {
                   const isGraded = act.my_submission?.status === 'GRADED';
                   const isSubmitted = !!act.my_submission;
                   const isOverdue = !isSubmitted && act.due_date && new Date(act.due_date) < new Date();
@@ -640,6 +702,7 @@ export const StudentCanvasDashboard: React.FC = () => {
                   return (
                     <div
                       key={act.id}
+                      onClick={() => handleOpenActivityGradeDetails(act)}
                       style={{
                         display: 'flex',
                         flexDirection: 'column',
@@ -648,7 +711,20 @@ export const StudentCanvasDashboard: React.FC = () => {
                         borderRadius: 'var(--radius-md)',
                         border: `1px solid ${isGraded ? 'rgba(5, 135, 40, 0.3)' : isOverdue ? 'rgba(209, 56, 56, 0.3)' : 'var(--border-subtle)'}`,
                         background: 'var(--bg-surface-elevated)',
-                        transition: 'background var(--transition-fast)',
+                        cursor: 'pointer',
+                        transition: 'all var(--transition-fast)',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.borderColor = '#0055A5';
+                        e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 85, 165, 0.12)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.borderColor = isGraded
+                          ? 'rgba(5, 135, 40, 0.3)'
+                          : isOverdue
+                          ? 'rgba(209, 56, 56, 0.3)'
+                          : 'var(--border-subtle)';
+                        e.currentTarget.style.boxShadow = 'none';
                       }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
@@ -684,7 +760,7 @@ export const StudentCanvasDashboard: React.FC = () => {
                             )}
                           </div>
                           <div>
-                            <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#ffffff' }}>
+                            <div style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                               {act.title}
                             </div>
                             <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
@@ -740,13 +816,22 @@ export const StudentCanvasDashboard: React.FC = () => {
                               Submitted
                             </span>
                           ) : (
-                            <button
-                              onClick={() => setSelectedActivityForSubmit(act)}
-                              className="btn btn-primary btn-sm"
-                              style={{ fontSize: '0.78rem', padding: '5px 12px' }}
+                            <span
+                              style={{
+                                background: 'rgba(0, 85, 165, 0.1)',
+                                color: '#0055A5',
+                                border: '1px solid rgba(0, 85, 165, 0.25)',
+                                padding: '4px 12px',
+                                borderRadius: 'var(--radius-full)',
+                                fontSize: '0.78rem',
+                                fontWeight: 700,
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                              }}
                             >
-                              Submit Activity
-                            </button>
+                              View Activity →
+                            </span>
                           )}
                         </div>
                       </div>
@@ -764,7 +849,7 @@ export const StudentCanvasDashboard: React.FC = () => {
                             color: 'var(--text-secondary)',
                           }}
                         >
-                          <strong style={{ color: '#38bdf8' }}>Instructor Feedback: </strong>
+                          <strong style={{ color: '#0055A5' }}>Instructor Feedback: </strong>
                           {act.my_submission.feedback}
                         </div>
                       )}
@@ -806,610 +891,599 @@ export const StudentCanvasDashboard: React.FC = () => {
               </label>
             </div>
 
-            {/* Performance & Attendance Quick Summary Bar */}
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                gap: '12px',
-                marginBottom: '20px',
-                padding: '14px 18px',
-                borderRadius: 'var(--radius-md)',
-                backgroundColor: 'var(--bg-surface-elevated)',
-                border: '1px solid var(--border-subtle)',
-              }}
-            >
-              {/* Average Academic Grade */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div
-                  style={{
-                    width: '38px',
-                    height: '38px',
-                    borderRadius: '8px',
-                    backgroundColor: 'rgba(0, 85, 165, 0.12)',
-                    color: '#0055A5',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0,
-                  }}
-                >
-                  <Award size={18} />
-                </div>
-                <div>
-                  <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>
-                    Average Score
-                  </div>
-                  <div style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-                    {averageGrade}%
-                  </div>
-                </div>
-              </div>
-
-              {/* Attendance Rate */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div
-                  style={{
-                    width: '38px',
-                    height: '38px',
-                    borderRadius: '8px',
-                    backgroundColor: meetsAttendanceThreshold ? 'rgba(5, 135, 40, 0.12)' : 'rgba(209, 56, 56, 0.12)',
-                    color: meetsAttendanceThreshold ? '#058728' : '#d13838',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0,
-                  }}
-                >
-                  <Users size={18} />
-                </div>
-                <div>
-                  <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>
-                    {t('dashboard.student.liveAttendance')}
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ fontSize: '1.05rem', fontWeight: 800, color: meetsAttendanceThreshold ? '#058728' : '#d13838' }}>
-                      {attendanceRate}%
-                    </span>
-                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                      (75% Target)
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Attendance Gate Status */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div
-                  style={{
-                    width: '38px',
-                    height: '38px',
-                    borderRadius: '8px',
-                    backgroundColor: meetsAttendanceThreshold ? 'rgba(5, 135, 40, 0.12)' : 'rgba(217, 119, 6, 0.12)',
-                    color: meetsAttendanceThreshold ? '#058728' : '#D97706',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0,
-                  }}
-                >
-                  <CheckCircle2 size={18} />
-                </div>
-                <div>
-                  <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>
-                    Attendance Requirement
-                  </div>
-                  <div style={{ fontSize: '0.82rem', fontWeight: 700, color: meetsAttendanceThreshold ? '#058728' : '#D97706' }}>
-                    {meetsAttendanceThreshold ? 'Eligible for Mock Exam' : 'Below 75% Requirement'}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Detailed Grade Report Table (Attendance + Quizzes + Activities) */}
-            {showAllGrades && (
+            {/* Per-Course Grade & Attendance Cards (Divided by Course) */}
+            {courseGradeMetrics.length === 0 ? (
               <div
                 style={{
-                  marginBottom: '24px',
+                  textAlign: 'center',
+                  padding: '40px 16px',
                   borderRadius: 'var(--radius-md)',
+                  backgroundColor: 'var(--bg-surface-elevated)',
                   border: '1px solid var(--border-subtle)',
-                  overflow: 'hidden',
-                  background: 'var(--bg-surface-elevated)',
+                  color: 'var(--text-secondary)',
                 }}
               >
-                <div
-                  style={{
-                    padding: '12px 16px',
-                    borderBottom: '1px solid var(--border-subtle)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    flexWrap: 'wrap',
-                    gap: '8px',
-                    background: 'rgba(0, 85, 165, 0.04)',
-                  }}
-                >
-                  <span style={{ fontSize: '0.86rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                    Gradebook Breakdown: Attendance, Quizzes & Cohort Activities
-                  </span>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                    Minimum requirement: 75% Live Attendance & 88% Exam Pass
-                  </span>
-                </div>
-
-                <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.84rem' }}>
-                    <thead>
-                      <tr style={{ background: 'var(--bg-surface)', borderBottom: '1px solid var(--border-subtle)', textAlign: 'left' }}>
-                        <th style={{ padding: '10px 14px', color: 'var(--text-secondary)' }}>Component Name</th>
-                        <th style={{ padding: '10px 14px', color: 'var(--text-secondary)' }}>Type</th>
-                        <th style={{ padding: '10px 14px', color: 'var(--text-secondary)' }}>Timeline / Due</th>
-                        <th style={{ padding: '10px 14px', color: 'var(--text-secondary)' }}>Score</th>
-                        <th style={{ padding: '10px 14px', color: 'var(--text-secondary)' }}>Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {/* Quizzes */}
-                      {quizzes.slice(0, 4).map((q) => {
-                        const hasScore = (q as any).my_score !== undefined && (q as any).my_score !== null;
-                        const maxScore = q.total_score || (q as any).max_score || 20;
-                        return (
-                          <tr key={`quiz-${q.id}`} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                            <td style={{ padding: '12px 14px', fontWeight: 400, color: '#111827' }}>
-                              <button
-                                type="button"
-                                onClick={() => handleOpenQuizGradeDetails(q)}
-                                style={{
-                                  background: 'none',
-                                  border: 'none',
-                                  padding: 0,
-                                  margin: 0,
-                                  font: 'inherit',
-                                  fontSize: 'inherit',
-                                  fontWeight: 400,
-                                  color: '#111827',
-                                  cursor: 'pointer',
-                                  textAlign: 'left',
-                                  textDecoration: 'none',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: '8px',
-                                  outline: 'none',
-                                }}
-                                onMouseEnter={(e) => {
-                                  const textSpan = e.currentTarget.querySelector('.asg-link-text') as HTMLElement;
-                                  if (textSpan) textSpan.style.textDecoration = 'underline';
-                                }}
-                                onMouseLeave={(e) => {
-                                  const textSpan = e.currentTarget.querySelector('.asg-link-text') as HTMLElement;
-                                  if (textSpan) textSpan.style.textDecoration = 'none';
-                                }}
-                                title="Click to view full grading details"
-                              >
-                                <FileQuestion size={15} color="#111827" />
-                                <span className="asg-link-text" style={{ color: '#111827' }}>{q.title}</span>
-                              </button>
-                            </td>
-                            <td style={{ padding: '12px 14px' }}>
-                              <span
-                                style={{
-                                  fontSize: '0.68rem',
-                                  fontWeight: 800,
-                                  padding: '2px 8px',
-                                  borderRadius: '4px',
-                                  background: 'rgba(0, 85, 165, 0.12)',
-                                  color: '#0055A5',
-                                }}
-                              >
-                                QUIZ
-                              </span>
-                            </td>
-                            <td style={{ padding: '12px 14px', color: 'var(--text-secondary)' }}>
-                              {q.deadline || q.closing_date ? formatTodoDueDate(q.deadline || q.closing_date) : 'End of Topic'}
-                            </td>
-                            <td style={{ padding: '12px 14px', fontWeight: 700, color: hasScore ? '#058728' : 'var(--text-muted)' }}>
-                              {hasScore ? `${(q as any).my_score}/${maxScore}` : '-'}
-                            </td>
-                            <td style={{ padding: '12px 14px' }}>
-                              <span style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                                {hasScore ? 'Completed' : 'Available'}
-                              </span>
-                            </td>
-                          </tr>
-                        );
-                      })}
-
-                      {/* Cohort Activities */}
-                      {cohortActivities.map((act) => {
-                        const hasScore = act.my_submission?.score !== null && act.my_submission?.score !== undefined;
-                        const isGradedAndPublished = hasScore && (act.grades_published || act.release_grades_immediately);
-
-                        return (
-                          <tr key={`act-${act.id}`} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                            <td style={{ padding: '12px 14px', fontWeight: 400, color: '#111827' }}>
-                              <button
-                                type="button"
-                                onClick={() => handleOpenActivityGradeDetails(act)}
-                                style={{
-                                  background: 'none',
-                                  border: 'none',
-                                  padding: 0,
-                                  margin: 0,
-                                  font: 'inherit',
-                                  fontSize: 'inherit',
-                                  fontWeight: 400,
-                                  color: '#111827',
-                                  cursor: 'pointer',
-                                  textAlign: 'left',
-                                  textDecoration: 'none',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: '8px',
-                                  outline: 'none',
-                                }}
-                                onMouseEnter={(e) => {
-                                  const textSpan = e.currentTarget.querySelector('.asg-link-text') as HTMLElement;
-                                  if (textSpan) textSpan.style.textDecoration = 'underline';
-                                }}
-                                onMouseLeave={(e) => {
-                                  const textSpan = e.currentTarget.querySelector('.asg-link-text') as HTMLElement;
-                                  if (textSpan) textSpan.style.textDecoration = 'none';
-                                }}
-                                title="Click to view full grading details"
-                              >
-                                <Award size={15} color="#111827" />
-                                <span className="asg-link-text" style={{ color: '#111827' }}>{act.title}</span>
-                              </button>
-                            </td>
-                            <td style={{ padding: '12px 14px' }}>
-                              <span
-                                style={{
-                                  fontSize: '0.68rem',
-                                  fontWeight: 800,
-                                  padding: '2px 8px',
-                                  borderRadius: '4px',
-                                  background: 'rgba(124, 58, 237, 0.12)',
-                                  color: '#7C3AED',
-                                }}
-                              >
-                                ACTIVITY
-                              </span>
-                            </td>
-                            <td style={{ padding: '12px 14px', color: 'var(--text-secondary)' }}>
-                              {act.due_date ? formatTodoDueDate(act.due_date) : 'Cohort Scheduled'}
-                            </td>
-                            <td style={{ padding: '12px 14px', fontWeight: 700, color: isGradedAndPublished ? '#058728' : 'var(--text-muted)' }}>
-                              {isGradedAndPublished ? `${act.my_submission?.score}/${act.max_score}` : act.my_submission ? 'Submitted' : '-'}
-                            </td>
-                            <td style={{ padding: '12px 14px' }}>
-                              <span
-                                style={{
-                                  fontSize: '0.72rem',
-                                  fontWeight: 600,
-                                  color: isGradedAndPublished ? '#058728' : act.my_submission ? '#0055A5' : 'var(--text-muted)',
-                                }}
-                              >
-                                {isGradedAndPublished ? 'Graded' : act.my_submission ? 'Under Review' : 'Pending'}
-                              </span>
-                            </td>
-                          </tr>
-                        );
-                      })}
-
-                      {/* Attendance (Always the last on the list, kept bold) */}
-                      <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                        <td style={{ padding: '12px 14px', fontWeight: 700, color: '#111827' }}>
-                          ATTENDANCE
-                        </td>
-                        <td style={{ padding: '12px 14px' }}>
-                          <span
-                            style={{
-                              fontSize: '0.68rem',
-                              fontWeight: 800,
-                              padding: '2px 8px',
-                              borderRadius: '4px',
-                              background: 'var(--bg-surface-elevated)',
-                              color: 'var(--text-secondary)',
-                              border: '1px solid var(--border-subtle)',
-                            }}
-                          >
-                            ATTENDANCE
-                          </span>
-                        </td>
-                        <td style={{ padding: '12px 14px', color: 'var(--text-secondary)' }}>
-                          -
-                        </td>
-                        <td style={{ padding: '12px 14px', fontWeight: 700, color: 'var(--text-primary)' }}>
-                          {attendanceRate}%/100%
-                        </td>
-                        <td style={{ padding: '12px 14px' }}>
-                          <span style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                            {meetsAttendanceThreshold ? 'Met' : 'Pending'}
-                          </span>
-                        </td>
-                      </tr>
-                    </tbody>
-                    <tfoot>
-                      <tr style={{ background: 'var(--bg-surface)', borderTop: '2px solid var(--border-subtle)' }}>
-                        <td colSpan={3} style={{ padding: '14px 16px', fontWeight: 700, fontSize: '0.92rem', color: '#111827' }}>
-                          Average:
-                        </td>
-                        <td colSpan={2} style={{ padding: '14px 16px', fontWeight: 800, fontSize: '1rem', color: '#058728' }}>
-                          {averageGrade}%
-                        </td>
-                      </tr>
-                    </tfoot>
-                  </table>
-                </div>
+                <BookOpen size={36} color="var(--text-muted)" style={{ marginBottom: '10px' }} />
+                <p style={{ margin: 0, fontWeight: 600, fontSize: '0.95rem' }}>
+                  No enrolled courses found.
+                </p>
+                <p style={{ margin: '4px 0 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                  Once enrolled in a theory course, your grades, scores, and attendance will appear here per course.
+                </p>
               </div>
-            )}
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
-              {publishedCourses.map((c, idx) => {
-                const gradients = [
-                  'linear-gradient(135deg, #0055A5 0%, #0374b5 100%)',
-                  'linear-gradient(135deg, #7C3AED 0%, #9333EA 100%)',
-                  'linear-gradient(135deg, #0284C7 0%, #0EA5E9 100%)',
-                ];
-                const grad = gradients[idx % gradients.length];
-
-                return (
-                  <div
-                    key={c.id}
-                    style={{
-                      borderRadius: 'var(--radius-lg)',
-                      border: '1px solid var(--border-subtle)',
-                      overflow: 'hidden',
-                      background: 'var(--bg-surface-elevated)',
-                      position: 'relative',
-                    }}
-                  >
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                {courseGradeMetrics.map((metric) => {
+                  const c = metric.course;
+                  return (
                     <div
+                      key={c.id}
                       style={{
-                        height: '110px',
-                        background: grad,
-                        padding: '16px',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'flex-start',
+                        borderRadius: 'var(--radius-lg)',
+                        border: '1px solid var(--border-subtle)',
+                        overflow: 'hidden',
+                        background: 'var(--bg-surface-elevated)',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
                       }}
                     >
-                      <span
-                        style={{
-                          background: 'rgba(255, 255, 255, 0.2)',
-                          backdropFilter: 'blur(4px)',
-                          color: '#ffffff',
-                          padding: '2px 8px',
-                          borderRadius: 'var(--radius-sm)',
-                          fontSize: '0.72rem',
-                          fontWeight: 700,
-                        }}
-                      >
-                        {c.code || 'THEORY'}
-                      </span>
+                      {/* Course Header Banner */}
                       <div
                         style={{
-                          background: '#ffffff',
-                          color: '#0055A5',
-                          fontWeight: 800,
-                          fontSize: '0.85rem',
-                          padding: '4px 10px',
-                          borderRadius: 'var(--radius-full)',
-                          boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-                        }}
-                      >
-                        {c.progressPercentage}%
-                      </div>
-                    </div>
-                    <div style={{ padding: '16px' }}>
-                      <h4 style={{ margin: '0 0 6px 0', fontSize: '1rem', fontWeight: 700 }}>
-                        <Link to={`/courses/${c.id}`} style={{ color: 'var(--text-primary)', textDecoration: 'none' }}>
-                          {c.title}
-                        </Link>
-                      </h4>
-                      <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                        {c.modulesCount} Modules • {c.estimatedHours || 12}h Theory
-                      </p>
-                      <div
-                        style={{
-                          marginTop: '12px',
-                          paddingTop: '10px',
-                          borderTop: '1px solid var(--border-subtle)',
+                          padding: '16px 20px',
+                          background: 'rgba(0, 85, 165, 0.05)',
+                          borderBottom: '1px solid var(--border-subtle)',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'space-between',
+                          flexWrap: 'wrap',
+                          gap: '12px',
                         }}
                       >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-                          <Users size={13} color="#0055A5" />
-                          <span>Attendance:</span>
+                        <div style={{ display: 'flex', alignItems: 'center' }}>
+                          <div>
+                            <h4 style={{ margin: 0, fontSize: '1.08rem', fontWeight: 700 }}>
+                              <Link to={`/courses/${c.id}`} style={{ color: 'var(--text-primary)', textDecoration: 'none' }}>
+                                {c.title}
+                              </Link>
+                            </h4>
+                            <p style={{ margin: '2px 0 0 0', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                              {c.modulesCount} Modules • {c.estimatedHours || 12}h Theory
+                            </p>
+                          </div>
                         </div>
-                        <span
+
+                        <div style={{ display: 'flex', alignItems: 'center' }}>
+                          <Link
+                            to={`/courses/${c.id}`}
+                            className="btn btn-outline btn-sm"
+                            style={{ fontSize: '0.78rem', padding: '5px 12px', textDecoration: 'none' }}
+                          >
+                            Open Course →
+                          </Link>
+                        </div>
+                      </div>
+
+                      {/* Course Specific Info: Average Score and Live Attendance */}
+                      <div
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+                          gap: '12px',
+                          padding: '16px 20px',
+                          background: 'var(--bg-surface)',
+                          borderBottom: showAllGrades ? '1px solid var(--border-subtle)' : 'none',
+                        }}
+                      >
+                        {/* 1. Average Score for this course */}
+                        <div
                           style={{
-                            fontSize: '0.78rem',
-                            fontWeight: 700,
-                            color: attendanceRate >= 75 ? '#058728' : '#d13838',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '12px',
+                            padding: '12px 14px',
+                            borderRadius: 'var(--radius-md)',
+                            backgroundColor: 'var(--bg-surface-elevated)',
+                            border: '1px solid var(--border-subtle)',
+                          }}
+                        >
+                          <div
+                            style={{
+                              width: '38px',
+                              height: '38px',
+                              borderRadius: '8px',
+                              backgroundColor: 'rgba(0, 85, 165, 0.12)',
+                              color: '#0055A5',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              flexShrink: 0,
+                            }}
+                          >
+                            <Award size={18} />
+                          </div>
+                          <div>
+                            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>
+                              Average Score
+                            </div>
+                            <div style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                              {metric.averageScore !== null ? `${metric.averageScore}%` : 'N/A'}
+                            </div>
+                            <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
+                              {metric.gradedAssessmentsCount > 0
+                                ? `${metric.gradedAssessmentsCount} of ${metric.totalAssessmentsCount} assessments graded`
+                                : 'No graded assessments yet'}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* 2. Live Attendance for this course */}
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '12px',
+                            padding: '12px 14px',
+                            borderRadius: 'var(--radius-md)',
+                            backgroundColor: 'var(--bg-surface-elevated)',
+                            border: '1px solid var(--border-subtle)',
+                          }}
+                        >
+                          <div
+                            style={{
+                              width: '38px',
+                              height: '38px',
+                              borderRadius: '8px',
+                              backgroundColor: metric.meetsAttendanceThreshold ? 'rgba(5, 135, 40, 0.12)' : 'rgba(209, 56, 56, 0.12)',
+                              color: metric.meetsAttendanceThreshold ? '#058728' : '#d13838',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              flexShrink: 0,
+                            }}
+                          >
+                            <Users size={18} />
+                          </div>
+                          <div>
+                            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>
+                              Live Attendance
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span style={{ fontSize: '1.05rem', fontWeight: 800, color: metric.meetsAttendanceThreshold ? '#058728' : '#d13838' }}>
+                                {metric.attendanceRate}%
+                              </span>
+                              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                                (75% Target)
+                              </span>
+                            </div>
+                            <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
+                              Live classroom presence
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Detailed Grade Report Table for THIS Course (when showAllGrades is checked) */}
+                      {showAllGrades && (
+                        <div style={{ background: 'var(--bg-surface-elevated)' }}>
+                          <div
+                            style={{
+                              padding: '10px 18px',
+                              borderBottom: '1px solid var(--border-subtle)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              flexWrap: 'wrap',
+                              gap: '8px',
+                              background: 'rgba(0, 85, 165, 0.03)',
+                            }}
+                          >
+                            <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                              Gradebook: {c.title}
+                            </span>
+                            <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                              Target: 75% Live Attendance & 88% Exam Pass
+                            </span>
+                          </div>
+
+                          {metric.quizzes.length === 0 && metric.activities.length === 0 ? (
+                            <div style={{ padding: '16px 20px', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
+                              No quizzes or activities have been scheduled yet for this course.
+                            </div>
+                          ) : (
+                            <div style={{ overflowX: 'auto' }}>
+                              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+                                <thead>
+                                  <tr style={{ background: 'var(--bg-surface)', borderBottom: '1px solid var(--border-subtle)', textAlign: 'left' }}>
+                                    <th style={{ padding: '10px 14px', color: 'var(--text-secondary)' }}>Component Name</th>
+                                    <th style={{ padding: '10px 14px', color: 'var(--text-secondary)' }}>Type</th>
+                                    <th style={{ padding: '10px 14px', color: 'var(--text-secondary)' }}>Timeline / Due</th>
+                                    <th style={{ padding: '10px 14px', color: 'var(--text-secondary)' }}>Score</th>
+                                    <th style={{ padding: '10px 14px', color: 'var(--text-secondary)' }}>Status</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {/* Quizzes for this course */}
+                                  {metric.quizzes.map((q) => {
+                                    const hasScore = (q as any).my_score !== undefined && (q as any).my_score !== null;
+                                    const maxScore = q.total_score || (q as any).max_score || 20;
+                                    return (
+                                      <tr key={`quiz-${q.id}`} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                                        <td style={{ padding: '10px 14px', fontWeight: 400, color: 'var(--text-primary)' }}>
+                                          <button
+                                            type="button"
+                                            onClick={() => handleOpenQuizGradeDetails(q)}
+                                            style={{
+                                              background: 'none',
+                                              border: 'none',
+                                              padding: 0,
+                                              margin: 0,
+                                              font: 'inherit',
+                                              fontSize: 'inherit',
+                                              fontWeight: 400,
+                                              color: 'var(--text-primary)',
+                                              cursor: 'pointer',
+                                              textAlign: 'left',
+                                              textDecoration: 'none',
+                                              display: 'flex',
+                                              alignItems: 'center',
+                                              gap: '8px',
+                                              outline: 'none',
+                                            }}
+                                            onMouseEnter={(e) => {
+                                              const textSpan = e.currentTarget.querySelector('.asg-link-text') as HTMLElement;
+                                              if (textSpan) textSpan.style.textDecoration = 'underline';
+                                            }}
+                                            onMouseLeave={(e) => {
+                                              const textSpan = e.currentTarget.querySelector('.asg-link-text') as HTMLElement;
+                                              if (textSpan) textSpan.style.textDecoration = 'none';
+                                            }}
+                                            title="Click to view full grading details"
+                                          >
+                                            <FileQuestion size={15} color="var(--text-primary)" />
+                                            <span className="asg-link-text" style={{ color: 'var(--text-primary)' }}>{q.title}</span>
+                                          </button>
+                                        </td>
+                                        <td style={{ padding: '10px 14px' }}>
+                                          <span
+                                            style={{
+                                              fontSize: '0.68rem',
+                                              fontWeight: 800,
+                                              padding: '2px 8px',
+                                              borderRadius: '4px',
+                                              background: 'rgba(0, 85, 165, 0.12)',
+                                              color: '#0055A5',
+                                            }}
+                                          >
+                                            QUIZ
+                                          </span>
+                                        </td>
+                                        <td style={{ padding: '10px 14px', color: 'var(--text-secondary)' }}>
+                                          {q.deadline || q.closing_date ? formatTodoDueDate(q.deadline || q.closing_date) : 'End of Topic'}
+                                        </td>
+                                        <td style={{ padding: '10px 14px', fontWeight: 700, color: hasScore ? '#058728' : 'var(--text-muted)' }}>
+                                          {hasScore ? `${(q as any).my_score}/${maxScore}` : '-'}
+                                        </td>
+                                        <td style={{ padding: '10px 14px' }}>
+                                          <span style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                                            {hasScore ? 'Completed' : 'Available'}
+                                          </span>
+                                        </td>
+                                      </tr>
+                                    );
+                                  })}
+
+                                  {/* Cohort Activities for this course */}
+                                  {metric.activities.map((act) => {
+                                    const hasScore = act.my_submission?.score !== null && act.my_submission?.score !== undefined;
+                                    const isGradedAndPublished = hasScore && (act.grades_published || act.release_grades_immediately);
+
+                                    return (
+                                      <tr key={`act-${act.id}`} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                                        <td style={{ padding: '10px 14px', fontWeight: 400, color: 'var(--text-primary)' }}>
+                                          <button
+                                            type="button"
+                                            onClick={() => handleOpenActivityGradeDetails(act)}
+                                            style={{
+                                              background: 'none',
+                                              border: 'none',
+                                              padding: 0,
+                                              margin: 0,
+                                              font: 'inherit',
+                                              fontSize: 'inherit',
+                                              fontWeight: 400,
+                                              color: 'var(--text-primary)',
+                                              cursor: 'pointer',
+                                              textAlign: 'left',
+                                              textDecoration: 'none',
+                                              display: 'flex',
+                                              alignItems: 'center',
+                                              gap: '8px',
+                                              outline: 'none',
+                                            }}
+                                            onMouseEnter={(e) => {
+                                              const textSpan = e.currentTarget.querySelector('.asg-link-text') as HTMLElement;
+                                              if (textSpan) textSpan.style.textDecoration = 'underline';
+                                            }}
+                                            onMouseLeave={(e) => {
+                                              const textSpan = e.currentTarget.querySelector('.asg-link-text') as HTMLElement;
+                                              if (textSpan) textSpan.style.textDecoration = 'none';
+                                            }}
+                                            title="Click to view full grading details"
+                                          >
+                                            <Award size={15} color="var(--text-primary)" />
+                                            <span className="asg-link-text" style={{ color: 'var(--text-primary)' }}>{act.title}</span>
+                                          </button>
+                                        </td>
+                                        <td style={{ padding: '10px 14px' }}>
+                                          <span
+                                            style={{
+                                              fontSize: '0.68rem',
+                                              fontWeight: 800,
+                                              padding: '2px 8px',
+                                              borderRadius: '4px',
+                                              background: 'rgba(124, 58, 237, 0.12)',
+                                              color: '#7C3AED',
+                                            }}
+                                          >
+                                            ACTIVITY
+                                          </span>
+                                        </td>
+                                        <td style={{ padding: '10px 14px', color: 'var(--text-secondary)' }}>
+                                          {act.due_date ? formatTodoDueDate(act.due_date) : 'Cohort Scheduled'}
+                                        </td>
+                                        <td style={{ padding: '10px 14px', fontWeight: 700, color: isGradedAndPublished ? '#058728' : 'var(--text-muted)' }}>
+                                          {isGradedAndPublished ? `${act.my_submission?.score}/${act.max_score}` : act.my_submission ? 'Submitted' : '-'}
+                                        </td>
+                                        <td style={{ padding: '10px 14px' }}>
+                                          <span
+                                            style={{
+                                              fontSize: '0.72rem',
+                                              fontWeight: 600,
+                                              color: isGradedAndPublished ? '#058728' : act.my_submission ? '#0055A5' : 'var(--text-muted)',
+                                            }}
+                                          >
+                                            {isGradedAndPublished ? 'Graded' : act.my_submission ? 'Under Review' : 'Pending'}
+                                          </span>
+                                        </td>
+                                      </tr>
+                                    );
+                                  })}
+
+                                  {/* Attendance row for this course */}
+                                  <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                                    <td style={{ padding: '10px 14px', fontWeight: 700, color: '#111827' }}>
+                                      ATTENDANCE
+                                    </td>
+                                    <td style={{ padding: '10px 14px' }}>
+                                      <span
+                                        style={{
+                                          fontSize: '0.68rem',
+                                          fontWeight: 800,
+                                          padding: '2px 8px',
+                                          borderRadius: '4px',
+                                          background: 'var(--bg-surface-elevated)',
+                                          color: 'var(--text-secondary)',
+                                          border: '1px solid var(--border-subtle)',
+                                        }}
+                                      >
+                                        ATTENDANCE
+                                      </span>
+                                    </td>
+                                    <td style={{ padding: '10px 14px', color: 'var(--text-secondary)' }}>
+                                      -
+                                    </td>
+                                    <td style={{ padding: '10px 14px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                      {metric.attendanceRate}%/100%
+                                    </td>
+                                    <td style={{ padding: '10px 14px' }}>
+                                      <span style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                                        {metric.meetsAttendanceThreshold ? 'Met' : 'Pending'}
+                                      </span>
+                                    </td>
+                                  </tr>
+                                </tbody>
+                                <tfoot>
+                                  <tr style={{ background: 'var(--bg-surface)', borderTop: '2px solid var(--border-subtle)' }}>
+                                    <td colSpan={3} style={{ padding: '12px 14px', fontWeight: 700, fontSize: '0.88rem', color: '#111827' }}>
+                                      {c.title} Average:
+                                    </td>
+                                    <td colSpan={2} style={{ padding: '12px 14px', fontWeight: 800, fontSize: '0.95rem', color: '#058728' }}>
+                                      {metric.averageScore !== null ? `${metric.averageScore}%` : 'N/A'}
+                                    </td>
+                                  </tr>
+                                </tfoot>
+                              </table>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Course Card Action Footer */}
+                      <div
+                        style={{
+                          padding: '10px 20px',
+                          borderTop: '1px solid var(--border-subtle)',
+                          background: 'var(--bg-surface)',
+                          display: 'flex',
+                          justifyContent: 'flex-end',
+                          alignItems: 'center',
+                          gap: '16px',
+                        }}
+                      >
+                        <Link
+                          to={`/courses/${c.id}?tab=grades`}
+                          style={{
+                            fontSize: '0.8rem',
+                            color: '#0055A5',
+                            fontWeight: 600,
+                            textDecoration: 'none',
                             display: 'inline-flex',
                             alignItems: 'center',
                             gap: '4px',
                           }}
                         >
-                          {attendanceRate}%
-                          <CheckCircle2 size={13} color={attendanceRate >= 75 ? '#058728' : '#d13838'} />
-                        </span>
+                          <span>Course Gradebook & Feedback</span>
+                          <span>→</span>
+                        </Link>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
-
-              {/* Road Signs Reference Card */}
-              <div
-                style={{
-                  borderRadius: 'var(--radius-lg)',
-                  border: '1px solid var(--border-subtle)',
-                  overflow: 'hidden',
-                  background: 'var(--bg-surface-elevated)',
-                  position: 'relative',
-                }}
-              >
-                <div
-                  style={{
-                    height: '110px',
-                    background: 'linear-gradient(135deg, #058728 0%, #10b981 100%)',
-                    padding: '16px',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'flex-start',
-                  }}
-                >
-                  <span
-                    style={{
-                      background: 'rgba(255, 255, 255, 0.2)',
-                      backdropFilter: 'blur(4px)',
-                      color: '#ffffff',
-                      padding: '2px 8px',
-                      borderRadius: 'var(--radius-sm)',
-                      fontSize: '0.72rem',
-                      fontWeight: 700,
-                    }}
-                  >
-                    {t('dashboard.student.roadSigns')}
-                  </span>
-                  <div
-                    style={{
-                      background: '#ffffff',
-                      color: '#058728',
-                      fontWeight: 800,
-                      fontSize: '0.85rem',
-                      padding: '4px 10px',
-                      borderRadius: 'var(--radius-full)',
-                      boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-                    }}
-                  >
-                    Interactive
-                  </div>
-                </div>
-                <div style={{ padding: '16px' }}>
-                  <h4 style={{ margin: '0 0 6px 0', fontSize: '1rem', fontWeight: 700 }}>
-                    <Link to="/road-signs" style={{ color: 'var(--text-primary)', textDecoration: 'none' }}>
-                      {t('dashboard.student.course2Title')}
-                    </Link>
-                  </h4>
-                  <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                    Rwandan Road Signs & Markings Library
-                  </p>
-                  <div
-                    style={{
-                      marginTop: '12px',
-                      paddingTop: '10px',
-                      borderTop: '1px solid var(--border-subtle)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                    }}
-                  >
-                    <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-                      Practical Module
-                    </span>
-                    <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#058728' }}>
-                      Open Access
-                    </span>
-                  </div>
-                </div>
+                  );
+                })}
               </div>
+            )}
 
-              {/* Dedicated Live Class Attendance & Session Record Card */}
-              <div
-                style={{
-                  borderRadius: 'var(--radius-lg)',
-                  border: '1px solid var(--border-subtle)',
-                  overflow: 'hidden',
-                  background: 'var(--bg-surface-elevated)',
-                  position: 'relative',
-                }}
-              >
+            {/* Quick Learning & Timetable Resources */}
+            <div style={{ marginTop: '24px' }}>
+              <h4 style={{ fontSize: '0.92rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                Practical Learning & Class Timetable
+              </h4>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px' }}>
+                {/* Road Signs Reference Card */}
                 <div
                   style={{
-                    height: '110px',
-                    background: 'linear-gradient(135deg, #0055A5 0%, #058728 100%)',
-                    padding: '16px',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'flex-start',
+                    borderRadius: 'var(--radius-lg)',
+                    border: '1px solid var(--border-subtle)',
+                    overflow: 'hidden',
+                    background: 'var(--bg-surface-elevated)',
                   }}
                 >
-                  <span
-                    style={{
-                      background: 'rgba(255, 255, 255, 0.2)',
-                      backdropFilter: 'blur(4px)',
-                      color: '#ffffff',
-                      padding: '2px 8px',
-                      borderRadius: 'var(--radius-sm)',
-                      fontSize: '0.72rem',
-                      fontWeight: 700,
-                      textTransform: 'uppercase',
-                    }}
-                  >
-                    Attendance
-                  </span>
                   <div
                     style={{
-                      background: '#ffffff',
-                      color: meetsAttendanceThreshold ? '#058728' : '#d13838',
-                      fontWeight: 800,
-                      fontSize: '0.85rem',
-                      padding: '4px 10px',
-                      borderRadius: 'var(--radius-full)',
-                      boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-                    }}
-                  >
-                    {attendanceRate}%
-                  </div>
-                </div>
-                <div style={{ padding: '16px' }}>
-                  <h4 style={{ margin: '0 0 6px 0', fontSize: '1rem', fontWeight: 700 }}>
-                    <Link to="/live-classes" style={{ color: 'var(--text-primary)', textDecoration: 'none' }}>
-                      {t('dashboard.student.liveAttendance')}
-                    </Link>
-                  </h4>
-                  <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                    Live Classroom & Google Meet Presence Record
-                  </p>
-                  <div
-                    style={{
-                      marginTop: '12px',
-                      paddingTop: '10px',
-                      borderTop: '1px solid var(--border-subtle)',
+                      height: '80px',
+                      background: 'linear-gradient(135deg, #058728 0%, #10b981 100%)',
+                      padding: '14px',
                       display: 'flex',
-                      alignItems: 'center',
                       justifyContent: 'space-between',
+                      alignItems: 'flex-start',
                     }}
                   >
                     <span
                       style={{
-                        fontSize: '0.76rem',
+                        background: 'rgba(255, 255, 255, 0.2)',
+                        backdropFilter: 'blur(4px)',
+                        color: '#ffffff',
+                        padding: '2px 8px',
+                        borderRadius: 'var(--radius-sm)',
+                        fontSize: '0.72rem',
                         fontWeight: 700,
-                        color: meetsAttendanceThreshold ? '#058728' : '#D97706',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '5px',
                       }}
                     >
-                      <CheckCircle2 size={13} color={meetsAttendanceThreshold ? '#058728' : '#D97706'} />
-                      <span>{meetsAttendanceThreshold ? '75% Prerequisite Met' : 'Attendance < 75%'}</span>
+                      {t('dashboard.student.roadSigns')}
                     </span>
-                    <Link
-                      to="/live-classes"
+                    <span
                       style={{
-                        fontSize: '0.74rem',
-                        color: '#0055A5',
-                        fontWeight: 700,
-                        textDecoration: 'none',
+                        background: '#ffffff',
+                        color: '#058728',
+                        fontWeight: 800,
+                        fontSize: '0.75rem',
+                        padding: '3px 8px',
+                        borderRadius: 'var(--radius-full)',
                       }}
                     >
-                      View Sessions →
-                    </Link>
+                      Interactive
+                    </span>
+                  </div>
+                  <div style={{ padding: '14px 16px' }}>
+                    <h5 style={{ margin: '0 0 4px 0', fontSize: '0.95rem', fontWeight: 700 }}>
+                      <Link to={firstCourseTargetUrl} style={{ color: 'var(--text-primary)', textDecoration: 'none' }}>
+                        {t('dashboard.student.course2Title')}
+                      </Link>
+                    </h5>
+                    <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                      Rwandan Road Signs & Markings Library
+                    </p>
+                    <div
+                      style={{
+                        marginTop: '10px',
+                        paddingTop: '8px',
+                        borderTop: '1px solid var(--border-subtle)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                      }}
+                    >
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                        Practical Module
+                      </span>
+                      <Link to={firstCourseTargetUrl} style={{ fontSize: '0.75rem', fontWeight: 700, color: '#058728', textDecoration: 'none' }}>
+                        Open Library →
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Live Class Timetable Card */}
+                <div
+                  style={{
+                    borderRadius: 'var(--radius-lg)',
+                    border: '1px solid var(--border-subtle)',
+                    overflow: 'hidden',
+                    background: 'var(--bg-surface-elevated)',
+                  }}
+                >
+                  <div
+                    style={{
+                      height: '80px',
+                      background: 'linear-gradient(135deg, #0055A5 0%, #058728 100%)',
+                      padding: '14px',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'flex-start',
+                    }}
+                  >
+                    <span
+                      style={{
+                        background: 'rgba(255, 255, 255, 0.2)',
+                        backdropFilter: 'blur(4px)',
+                        color: '#ffffff',
+                        padding: '2px 8px',
+                        borderRadius: 'var(--radius-sm)',
+                        fontSize: '0.72rem',
+                        fontWeight: 700,
+                        textTransform: 'uppercase',
+                      }}
+                    >
+                      Live Classroom
+                    </span>
+                    <span
+                      style={{
+                        background: '#ffffff',
+                        color: meetsAttendanceThreshold ? '#058728' : '#d13838',
+                        fontWeight: 800,
+                        fontSize: '0.75rem',
+                        padding: '3px 8px',
+                        borderRadius: 'var(--radius-full)',
+                      }}
+                    >
+                      {attendanceRate}%
+                    </span>
+                  </div>
+                  <div style={{ padding: '14px 16px' }}>
+                    <h5 style={{ margin: '0 0 4px 0', fontSize: '0.95rem', fontWeight: 700 }}>
+                      <Link to="/calendar" style={{ color: 'var(--text-primary)', textDecoration: 'none' }}>
+                        {t('dashboard.student.liveAttendance')}
+                      </Link>
+                    </h5>
+                    <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                      Google Meet Presence & Cohort Sessions
+                    </p>
+                    <div
+                      style={{
+                        marginTop: '10px',
+                        paddingTop: '8px',
+                        borderTop: '1px solid var(--border-subtle)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                      }}
+                    >
+                      <span style={{ fontSize: '0.75rem', color: meetsAttendanceThreshold ? '#058728' : '#D97706', fontWeight: 600 }}>
+                        {meetsAttendanceThreshold ? '75% Prerequisite Met' : 'Below 75% Requirement'}
+                      </span>
+                      <Link to="/calendar" style={{ fontSize: '0.75rem', fontWeight: 700, color: '#0055A5', textDecoration: 'none' }}>
+                        View Timetable →
+                      </Link>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1429,12 +1503,27 @@ export const StudentCanvasDashboard: React.FC = () => {
             }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <h3 style={{ fontSize: '1.05rem', fontWeight: 700, margin: 0 }}>
-                {t('dashboard.student.announcements')}
-              </h3>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                {announcements.length} {announcements.length === 1 ? 'Notice' : 'Notices'}
-              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Bell size={18} color="#0055A5" />
+                <h3 style={{ fontSize: '1.05rem', fontWeight: 700, margin: 0 }}>
+                  {t('dashboard.student.announcements')}
+                </h3>
+              </div>
+              <Link
+                to="/announcements"
+                style={{
+                  fontSize: '0.8rem',
+                  fontWeight: 700,
+                  color: '#0055A5',
+                  textDecoration: 'none',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                }}
+              >
+                <span>View All</span>
+                <span>→</span>
+              </Link>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -1446,85 +1535,118 @@ export const StudentCanvasDashboard: React.FC = () => {
                   </p>
                 </div>
               ) : (
-                announcements.slice(0, 3).map((ann) => (
-                  <div
-                    key={ann.id}
-                    style={{
-                      padding: '12px',
-                      borderRadius: 'var(--radius-md)',
-                      background: 'var(--bg-surface-elevated)',
-                      borderLeft: '4px solid #0055A5',
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '4px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <div
-                          style={{
-                            width: '24px',
-                            height: '24px',
-                            borderRadius: '50%',
-                            background: '#0055A5',
-                            color: '#ffffff',
-                            fontSize: '0.7rem',
-                            fontWeight: 700,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                          }}
-                        >
-                          {(ann.author_name || ann.author || 'SF').substring(0, 2).toUpperCase()}
+                <>
+                  {recentAnnouncements.map((ann) => (
+                    <div
+                      key={ann.id}
+                      onClick={() => navigate(`/announcements?id=${ann.id}`)}
+                      style={{
+                        padding: '12px',
+                        borderRadius: 'var(--radius-md)',
+                        background: 'var(--bg-surface-elevated)',
+                        borderLeft: `4px solid ${ann.is_pinned ? '#B45309' : '#0055A5'}`,
+                        cursor: 'pointer',
+                        transition: 'opacity var(--transition-fast)',
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.9')}
+                      onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '4px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <div
+                            style={{
+                              width: '24px',
+                              height: '24px',
+                              borderRadius: '50%',
+                              background: '#0055A5',
+                              color: '#ffffff',
+                              fontSize: '0.7rem',
+                              fontWeight: 700,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              overflow: 'hidden',
+                              flexShrink: 0,
+                            }}
+                          >
+                            {(ann as any).author_photo ? (
+                              <img
+                                src={(ann as any).author_photo}
+                                alt={ann.author_name || ann.author}
+                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                              />
+                            ) : (
+                              (ann.author_name || ann.author || 'SF').substring(0, 2).toUpperCase()
+                            )}
+                          </div>
+                          <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                            {ann.author_name || ann.author}
+                          </span>
                         </div>
-                        <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                          {ann.author_name || ann.author}
+                        <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                          {ann.date || (ann.created_at ? new Date(ann.created_at).toLocaleDateString() : '')}
                         </span>
                       </div>
-                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                        {ann.date || (ann.created_at ? new Date(ann.created_at).toLocaleDateString() : '')}
-                      </span>
+
+                      <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#0055A5' }}>
+                        {ann.title}
+                      </div>
+
+                      {ann.target_type === 'SINGLE_COHORT' && ann.cohort_name ? (
+                        <span
+                          style={{
+                            display: 'inline-block',
+                            fontSize: '0.68rem',
+                            fontWeight: 700,
+                            color: '#0055A5',
+                            backgroundColor: 'rgba(0, 85, 165, 0.08)',
+                            padding: '1px 6px',
+                            borderRadius: '4px',
+                            margin: '4px 0',
+                          }}
+                        >
+                          {ann.cohort_name}
+                        </span>
+                      ) : (
+                        <span
+                          style={{
+                            display: 'inline-block',
+                            fontSize: '0.68rem',
+                            fontWeight: 700,
+                            color: '#15803D',
+                            backgroundColor: '#F0FDF4',
+                            border: '1px solid #BBF7D0',
+                            padding: '1px 6px',
+                            borderRadius: '4px',
+                            margin: '4px 0',
+                          }}
+                        >
+                          all
+                        </span>
+                      )}
+
+                      <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: '4px 0 0 0', lineHeight: 1.4 }}>
+                        {ann.content && ann.content.length > 120 ? `${ann.content.slice(0, 120)}...` : ann.content}
+                      </p>
                     </div>
+                  ))}
 
-                    <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#0055A5' }}>
-                      {ann.title}
-                    </div>
-
-                    {ann.target_type === 'SINGLE_COHORT' && ann.cohort_name ? (
-                      <span
-                        style={{
-                          display: 'inline-block',
-                          fontSize: '0.68rem',
-                          fontWeight: 700,
-                          color: '#0055A5',
-                          backgroundColor: 'rgba(0, 85, 165, 0.08)',
-                          padding: '1px 6px',
-                          borderRadius: '4px',
-                          margin: '4px 0',
-                        }}
-                      >
-                        {ann.cohort_name}
-                      </span>
-                    ) : (
-                      <span
-                        style={{
-                          display: 'inline-block',
-                          fontSize: '0.68rem',
-                          fontWeight: 700,
-                          color: '#15803D',
-                          backgroundColor: '#F0FDF4',
-                          border: '1px solid #BBF7D0',
-                          padding: '1px 6px',
-                          borderRadius: '4px',
-                          margin: '4px 0',
-                        }}
-                      >
-                        all
-                      </span>
-                    )}
-
-                    <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: '4px 0 0 0', lineHeight: 1.4 }}>
-                      {ann.content}
-                    </p>
-                  </div>
-                ))
+                  <Link
+                    to="/announcements"
+                    className="btn btn-secondary btn-sm"
+                    style={{
+                      width: '100%',
+                      justifyContent: 'center',
+                      marginTop: '4px',
+                      fontSize: '0.78rem',
+                      fontWeight: 700,
+                      gap: '6px',
+                    }}
+                  >
+                    <span>View All Announcements</span>
+                    <span>({announcements.length})</span>
+                  </Link>
+                </>
               )}
             </div>
           </div>
@@ -1565,7 +1687,7 @@ export const StudentCanvasDashboard: React.FC = () => {
             </div>
 
             <h4 style={{ fontSize: '1.02rem', fontWeight: 800, margin: '2px 0 0 0', color: 'var(--text-primary)' }}>
-              {activeSchedule?.title || nextClass?.title || t('dashboard.student.defaultTopic')}
+              {activeSchedule?.title || nextClass?.title || 'Live Classroom & Practical Theory'}
             </h4>
 
             {activeSchedule ? (
@@ -1588,23 +1710,50 @@ export const StudentCanvasDashboard: React.FC = () => {
                   </div>
                 )}
               </div>
+            ) : nextClass ? (
+              <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                  <Clock size={13} style={{ color: '#0055A5' }} />
+                  <span>{nextClass.startTime ? nextClass.startTime.slice(0, 5) : 'Scheduled'}</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Calendar size={13} />
+                  <span>{nextClass.scheduledDate}</span>
+                </div>
+                {nextClass.tutorName && (
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                    Instructor: {nextClass.tutorName}
+                  </div>
+                )}
+              </div>
             ) : (
               <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: '0' }}>
-                {t('dashboard.student.instructorSubtitle', { instructor: 'Aline Uwase', time: '18:00' })}
+                No live classes scheduled for your cohort at this time.
               </p>
             )}
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '4px' }}>
-              <a
-                href={activeSchedule?.google_meet_url || nextClass?.googleMeetUrl || 'https://meet.google.com/sifo-class-theory'}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="btn btn-primary btn-md"
-                style={{ width: '100%', justifyContent: 'center', background: '#058728', borderColor: '#058728' }}
-              >
-                <ExternalLink size={16} />
-                <span>{t('dashboard.student.joinGoogleMeetBtn')}</span>
-              </a>
+              {(activeSchedule?.google_meet_url || nextClass?.googleMeetUrl) ? (
+                <a
+                  href={activeSchedule?.google_meet_url || nextClass?.googleMeetUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn btn-primary btn-md"
+                  style={{ width: '100%', justifyContent: 'center', background: '#058728', borderColor: '#058728' }}
+                >
+                  <ExternalLink size={16} />
+                  <span>{t('dashboard.student.joinGoogleMeetBtn')}</span>
+                </a>
+              ) : (
+                <Link
+                  to="/live-classes"
+                  className="btn btn-secondary btn-md"
+                  style={{ width: '100%', justifyContent: 'center' }}
+                >
+                  <Video size={16} />
+                  <span>View Class Schedule</span>
+                </Link>
+              )}
 
               <Link
                 to="/live-classes"
@@ -1749,21 +1898,38 @@ export const StudentCanvasDashboard: React.FC = () => {
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {recentGradedItems.map((act) => (
-                  <div key={act.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid var(--border-subtle)' }}>
+                {recentGradedItems.map((item) => (
+                  <div
+                    key={item.id}
+                    onClick={() => {
+                      if (item.isQuiz) {
+                        handleOpenQuizGradeDetails(item.rawItem);
+                      } else {
+                        handleOpenActivityGradeDetails(item.rawItem);
+                      }
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '6px 0',
+                      borderBottom: '1px solid var(--border-subtle)',
+                      cursor: 'pointer',
+                    }}
+                  >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <CheckCircle2 size={16} color="#058728" />
                       <div>
                         <div style={{ fontSize: '0.85rem', fontWeight: 600 }}>
-                          {act.title}
+                          {item.title}
                         </div>
                         <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                          {act.my_submission?.feedback || act.course_title || 'Graded Submission'}
+                          {item.feedback || item.courseTitle || 'Graded Submission'}
                         </div>
                       </div>
                     </div>
                     <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#058728' }}>
-                      {act.my_submission?.score} / {act.max_score} pts
+                      {item.score} / {item.maxScore} pts
                     </span>
                   </div>
                 ))}

@@ -10,6 +10,7 @@ import {
   FileQuestion,
   Award,
   Video,
+  UserCheck,
 } from 'lucide-react';
 import type { CourseWorkspaceTab } from './CourseSecondaryNav';
 import type { CourseAssignmentItem } from '../types';
@@ -579,6 +580,35 @@ export const CourseRightSidebar: React.FC<CourseRightSidebarProps> = ({
           </div>
         )}
       </div>
+
+      {/* Tutor Quick Action: Attendance & Readiness */}
+      {isTutor && (
+        <div style={{ marginTop: '4px' }}>
+          <button
+            type="button"
+            onClick={() => onNavigateTab('attendance')}
+            style={{
+              width: '100%',
+              padding: '10px 14px',
+              borderRadius: '4px',
+              border: '1px solid #CBD5E1',
+              backgroundColor: '#F8FAFC',
+              color: '#0055A5',
+              fontSize: '0.85rem',
+              fontWeight: 700,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              cursor: 'pointer',
+              boxShadow: '0 1px 2px rgba(0, 0, 0, 0.04)',
+            }}
+          >
+            <UserCheck size={16} color="#058728" />
+            <span>Take Session Attendance</span>
+          </button>
+        </div>
+      )}
 
       {/* 4. Recent Feedback Section (Students only) */}
       {!isTutor && (

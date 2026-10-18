@@ -27,6 +27,7 @@ import { CoursesView } from '../pages/canvas/CoursesView';
 import { GroupsView } from '../pages/canvas/GroupsView';
 import { CalendarView } from '../pages/canvas/CalendarView';
 import { HelpView } from '../pages/canvas/HelpView';
+import { AnnouncementsView } from '../pages/canvas/AnnouncementsView';
 
 
 // System Admin Pages & Guard
@@ -71,6 +72,7 @@ export const AppRoutes: React.FC = () => {
           <Route path="/groups" element={<GroupsView />} />
           <Route path="/groups/:id" element={<GroupsView />} />
           <Route path="/calendar" element={<CalendarView />} />
+          <Route path="/announcements" element={<AnnouncementsView />} />
           <Route path="/help" element={<HelpView />} />
           <Route path="/tutor" element={<TutorStudioPage />} />
           <Route path="/enterprise" element={<EnterpriseDashboard />} />

@@ -95,6 +95,39 @@ export class LiveClassService {
   }
 
   /**
+   * Add or publish recording directly with Google Link, date, and time
+   */
+  public async addRecording(payload: {
+    sessionId?: string;
+    title?: string;
+    date: string;
+    startTime?: string;
+    endTime?: string;
+    googleLink: string;
+    notes?: string;
+    cohortId?: string;
+  }): Promise<LiveClass> {
+    logger.info('Adding live class recording', payload);
+    try {
+      const data = await this.http.post<any>(ApiEndpoints.LIVE_CLASSES.RECORDINGS_ADD, {
+        session_id: payload.sessionId || undefined,
+        title: payload.title,
+        scheduled_date: payload.date,
+        start_time: payload.startTime,
+        end_time: payload.endTime,
+        recording_url: payload.googleLink,
+        notes: payload.notes || undefined,
+        cohort: payload.cohortId || undefined,
+      });
+      const dto: LiveClassDTO = data?.data || data;
+      return new LiveClass(dto);
+    } catch (err) {
+      logger.error('Failed to add recording:', err);
+      throw err;
+    }
+  }
+
+  /**
    * Schedule new live class session (Training Admin)
    */
   public async scheduleClass(payload: Partial<LiveClassDTO>): Promise<LiveClass> {
@@ -145,10 +178,114 @@ export class LiveClassService {
       return await this.http.get(ApiEndpoints.LIVE_CLASSES.MY_ATTENDANCE);
     } catch {
       return {
-        attendance_rate: 80,
-        total_sessions: 10,
-        attended: 8,
+        attendance_rate: 0,
+        total_sessions: 0,
+        attended: 0,
       };
     }
   }
+
+  /**
+   * Get attendance records for a specific live class (Tutors & Admins)
+   */
+  public async getClassAttendance(classId: string): Promise<ClassAttendanceItem[]> {
+    logger.info(`Fetching attendance records for class ${classId}`);
+    try {
+      const res = await this.http.get<any>(ApiEndpoints.LIVE_CLASSES.CLASS_ATTENDANCE(classId));
+      let rawList = res;
+      if (res && typeof res === 'object') {
+        if (Array.isArray(res.data)) {
+          rawList = res.data;
+        } else if (Array.isArray(res.results)) {
+          rawList = res.results;
+        } else if (res.data && Array.isArray(res.data.results)) {
+          rawList = res.data.results;
+        }
+      }
+      return Array.isArray(rawList) ? rawList : [];
+    } catch (err) {
+      logger.error(`Failed to fetch attendance for class ${classId}:`, err);
+      return [];
+    }
+  }
+
+  /**
+   * Batch record or update student attendance for a live class session
+   */
+  public async batchRecordAttendance(
+    classId: string,
+    records: BatchAttendancePayloadItem[]
+  ): Promise<{ live_class_id: string; updated_count: number }> {
+    logger.info(`Batch recording attendance for class ${classId} (${records.length} records)`);
+    try {
+      const res = await this.http.post<any>(
+        ApiEndpoints.LIVE_CLASSES.CLASS_ATTENDANCE_BATCH(classId),
+        { records }
+      );
+      return res?.data || res;
+    } catch (err) {
+      logger.error(`Failed to batch record attendance for class ${classId}:`, err);
+      throw err;
+    }
+  }
+
+  /**
+   * Get individual student attendance details and summary
+   */
+  public async getStudentAttendanceDetail(studentId: string): Promise<StudentAttendanceDetailDTO | null> {
+    logger.info(`Fetching attendance report for student ${studentId}`);
+    try {
+      const res = await this.http.get<any>(ApiEndpoints.LIVE_CLASSES.STUDENT_ATTENDANCE(studentId));
+      return res?.data || res || null;
+    } catch (err) {
+      logger.error(`Failed to fetch student attendance for student ${studentId}:`, err);
+      return null;
+    }
+  }
 }
+
+export interface ClassAttendanceItem {
+  id: string;
+  live_class: string;
+  class_title?: string;
+  scheduled_at?: string;
+  student: string;
+  student_name: string;
+  student_phone?: string;
+  student_photo?: string | null;
+  status: 'PRESENT' | 'LATE' | 'ABSENT' | 'EXCUSED';
+  joined_at?: string | null;
+  minutes_attended?: number;
+  marked_by?: string;
+  marked_by_name?: string;
+  notes?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface BatchAttendancePayloadItem {
+  student_id: string;
+  status: 'PRESENT' | 'LATE' | 'ABSENT' | 'EXCUSED';
+  minutes_attended?: number;
+  joined_at?: string | null;
+  notes?: string;
+}
+
+export interface StudentAttendanceDetailDTO {
+  student_id: string;
+  student_name: string;
+  phone_number?: string;
+  profile_photo?: string | null;
+  summary: {
+    rate?: number;
+    percentage?: number;
+    present_count?: number;
+    late_count?: number;
+    absent_count?: number;
+    excused_count?: number;
+    total_attended?: number;
+    total_classes?: number;
+  };
+  attendances: ClassAttendanceItem[];
+}
+

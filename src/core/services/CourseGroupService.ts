@@ -8,6 +8,7 @@ export interface CourseRosterUserDTO {
   student_id?: string | null;
   category: string;
   avatar_color: string;
+  profile_photo?: string | null;
   last_active: string;
 }
 
@@ -17,6 +18,7 @@ export interface CourseGroupMessageDTO {
   sender_name: string;
   sender_role: 'Tutor' | 'Student';
   avatar_color: string;
+  profile_photo?: string | null;
   timestamp: string;
   text: string;
   created_at: string;
@@ -26,7 +28,10 @@ export interface CourseGroupMemberDTO {
   id: string;
   name: string;
   role: 'Instructor' | 'Student';
+  student_id?: string | null;
   avatar_color: string;
+  profile_photo?: string | null;
+  is_creator?: boolean;
 }
 
 export interface CourseGroupDTO {
@@ -36,8 +41,12 @@ export interface CourseGroupDTO {
   name: string;
   description: string;
   category: string;
+  creator_id?: string;
   creator_name: string;
   creator_role: 'Tutor' | 'Student';
+  allow_students_to_add_members?: boolean;
+  can_add_members?: boolean;
+  can_manage_group?: boolean;
   members_count: number;
   is_member: boolean;
   created_at_formatted: string;
@@ -55,6 +64,14 @@ export interface CreateCourseGroupPayload {
   name: string;
   description?: string;
   category?: string;
+  allow_students_to_add_members?: boolean;
+}
+
+export interface UpdateCourseGroupPayload {
+  name?: string;
+  description?: string;
+  category?: string;
+  allow_students_to_add_members?: boolean;
 }
 
 export class CourseGroupService {
@@ -172,6 +189,64 @@ export class CourseGroupService {
   }
 
   /**
+   * Add a single member to a group.
+   */
+  public async addMember(groupId: string, userId: string): Promise<CourseGroupDetailDTO> {
+    const res = await this.http.post<{ data: CourseGroupDetailDTO } | CourseGroupDetailDTO>(
+      ApiEndpoints.LMS.COURSE_GROUP_MEMBERS(groupId),
+      { user_id: userId }
+    );
+    if (res && 'data' in res && res.data) {
+      return res.data;
+    }
+    return res as CourseGroupDetailDTO;
+  }
+
+  /**
+   * Add multiple members to a group.
+   */
+  public async addMembers(groupId: string, userIds: string[]): Promise<CourseGroupDetailDTO> {
+    const res = await this.http.post<{ data: CourseGroupDetailDTO } | CourseGroupDetailDTO>(
+      ApiEndpoints.LMS.COURSE_GROUP_MEMBERS(groupId),
+      { user_ids: userIds }
+    );
+    if (res && 'data' in res && res.data) {
+      return res.data;
+    }
+    return res as CourseGroupDetailDTO;
+  }
+
+  /**
+   * Update study group settings (permissions, name, description, etc).
+   */
+  public async updateGroupSettings(
+    groupId: string,
+    payload: UpdateCourseGroupPayload
+  ): Promise<CourseGroupDetailDTO> {
+    const res = await this.http.patch<{ data: CourseGroupDetailDTO } | CourseGroupDetailDTO>(
+      ApiEndpoints.LMS.COURSE_GROUP_DETAIL(groupId),
+      payload
+    );
+    if (res && 'data' in res && res.data) {
+      return res.data;
+    }
+    return res as CourseGroupDetailDTO;
+  }
+
+  /**
+   * Remove a member from a group (by group creator or instructor).
+   */
+  public async removeMember(groupId: string, userId: string): Promise<CourseGroupDetailDTO> {
+    const res = await this.http.delete<{ data: CourseGroupDetailDTO } | CourseGroupDetailDTO>(
+      ApiEndpoints.LMS.COURSE_GROUP_MEMBER_REMOVE(groupId, userId)
+    );
+    if (res && 'data' in res && res.data) {
+      return res.data;
+    }
+    return res as CourseGroupDetailDTO;
+  }
+
+  /**
    * Send a chat message in a study group.
    */
   public async sendMessage(groupId: string, content: string): Promise<CourseGroupMessageDTO> {
@@ -185,3 +260,4 @@ export class CourseGroupService {
     return res as CourseGroupMessageDTO;
   }
 }
+

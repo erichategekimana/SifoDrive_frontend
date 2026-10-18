@@ -8,6 +8,7 @@ import {
   RefreshCw,
   AlertCircle,
   GraduationCap,
+  UserCheck,
 } from 'lucide-react';
 import {
   TutorLmsService,
@@ -22,7 +23,10 @@ import { CohortQuizSchedulePanel } from './CohortQuizSchedulePanel';
 import { CohortActivitiesPanel } from './CohortActivitiesPanel';
 import { Spinner } from '../../../../components/common/Spinner';
 
-type TutorLmsTab = 'modules' | 'quizzes' | 'activities';
+const CourseAttendanceTab = React.lazy(() => import('../course/attendance/CourseAttendanceTab'));
+const CoursePeopleTab = React.lazy(() => import('../course/people/CoursePeopleTab'));
+
+type TutorLmsTab = 'modules' | 'quizzes' | 'activities' | 'attendance' | 'people';
 
 export const TutorLmsStudio: React.FC = () => {
   const [cohorts, setCohorts] = useState<CohortSelectorItem[]>([]);
@@ -42,7 +46,12 @@ export const TutorLmsStudio: React.FC = () => {
     window.location.search = params.toString();
   };
 
-  const [activeTab, setActiveTab] = useState<TutorLmsTab>('modules');
+  const [activeTab, setActiveTab] = useState<TutorLmsTab>(() => {
+    const t = new URLSearchParams(window.location.search).get('tab');
+    return t === 'people' || t === 'quizzes' || t === 'activities' || t === 'attendance'
+      ? (t as TutorLmsTab)
+      : 'modules';
+  });
 
   // Tab content states
   const [modules, setModules] = useState<CohortModuleItem[]>([]);
@@ -166,6 +175,7 @@ export const TutorLmsStudio: React.FC = () => {
   }
 
   const selectedCohort = cohorts.find((c) => c.id === selectedCohortId);
+  const selectedCourse = courses.find((c) => c.id === selectedCourseId) || courses[0];
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -334,6 +344,24 @@ export const TutorLmsStudio: React.FC = () => {
               <FileText size={14} />
               <span>Cohort Activities & Drills</span>
             </button>
+
+            <button
+              onClick={() => setActiveTab('attendance')}
+              className={`btn btn-sm ${activeTab === 'attendance' ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+            >
+              <UserCheck size={14} />
+              <span>Student Attendance & Roll Call</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('people')}
+              className={`btn btn-sm ${activeTab === 'people' ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+            >
+              <Users size={14} />
+              <span>People & Study Groups</span>
+            </button>
           </div>
 
           {/* Panel Content */}
@@ -366,6 +394,43 @@ export const TutorLmsStudio: React.FC = () => {
                 isLoading={isLoadingData}
                 onRefresh={loadTabData}
               />
+            )}
+
+            {activeTab === 'attendance' && (
+              <React.Suspense fallback={<Spinner message="Loading attendance console..." />}>
+                <CourseAttendanceTab
+                  course={{
+                    id: selectedCourseId,
+                    title: selectedCourse?.title || 'Course Attendance',
+                    code: selectedCourse?.code || 'CRS',
+                  } as any}
+                  cohortId={selectedCohortId}
+                  tutorCohorts={cohorts}
+                  onCohortChange={handleCohortChange}
+                />
+              </React.Suspense>
+            )}
+
+            {activeTab === 'people' && (
+              <React.Suspense fallback={<Spinner message="Loading course people & study groups..." />}>
+                <div
+                  style={{
+                    backgroundColor: '#FFFFFF',
+                    borderRadius: 'var(--radius-xl)',
+                    padding: '24px',
+                    color: '#1E293B',
+                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                  }}
+                >
+                  <CoursePeopleTab
+                    course={{
+                      id: selectedCourseId,
+                      title: selectedCourse?.title || 'Selected Course',
+                      code: selectedCourse?.code || 'CRS',
+                    } as any}
+                  />
+                </div>
+              </React.Suspense>
             )}
           </div>
         </div>

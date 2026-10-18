@@ -52,6 +52,7 @@ export interface CohortStudentItem {
   phone_number: string;
   email?: string;
   category: string;
+  profile_photo?: string | null;
   enrolled_at?: string;
 }
 

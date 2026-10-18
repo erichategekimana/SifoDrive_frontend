@@ -56,9 +56,19 @@ export const DiscussionReplyItem: React.FC<DiscussionReplyItemProps> = ({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
+                overflow: 'hidden',
+                flexShrink: 0,
               }}
             >
-              {reply.author_name.substring(0, 2).toUpperCase()}
+              {reply.author_photo ? (
+                <img
+                  src={reply.author_photo}
+                  alt={reply.author_name}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                />
+              ) : (
+                reply.author_name.substring(0, 2).toUpperCase()
+              )}
             </div>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -225,9 +235,19 @@ export const DiscussionReplyItem: React.FC<DiscussionReplyItemProps> = ({
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
+                      overflow: 'hidden',
+                      flexShrink: 0,
                     }}
                   >
-                    {child.author_name.substring(0, 2).toUpperCase()}
+                    {child.author_photo ? (
+                      <img
+                        src={child.author_photo}
+                        alt={child.author_name}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      />
+                    ) : (
+                      child.author_name.substring(0, 2).toUpperCase()
+                    )}
                   </div>
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>

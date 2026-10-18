@@ -42,11 +42,13 @@ export class AuthService {
     this.storage.setItem('sifo_tokens', tokens);
 
     const user = new User({
+      ...data.user,
       id: data.user.id,
       role: data.user.role as any,
       full_name: data.user.full_name,
       status: data.user.status as any,
       student_id: data.user.student_id,
+      profile_photo: data.user.profile_photo ?? (data.user as any).profilePhoto ?? null,
       terms_accepted: data.user.terms_accepted,
       privacy_accepted: data.user.privacy_accepted,
       phone_number: data.user.phone_number || phoneNumber,
@@ -88,11 +90,13 @@ export class AuthService {
     this.storage.setItem('sifo_tokens', tokens);
 
     const user = new User({
+      ...data.user,
       id: data.user.id,
       role: data.user.role as any,
       full_name: data.user.full_name,
       status: data.user.status as any,
       student_id: data.user.student_id,
+      profile_photo: data.user.profile_photo ?? (data.user as any).profilePhoto ?? null,
       terms_accepted: data.user.terms_accepted,
       privacy_accepted: data.user.privacy_accepted,
       phone_number: phoneNumber,

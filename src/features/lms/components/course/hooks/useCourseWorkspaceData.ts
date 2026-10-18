@@ -111,11 +111,14 @@ export function useCourseWorkspaceData({
   // Student Live Class Attendance state & metrics
   const [attendanceSummary, setAttendanceSummary] = useState<{
     attendance_rate?: number;
+    rate?: number;
+    percentage?: number;
     meets_threshold?: boolean;
     present_count?: number;
     late_count?: number;
     absent_count?: number;
     total_classes?: number;
+    total_attended?: number;
   } | null>(null);
 
   useEffect(() => {
@@ -125,8 +128,8 @@ export function useCourseWorkspaceData({
       .get<any>('/api/v1/live-classes/my-attendance/')
       .then((res) => {
         if (!isMounted) return;
-        if (res?.data?.summary) setAttendanceSummary(res.data.summary);
-        else if (res?.summary) setAttendanceSummary(res.summary);
+        const summary = res?.data?.summary || res?.summary;
+        if (summary) setAttendanceSummary(summary);
       })
       .catch(() => {
         StudentAccountService.getInstance()
@@ -135,7 +138,9 @@ export function useCourseWorkspaceData({
             if (!isMounted) return;
             if (elig?.criteria?.attendance_rate !== undefined) {
               setAttendanceSummary({
-                attendance_rate: Math.round(elig.criteria.attendance_rate * 100),
+                attendance_rate: elig.criteria.attendance_rate,
+                rate: elig.criteria.attendance_rate,
+                percentage: Math.round(elig.criteria.attendance_rate * 100),
                 meets_threshold: elig.criteria.attendance_rate >= 0.75,
                 total_classes: 10,
                 present_count: Math.round(elig.criteria.attendance_rate * 10),
@@ -150,14 +155,34 @@ export function useCourseWorkspaceData({
   }, [isTutor]);
 
   const studentAttendanceRate = useMemo(() => {
-    if (attendanceSummary?.attendance_rate !== undefined) {
-      return Math.round(
-        attendanceSummary.attendance_rate <= 1
-          ? attendanceSummary.attendance_rate * 100
-          : attendanceSummary.attendance_rate
-      );
+    const absentCount = (attendanceSummary as any)?.absent_count ?? 0;
+    const lateCount = (attendanceSummary as any)?.late_count ?? 0;
+
+    // Real Roll Call Rule: If student has no absence and no late, they have 100%
+    if (absentCount === 0 && lateCount === 0) {
+      return 100;
     }
-    return 80;
+
+    if ((attendanceSummary as any)?.percentage !== undefined) {
+      return Math.round((attendanceSummary as any).percentage);
+    }
+    if ((attendanceSummary as any)?.rate !== undefined) {
+      const r = (attendanceSummary as any).rate;
+      return Math.round(r <= 1 ? r * 100 : r);
+    }
+    if ((attendanceSummary as any)?.attendance_rate !== undefined) {
+      const r = (attendanceSummary as any).attendance_rate;
+      return Math.round(r <= 1 ? r * 100 : r);
+    }
+
+    const presentCount = (attendanceSummary as any)?.present_count ?? 0;
+    const totalMarked = presentCount + lateCount + absentCount;
+    if (totalMarked > 0) {
+      const earned = presentCount + lateCount * 0.8;
+      return Math.round((earned / totalMarked) * 100);
+    }
+
+    return 100;
   }, [attendanceSummary]);
 
   const handleToggleActivityLock = async (activity: CohortActivityItem) => {

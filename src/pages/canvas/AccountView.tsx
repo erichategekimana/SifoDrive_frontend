@@ -40,6 +40,11 @@ export const AccountView: React.FC = () => {
 
   // Active section inside Account: settings, profile, security, progress
   const [activeTab, setActiveTab] = useState<'settings' | 'profile' | 'security' | 'progress'>('settings');
+  const [avatarError, setAvatarError] = useState(false);
+
+  useEffect(() => {
+    setAvatarError(false);
+  }, [user?.profilePhoto]);
 
   // --- SETTINGS STATE ---
   const [notifPrefs, setNotifPrefs] = useState({
@@ -878,7 +883,7 @@ export const AccountView: React.FC = () => {
                   {/* Avatar & Names Header Display */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '20px', paddingBottom: '20px', borderBottom: '1px solid #EAEAEA' }}>
                     <div style={{ position: 'relative' }}>
-                      {user?.profilePhoto ? (
+                      {user?.profilePhoto && !avatarError ? (
                         <img
                           src={user.profilePhoto}
                           alt={user.fullName}
@@ -889,6 +894,7 @@ export const AccountView: React.FC = () => {
                             objectFit: 'cover',
                             border: '2px solid #0055A5',
                           }}
+                          onError={() => setAvatarError(true)}
                         />
                       ) : (
                         <div

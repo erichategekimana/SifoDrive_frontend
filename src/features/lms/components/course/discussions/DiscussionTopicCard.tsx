@@ -59,9 +59,18 @@ export const DiscussionTopicCard: React.FC<DiscussionTopicCardProps> = ({
             alignItems: 'center',
             justifyContent: 'center',
             flexShrink: 0,
+            overflow: 'hidden',
           }}
         >
-          {topic.author_name.substring(0, 2).toUpperCase()}
+          {topic.author_photo ? (
+            <img
+              src={topic.author_photo}
+              alt={topic.author_name}
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            />
+          ) : (
+            topic.author_name.substring(0, 2).toUpperCase()
+          )}
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1 }}>

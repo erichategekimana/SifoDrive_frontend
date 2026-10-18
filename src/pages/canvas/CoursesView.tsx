@@ -298,9 +298,6 @@ export const CoursesView: React.FC = () => {
                   <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#0055A5', letterSpacing: '0.04em' }}>
                     {course.code || 'THEORY'}
                   </span>
-                  <span className="canvas-badge canvas-badge-open" style={{ fontSize: '0.7rem' }}>
-                    {course.curriculumTitle || 'Rwanda Highway Code'}
-                  </span>
                 </div>
 
                 <h2 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#2D3B45', margin: '6px 0 10px 0', lineHeight: 1.3 }}>

@@ -2,102 +2,107 @@ import React, { useState, useEffect, useMemo } from 'react';
 import {
   ChevronLeft,
   ChevronRight,
-  Calendar as CalIcon,
+  ChevronDown,
   Clock,
   Video,
-  Filter,
   CheckCircle2,
-  FileText,
-  Award,
-  ShieldCheck,
   RotateCcw,
-  ListFilter,
-  CalendarDays,
   X,
+  Filter,
+  ExternalLink,
+  Calendar,
 } from 'lucide-react';
-import { useTranslation } from '../../context/I18nContext';
 import { useTheme } from '../../context/ThemeContext';
 import { LiveClassService } from '../../core/services/LiveClassService';
 import { HttpClient } from '../../core/api/HttpClient';
 
-interface CalendarEvent {
+export interface CalendarEvent {
   id: string;
   dateStr: string; // YYYY-MM-DD
   day: number;
   time: string;
   title: string;
-  category: 'QUIZ' | 'LIVE_CLASS' | 'EXAM' | 'ACTIVITY';
+  category: 'LIVE_CLASS' | 'QUIZ' | 'ACTIVITY' | 'EXAM';
   courseCode?: string;
+  courseTag?: string;
   meetLink?: string;
   description?: string;
 }
 
 export const CalendarView: React.FC = () => {
-  const { t } = useTranslation();
   const { theme } = useTheme();
   const isDark = theme === 'dark';
 
-  // 1. Date State
+  // 1. Date & View State
   const [currentDate, setCurrentDate] = useState<Date>(() => new Date());
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
-  const [viewMode, setViewMode] = useState<'month' | 'agenda'>('month');
+  const [viewMode, setViewMode] = useState<'day' | 'week' | 'month' | 'agenda'>('month');
+  const [selectedCourse, setSelectedCourse] = useState<string>('ALL');
 
-  // 2. Filters
+  // Event category filters (Live Classes, Quizzes, Activities, Exams)
   const [showLiveClasses, setShowLiveClasses] = useState<boolean>(true);
   const [showQuizzes, setShowQuizzes] = useState<boolean>(true);
   const [showActivities, setShowActivities] = useState<boolean>(true);
   const [showExams, setShowExams] = useState<boolean>(true);
 
-  // 3. Dynamic Events from Backend
+  // 2. Dynamic Backend Events
   const [dynamicEvents, setDynamicEvents] = useState<CalendarEvent[]>([]);
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth(); // 0-indexed
 
-  // Format month and year title
+  // Format month and year title (e.g., "October 2026")
   const currentMonthTitle = useMemo(() => {
     return currentDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
   }, [currentDate]);
 
-  // Fetch real events from Backend (Live Classes & Activities)
+  const currentMonthShort = useMemo(() => {
+    return currentDate.toLocaleDateString(undefined, { month: 'short' });
+  }, [currentDate]);
+
+  // Fetch real events from Backend (Classes, Quizzes, Activities, Exams)
   useEffect(() => {
     let isMounted = true;
     const fetchEvents = async () => {
       try {
         const eventsList: CalendarEvent[] = [];
+        const http = HttpClient.getInstance();
 
         // 1. Fetch live classes
         const classes = await LiveClassService.getInstance().getClasses().catch(() => []);
         if (classes && classes.length > 0) {
           classes.forEach((c) => {
-            if (c.scheduledDate) {
-              const parts = c.scheduledDate.split('-');
+            const rawDate = c.scheduledDate || (c as any).scheduled_date || (c as any).scheduled_at;
+            if (rawDate) {
+              const dateStr = rawDate.split('T')[0];
+              const parts = dateStr.split('-');
               const dayNum = parseInt(parts[2], 10);
               eventsList.push({
                 id: `live-${c.id}`,
-                dateStr: c.scheduledDate,
+                dateStr,
                 day: isNaN(dayNum) ? 1 : dayNum,
                 time: c.getFormattedTimeRange() || `${c.startTime?.slice(0, 5)} - ${c.endTime?.slice(0, 5)}`,
                 title: c.title,
                 category: 'LIVE_CLASS',
                 courseCode: c.cohortName || 'Live Class',
-                meetLink: c.googleMeetUrl,
+                courseTag: 'Live Class',
+                meetLink: c.googleMeetUrl || 'https://meet.google.com/new',
                 description: 'Interactive session with your certified instructor on Google Meet.',
               });
             }
           });
         }
 
-        // 2. Fetch cohort activities
-        const http = HttpClient.getInstance();
+        // 2. Fetch cohort activities / assignments
         const actRes: any = await http.get('/api/v1/lms/cohorts/activities/').catch(() => null);
         const activities = Array.isArray(actRes?.data) ? actRes.data : Array.isArray(actRes) ? actRes : [];
         if (activities.length > 0) {
           activities.forEach((act: any) => {
-            if (act.due_date) {
-              const d = new Date(act.due_date);
-              const dateStr = act.due_date.split('T')[0];
+            const targetDate = act.due_date || act.open_date;
+            if (targetDate) {
+              const d = new Date(targetDate);
+              const dateStr = targetDate.split('T')[0];
               eventsList.push({
                 id: `act-${act.id}`,
                 dateStr,
@@ -105,8 +110,57 @@ export const CalendarView: React.FC = () => {
                 time: d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
                 title: act.title,
                 category: 'ACTIVITY',
-                courseCode: act.course_title || 'Cohort Activity',
+                courseCode: act.course_title || act.cohort_name || 'Cohort Activity',
+                courseTag: 'Activity',
                 description: act.description || 'Submission due date for graded assignment.',
+              });
+            }
+          });
+        }
+
+        // 3. Fetch cohort quizzes & tutor deadlines
+        const quizRes: any = await http.get('/api/v1/lms/quizzes/').catch(() => null);
+        const quizzes = Array.isArray(quizRes?.data) ? quizRes.data : Array.isArray(quizRes) ? quizRes : [];
+        if (quizzes.length > 0) {
+          quizzes.forEach((q: any) => {
+            const targetDate = q.deadline || q.closing_date || q.open_date;
+            if (targetDate) {
+              const d = new Date(targetDate);
+              const dateStr = targetDate.split('T')[0];
+              eventsList.push({
+                id: `quiz-${q.id}`,
+                dateStr,
+                day: d.getDate(),
+                time: d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                title: q.title,
+                category: q.is_final_exam ? 'EXAM' : 'QUIZ',
+                courseCode: q.course_title || 'Quiz Assessment',
+                courseTag: q.is_final_exam ? 'Exam' : 'Quiz',
+                description: q.description || 'Cohort assessment and knowledge evaluation.',
+              });
+            }
+          });
+        }
+
+        // 4. Fetch scheduled exam sessions (from examinations hub)
+        const examRes: any = await http.get('/api/v1/examinations/admin/sessions/').catch(() => null);
+        const examsData = examRes?.data?.results || (Array.isArray(examRes?.data) ? examRes.data : Array.isArray(examRes) ? examRes : []);
+        if (examsData.length > 0) {
+          examsData.forEach((ex: any) => {
+            const targetDate = ex.started_at || ex.submitted_at || ex.created_at;
+            if (targetDate) {
+              const d = new Date(targetDate);
+              const dateStr = targetDate.split('T')[0];
+              eventsList.push({
+                id: `exam-${ex.id}`,
+                dateStr,
+                day: d.getDate(),
+                time: d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                title: ex.cohort?.name ? `${ex.cohort.name} Examination` : 'Official Examination Session',
+                category: 'EXAM',
+                courseCode: ex.cohort?.name || 'Examination',
+                courseTag: 'Exam',
+                description: 'Official proctored examination session.',
               });
             }
           });
@@ -126,114 +180,42 @@ export const CalendarView: React.FC = () => {
     };
   }, []);
 
-  // Standard foundational events for the current active month
-  const defaultEvents: CalendarEvent[] = useMemo(() => {
-    const y = year;
-    const m = String(month + 1).padStart(2, '0');
-    return [
-      {
-        id: 'ev-1',
-        dateStr: `${y}-${m}-03`,
-        day: 3,
-        time: '18:00 - 19:30',
-        title: "Live Class: Ibyapa by'Impuruza (Google Meet)",
-        category: 'LIVE_CLASS',
-        courseCode: 'TRAF-101',
-        meetLink: 'https://meet.google.com/new',
-        description: 'Interactive lecture covering road danger warning signs.',
-      },
-      {
-        id: 'ev-2',
-        dateStr: `${y}-${m}-07`,
-        day: 7,
-        time: '23:59',
-        title: 'Quiz 2 Deadline: Amategeko yo Kunyuranaho',
-        category: 'QUIZ',
-        courseCode: 'TRAF-101',
-        description: 'Multiple choice quiz on overtaking regulations and lane priority.',
-      },
-      {
-        id: 'ev-3',
-        dateStr: `${y}-${m}-12`,
-        day: 12,
-        time: '19:00 - 20:30',
-        title: "Live Class: Gusuzuma Feri n'Amatara",
-        category: 'LIVE_CLASS',
-        courseCode: 'MECH-102',
-        meetLink: 'https://meet.google.com/new',
-        description: 'Vehicle mechanics practical drill on brake system inspections.',
-      },
-      {
-        id: 'ev-4',
-        dateStr: `${y}-${m}-15`,
-        day: 15,
-        time: '23:59',
-        title: 'Activity: Pre-Drive Inspection Checklist (PDF / Upload)',
-        category: 'ACTIVITY',
-        courseCode: 'MECH-102',
-        description: 'Tutor-graded homework assignment. Submit checklist notes or PDF.',
-      },
-      {
-        id: 'ev-5',
-        dateStr: `${y}-${m}-18`,
-        day: 18,
-        time: '14:00 - 15:30',
-        title: "Ikizamini cy'Igerageza cya Polisi (National Mock Exam 1)",
-        category: 'EXAM',
-        courseCode: 'POLICE-MOCK',
-        description: 'Full 20-question timed mock provisional driving license examination.',
-      },
-      {
-        id: 'ev-6',
-        dateStr: `${y}-${m}-24`,
-        day: 24,
-        time: '23:59',
-        title: 'Quiz 3 Deadline: Ibyapa Bibuza (Prohibitory Signs)',
-        category: 'QUIZ',
-        courseCode: 'TRAF-101',
-        description: 'Online evaluation on priority and restriction road signs.',
-      },
-      {
-        id: 'ev-7',
-        dateStr: `${y}-${m}-28`,
-        day: 28,
-        time: '18:30 - 20:00',
-        title: 'Live Review: Highway Code Q&A with Senior Tutor',
-        category: 'LIVE_CLASS',
-        courseCode: 'TRAF-101',
-        meetLink: 'https://meet.google.com/new',
-        description: 'Open consultation and revision session ahead of final examination.',
-      },
-    ];
-  }, [year, month]);
-
-  // Combine dynamic and default events
+  // Real backend events from LiveClassService and Cohort Activities
   const allEvents = useMemo(() => {
-    if (dynamicEvents.length > 0) {
-      // Merge dynamic events with default events that do not conflict
-      const dynamicIds = new Set(dynamicEvents.map((e) => e.title));
-      const filteredDefaults = defaultEvents.filter((d) => !dynamicIds.has(d.title));
-      return [...dynamicEvents, ...filteredDefaults];
-    }
-    return defaultEvents;
-  }, [dynamicEvents, defaultEvents]);
+    return dynamicEvents;
+  }, [dynamicEvents]);
 
-  // Filter events based on active checkboxes
+  // Available courses list for "Filter by Course" dropdown
+  const availableCourses = useMemo(() => {
+    const list = new Set<string>();
+    allEvents.forEach((ev) => {
+      if (ev.courseCode) list.add(ev.courseCode);
+    });
+    return Array.from(list);
+  }, [allEvents]);
+
+  // Filter events based on selected course and event category toggles
   const filteredEvents = useMemo(() => {
     return allEvents.filter((ev) => {
-      if (ev.category === 'QUIZ' && !showQuizzes) return false;
+      // Course filter
+      if (selectedCourse !== 'ALL' && ev.courseCode !== selectedCourse) {
+        return false;
+      }
+      // Category toggles
       if (ev.category === 'LIVE_CLASS' && !showLiveClasses) return false;
+      if (ev.category === 'QUIZ' && !showQuizzes) return false;
       if (ev.category === 'ACTIVITY' && !showActivities) return false;
       if (ev.category === 'EXAM' && !showExams) return false;
+
       return true;
     });
-  }, [allEvents, showQuizzes, showLiveClasses, showActivities, showExams]);
+  }, [allEvents, selectedCourse, showLiveClasses, showQuizzes, showActivities, showExams]);
 
-  // Calendar math: calculate accurate calendar grid for current year and month
+  // Calendar math: Sunday is column 0 (Sun, Mon, Tue, Wed, Thu, Fri, Sat) matching reference
   const calendarGrid = useMemo(() => {
     const daysInCurrentMonth = new Date(year, month + 1, 0).getDate();
-    const firstDayOfWeek = new Date(year, month, 1).getDay(); // 0 = Sun, 1 = Mon ...
-    const startDayIndex = (firstDayOfWeek + 6) % 7; // Convert to Mon = 0 ... Sun = 6
+    const firstDayOfWeek = new Date(year, month, 1).getDay(); // 0 = Sun, 1 = Mon ... 6 = Sat
+    const startDayIndex = firstDayOfWeek; // Direct Sunday alignment
 
     const daysInPrevMonth = new Date(year, month, 0).getDate();
     const cells = [];
@@ -241,10 +223,13 @@ export const CalendarView: React.FC = () => {
     // Previous month padding
     for (let i = startDayIndex - 1; i >= 0; i--) {
       const d = daysInPrevMonth - i;
+      const prevDate = new Date(year, month - 1, d);
+      const prevY = prevDate.getFullYear();
+      const prevM = String(prevDate.getMonth() + 1).padStart(2, '0');
       cells.push({
         day: d,
         isCurrentMonth: false,
-        dateKey: `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`,
+        dateKey: `${prevY}-${prevM}-${String(d).padStart(2, '0')}`,
       });
     }
 
@@ -257,14 +242,17 @@ export const CalendarView: React.FC = () => {
       });
     }
 
-    // Next month padding (standard 35 or 42 cells total)
+    // Next month padding (standard 35/42 cells grid)
     const totalCells = Math.ceil(cells.length / 7) * 7;
-    const nextDaysCount = totalCells - cells.length;
+    const nextDaysCount = Math.max(0, totalCells - cells.length);
     for (let d = 1; d <= nextDaysCount; d++) {
+      const nextDate = new Date(year, month + 1, d);
+      const nextY = nextDate.getFullYear();
+      const nextM = String(nextDate.getMonth() + 1).padStart(2, '0');
       cells.push({
         day: d,
         isCurrentMonth: false,
-        dateKey: `${year}-${String(month + 2).padStart(2, '0')}-${String(d).padStart(2, '0')}`,
+        dateKey: `${nextY}-${nextM}-${String(d).padStart(2, '0')}`,
       });
     }
 
@@ -291,48 +279,6 @@ export const CalendarView: React.FC = () => {
     setSelectedEvent(null);
   };
 
-  // Event Category Visual Tokens (calm, elegant, blends cleanly in both modes)
-  const getEventBadge = (cat: CalendarEvent['category']) => {
-    switch (cat) {
-      case 'LIVE_CLASS':
-        return {
-          bg: isDark ? 'rgba(37, 99, 235, 0.20)' : '#EFF6FF',
-          border: isDark ? 'rgba(59, 130, 246, 0.40)' : '#BFDBFE',
-          color: isDark ? '#93C5FD' : '#1E40AF',
-          dot: isDark ? '#3B82F6' : '#2563EB',
-          label: 'Live Class',
-          icon: <Video size={13} color={isDark ? '#93C5FD' : '#2563EB'} />,
-        };
-      case 'QUIZ':
-        return {
-          bg: isDark ? 'rgba(217, 119, 6, 0.20)' : '#FFFBEB',
-          border: isDark ? 'rgba(245, 158, 11, 0.40)' : '#FDE68A',
-          color: isDark ? '#FCD34D' : '#92400E',
-          dot: isDark ? '#F59E0B' : '#D97706',
-          label: 'Quiz Deadline',
-          icon: <FileText size={13} color={isDark ? '#FCD34D' : '#D97706'} />,
-        };
-      case 'ACTIVITY':
-        return {
-          bg: isDark ? 'rgba(99, 102, 241, 0.20)' : '#EEF2FF',
-          border: isDark ? 'rgba(99, 102, 241, 0.40)' : '#C7D2FE',
-          color: isDark ? '#C7D2FE' : '#3730A3',
-          dot: isDark ? '#8B5CF6' : '#6366F1',
-          label: 'Activity',
-          icon: <Award size={13} color={isDark ? '#C7D2FE' : '#6366F1'} />,
-        };
-      case 'EXAM':
-        return {
-          bg: isDark ? 'rgba(16, 185, 129, 0.20)' : '#F0FDF4',
-          border: isDark ? 'rgba(16, 185, 129, 0.40)' : '#BBF7D0',
-          color: isDark ? '#6EE7B7' : '#166534',
-          dot: isDark ? '#10B981' : '#059669',
-          label: 'Mock Exam',
-          icon: <ShieldCheck size={13} color={isDark ? '#6EE7B7' : '#059669'} />,
-        };
-    }
-  };
-
   // Check if cell is today
   const todayDate = new Date();
   const isActualToday = (dayNum: number, isCurrMonth: boolean) => {
@@ -344,118 +290,204 @@ export const CalendarView: React.FC = () => {
     );
   };
 
-  // Upcoming items this month sorted
+  // Color tokens with dimmed backgrounds and crisp readable text
+  const getEventVisuals = (category: CalendarEvent['category']) => {
+    switch (category) {
+      case 'LIVE_CLASS':
+        return {
+          chipBg: isDark ? 'rgba(99, 102, 241, 0.16)' : '#EEF2FF', // Dimmed soft indigo
+          chipBorder: isDark ? 'rgba(99, 102, 241, 0.45)' : '#C7D2FE',
+          chipText: isDark ? '#E0E7FF' : '#312E81', // Crisp high contrast text
+          accent: '#4338CA',
+          tagBg: '#4338CA',
+          btnBorder: '#2563EB',
+          btnText: '#2563EB',
+          label: 'Live Class',
+          actionText: 'Join Class',
+        };
+      case 'QUIZ':
+        return {
+          chipBg: isDark ? 'rgba(239, 68, 68, 0.16)' : '#FEF2F2', // Dimmed soft rose
+          chipBorder: isDark ? 'rgba(239, 68, 68, 0.45)' : '#FECACA',
+          chipText: isDark ? '#FEE2E2' : '#991B1B', // Crisp high contrast red text
+          accent: '#EF4444',
+          tagBg: '#EF4444',
+          btnBorder: '#DC2626',
+          btnText: '#DC2626',
+          label: 'Quiz',
+          actionText: 'Take Quiz',
+        };
+      case 'ACTIVITY':
+        return {
+          chipBg: isDark ? 'rgba(16, 185, 129, 0.16)' : '#ECFDF5', // Dimmed soft emerald
+          chipBorder: isDark ? 'rgba(16, 185, 129, 0.45)' : '#A7F3D0',
+          chipText: isDark ? '#D1FAE5' : '#065F46', // Crisp high contrast green text
+          accent: '#10B981',
+          tagBg: '#10B981',
+          btnBorder: '#059669',
+          btnText: '#059669',
+          label: 'Activity',
+          actionText: 'View Activity',
+        };
+      case 'EXAM':
+      default:
+        return {
+          chipBg: isDark ? 'rgba(245, 158, 11, 0.16)' : '#FFFBEB', // Dimmed soft amber
+          chipBorder: isDark ? 'rgba(245, 158, 11, 0.45)' : '#FDE68A',
+          chipText: isDark ? '#FEF3C7' : '#92400E', // Crisp high contrast amber text
+          accent: '#F59E0B',
+          tagBg: '#F59E0B',
+          btnBorder: '#D97706',
+          btnText: '#D97706',
+          label: 'Examination',
+          actionText: 'View Exam',
+        };
+    }
+  };
+
+  // Top 5 upcoming events: prioritizes other events (quizzes, activities, exams)
+  // and backfills with live classes only if fewer than 5 other events are available.
   const upcomingEvents = useMemo(() => {
-    return [...filteredEvents]
-      .sort((a, b) => a.day - b.day)
-      .slice(0, 6);
-  }, [filteredEvents]);
+    const todayStr = `${todayDate.getFullYear()}-${String(todayDate.getMonth() + 1).padStart(2, '0')}-${String(todayDate.getDate()).padStart(2, '0')}`;
+
+    // Filter events that occur today or in the future
+    const futureEvents = filteredEvents.filter((ev) => {
+      if (ev.dateStr) {
+        return ev.dateStr >= todayStr;
+      }
+      return ev.day >= todayDate.getDate();
+    });
+
+    // Chronological comparator helper
+    const sortChronological = (a: CalendarEvent, b: CalendarEvent) => {
+      if (a.dateStr && b.dateStr && a.dateStr !== b.dateStr) {
+        return a.dateStr.localeCompare(b.dateStr);
+      }
+      return a.day - b.day;
+    };
+
+    // Separate other events (quizzes, activities, exams) from classes
+    const nonClassEvents = futureEvents
+      .filter((ev) => ev.category !== 'LIVE_CLASS')
+      .sort(sortChronological);
+
+    const classEvents = futureEvents
+      .filter((ev) => ev.category === 'LIVE_CLASS')
+      .sort(sortChronological);
+
+    // Prioritize non-classes, and backfill with classes up to 5 total
+    const result: CalendarEvent[] = [...nonClassEvents.slice(0, 5)];
+    const needed = 5 - result.length;
+    if (needed > 0) {
+      result.push(...classEvents.slice(0, needed));
+    }
+
+    // Sort final 5 events chronologically for clean presentation
+    return result.sort(sortChronological);
+  }, [filteredEvents, todayDate]);
 
   return (
     <div
       style={{
         width: '100%',
-        maxWidth: '100%',
-        margin: '0 auto',
-        paddingBottom: '30px',
+        paddingBottom: '40px',
         boxSizing: 'border-box',
-        overflowX: 'hidden',
+        fontFamily: "'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
       }}
     >
-      <style>{`
-        .calendar-day-events::-webkit-scrollbar {
-          width: 4px;
-        }
-        .calendar-day-events::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        .calendar-day-events::-webkit-scrollbar-thumb {
-          background: ${isDark ? '#475569' : '#CBD5E1'};
-          border-radius: 4px;
-        }
-        .calendar-day-events::-webkit-scrollbar-thumb:hover {
-          background: ${isDark ? '#64748B' : '#94A3B8'};
-        }
-      `}</style>
       {/* ─────────────────────────────────────────────────────────────
-          1. TOP BAR: Title, Navigation, View Switcher
+          1. TOP BAR: Segmented Capsule & Month Stepper on Rich Gradient
          ───────────────────────────────────────────────────────────── */}
       <div
         style={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '16px',
-          paddingBottom: '18px',
-          borderBottom: isDark ? '1px solid #334155' : '1px solid #E2E8F0',
+          background: 'linear-gradient(135deg, #1e3a5f 0%, #155e75 45%, #2e2870 100%)',
+          padding: '16px 24px',
+          borderRadius: '18px',
           marginBottom: '22px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '14px',
+          boxShadow: '0 4px 18px rgba(0, 0, 0, 0.08)',
         }}
       >
-        {/* Left: Page Title */}
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div
-              style={{
-                width: '38px',
-                height: '38px',
-                borderRadius: '8px',
-                backgroundColor: '#0055A5',
-                color: '#FFFFFF',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <CalIcon size={20} />
-            </div>
-            <div>
-              <h1 style={{ fontSize: '1.6rem', fontWeight: 800, color: isDark ? '#F8FAFC' : '#0F172A', margin: 0 }}>
-                {t('canvasCalendar.title')}
-              </h1>
-              <p style={{ color: isDark ? '#94A3B8' : '#64748B', fontSize: '0.85rem', marginTop: '2px', margin: 0 }}>
-                {t('canvasCalendar.subtitle')}
-              </p>
-            </div>
-          </div>
+        {/* Left: View Switcher Capsule (Day, Week, Month, Agenda) */}
+        <div
+          style={{
+            display: 'inline-flex',
+            padding: '4px',
+            backgroundColor: 'rgba(255, 255, 255, 0.16)',
+            backdropFilter: 'blur(10px)',
+            borderRadius: '9999px',
+            border: '1px solid rgba(255, 255, 255, 0.22)',
+          }}
+        >
+          {(['day', 'week', 'month', 'agenda'] as const).map((mode) => {
+            const isActive = viewMode === mode;
+            return (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => setViewMode(mode)}
+                style={{
+                  padding: '7px 22px',
+                  borderRadius: '9999px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: '0.86rem',
+                  fontWeight: isActive ? 700 : 500,
+                  fontFamily: "'Outfit', sans-serif",
+                  backgroundColor: isActive ? '#1E293B' : 'transparent',
+                  color: isActive ? '#FFFFFF' : 'rgba(255, 255, 255, 0.92)',
+                  boxShadow: isActive ? '0 2px 8px rgba(0, 0, 0, 0.22)' : 'none',
+                  transition: 'all 0.15s ease',
+                  textTransform: 'capitalize',
+                }}
+              >
+                {mode}
+              </button>
+            );
+          })}
         </div>
 
-        {/* Right: Controls & Month Navigation */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+        {/* Right: Controls (No Add Event button as requested) */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           {/* Today Button */}
           <button
             type="button"
             onClick={handleToday}
-            className="canvas-btn"
             style={{
               display: 'inline-flex',
               alignItems: 'center',
               gap: '6px',
-              padding: '7px 14px',
-              fontSize: '0.82rem',
-              fontWeight: 700,
-              color: isDark ? '#F8FAFC' : '#0F172A',
-              backgroundColor: isDark ? '#1E293B' : '#FFFFFF',
-              border: isDark ? '1px solid #334155' : '1px solid #CBD5E1',
-              borderRadius: '6px',
+              padding: '7px 16px',
+              borderRadius: '9999px',
+              backgroundColor: 'rgba(255, 255, 255, 0.18)',
+              border: '1px solid rgba(255, 255, 255, 0.25)',
+              color: '#FFFFFF',
+              fontSize: '0.84rem',
+              fontWeight: 600,
+              fontFamily: "'Outfit', sans-serif",
               cursor: 'pointer',
-              boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+              backdropFilter: 'blur(10px)',
+              transition: 'all 0.15s ease',
             }}
           >
-            <RotateCcw size={14} color="#0055A5" />
+            <RotateCcw size={14} />
             <span>Today</span>
           </button>
 
-          {/* Month Stepper */}
+          {/* Month Stepper Capsule */}
           <div
             style={{
               display: 'inline-flex',
               alignItems: 'center',
-              backgroundColor: isDark ? '#1E293B' : '#FFFFFF',
-              border: isDark ? '1px solid #334155' : '1px solid #CBD5E1',
-              borderRadius: '6px',
-              overflow: 'hidden',
-              boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+              backgroundColor: 'rgba(255, 255, 255, 0.18)',
+              border: '1px solid rgba(255, 255, 255, 0.25)',
+              borderRadius: '9999px',
+              padding: '2px 4px',
+              backdropFilter: 'blur(10px)',
             }}
           >
             <button
@@ -463,376 +495,343 @@ export const CalendarView: React.FC = () => {
               onClick={handlePrevMonth}
               title="Previous Month"
               style={{
+                background: 'none',
                 border: 'none',
-                background: 'transparent',
-                padding: '7px 11px',
+                color: '#FFFFFF',
+                padding: '6px 8px',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
-                color: isDark ? '#CBD5E1' : '#334155',
               }}
             >
               <ChevronLeft size={16} />
             </button>
-
             <span
               style={{
-                fontSize: '0.9rem',
-                fontWeight: 800,
-                color: '#0055A5',
-                padding: '0 14px',
-                minWidth: '150px',
+                color: '#FFFFFF',
+                fontSize: '0.86rem',
+                fontWeight: 700,
+                padding: '0 10px',
+                minWidth: '120px',
                 textAlign: 'center',
+                fontFamily: "'Outfit', sans-serif",
               }}
             >
               {currentMonthTitle}
             </span>
-
             <button
               type="button"
               onClick={handleNextMonth}
               title="Next Month"
               style={{
+                background: 'none',
                 border: 'none',
-                background: 'transparent',
-                padding: '7px 11px',
+                color: '#FFFFFF',
+                padding: '6px 8px',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
-                color: isDark ? '#CBD5E1' : '#334155',
               }}
             >
               <ChevronRight size={16} />
-            </button>
-          </div>
-
-          {/* View Mode Toggle: Month vs Agenda */}
-          <div
-            style={{
-              display: 'inline-flex',
-              padding: '3px',
-              backgroundColor: isDark ? '#1E293B' : '#F1F5F9',
-              borderRadius: '6px',
-              border: isDark ? '1px solid #334155' : '1px solid #CBD5E1',
-            }}
-          >
-            <button
-              type="button"
-              onClick={() => setViewMode('month')}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '5px',
-                padding: '5px 12px',
-                borderRadius: '4px',
-                fontSize: '0.8rem',
-                fontWeight: viewMode === 'month' ? 700 : 500,
-                border: 'none',
-                cursor: 'pointer',
-                backgroundColor: viewMode === 'month' ? (isDark ? '#0F172A' : '#FFFFFF') : 'transparent',
-                color: viewMode === 'month' ? '#0055A5' : isDark ? '#94A3B8' : '#64748B',
-                boxShadow: viewMode === 'month' ? '0 1px 2px rgba(0,0,0,0.06)' : 'none',
-              }}
-            >
-              <CalendarDays size={14} />
-              <span>Month</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode('agenda')}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '5px',
-                padding: '5px 12px',
-                borderRadius: '4px',
-                fontSize: '0.8rem',
-                fontWeight: viewMode === 'agenda' ? 700 : 500,
-                border: 'none',
-                cursor: 'pointer',
-                backgroundColor: viewMode === 'agenda' ? (isDark ? '#0F172A' : '#FFFFFF') : 'transparent',
-                color: viewMode === 'agenda' ? '#0055A5' : isDark ? '#94A3B8' : '#64748B',
-                boxShadow: viewMode === 'agenda' ? '0 1px 2px rgba(0,0,0,0.06)' : 'none',
-              }}
-            >
-              <ListFilter size={14} />
-              <span>Agenda</span>
             </button>
           </div>
         </div>
       </div>
 
       {/* ─────────────────────────────────────────────────────────────
-          2. MAIN CONTENT AREA: CALENDAR GRID & SIDEBAR FILTERS
+          2. MAIN CONTENT: 2-COLUMN LAYOUT (CALENDAR + UPCOMING EVENTS)
          ───────────────────────────────────────────────────────────── */}
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'minmax(0, 1fr) 275px',
-          gap: '20px',
+          gridTemplateColumns: 'minmax(0, 1fr) 330px',
+          gap: '24px',
           alignItems: 'start',
-          width: '100%',
-          boxSizing: 'border-box',
         }}
       >
-        {/* ─── LEFT: CALENDAR WORKSPACE (MONTH OR AGENDA) ─── */}
+        {/* ─── LEFT: CALENDAR VIEW CONTAINER ─── */}
         <div style={{ minWidth: 0, width: '100%' }}>
           {viewMode === 'month' ? (
-            /* Month Calendar Card: fits available width without horizontal scroll, allows vertical scroll */
+            /* Month Calendar Card matching screenshot */
             <div
-              className="canvas-card"
               style={{
-                padding: 0,
-                borderRadius: '8px',
-                border: isDark ? '1px solid #334155' : '1px solid #CBD5E1',
                 backgroundColor: isDark ? '#1E293B' : '#FFFFFF',
-                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
-                width: '100%',
+                borderRadius: '20px',
+                border: isDark ? '1px solid #334155' : '1px solid #E2E8F0',
+                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.04)',
+                padding: '24px',
                 boxSizing: 'border-box',
-                overflowX: 'hidden',
               }}
             >
-              {/* Day of Week Header Row (Sticky at top of calendar card) */}
+              {/* Header inside Card: Month Title on Left, Filter by Course on Right */}
               <div
                 style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(7, minmax(0, 1fr))',
-                  backgroundColor: isDark ? '#0F172A' : '#F8FAFC',
-                  borderBottom: isDark ? '1px solid #334155' : '1px solid #CBD5E1',
-                  textAlign: 'center',
-                  fontWeight: 800,
-                  fontSize: '0.82rem',
-                  color: isDark ? '#CBD5E1' : '#334155',
-                  padding: '12px 0',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.04em',
-                  boxSizing: 'border-box',
-                  width: '100%',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: '20px',
                 }}
               >
-                <div>{t('canvasCalendar.mon')}</div>
-                <div>{t('canvasCalendar.tue')}</div>
-                <div>{t('canvasCalendar.wed')}</div>
-                <div>{t('canvasCalendar.thu')}</div>
-                <div>{t('canvasCalendar.fri')}</div>
-                <div>{t('canvasCalendar.sat')}</div>
-                <div>{t('canvasCalendar.sun')}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <h2
+                    style={{
+                      margin: 0,
+                      fontSize: '1.72rem',
+                      fontWeight: 700,
+                      color: isDark ? '#F8FAFC' : '#0F172A',
+                      fontFamily: "'Outfit', sans-serif",
+                      letterSpacing: '-0.02em',
+                    }}
+                  >
+                    {currentMonthTitle}
+                  </h2>
+                </div>
+
+                {/* Filter by Course Dropdown */}
+                <div style={{ position: 'relative' }}>
+                  <select
+                    value={selectedCourse}
+                    onChange={(e) => setSelectedCourse(e.target.value)}
+                    style={{
+                      appearance: 'none',
+                      backgroundColor: isDark ? '#0F172A' : '#FFFFFF',
+                      border: isDark ? '1px solid #334155' : '1px solid #CBD5E1',
+                      borderRadius: '10px',
+                      padding: '9px 38px 9px 16px',
+                      fontSize: '0.88rem',
+                      fontWeight: 600,
+                      color: isDark ? '#F8FAFC' : '#334155',
+                      cursor: 'pointer',
+                      outline: 'none',
+                      fontFamily: "'Outfit', sans-serif",
+                      boxShadow: '0 1px 3px rgba(15, 23, 42, 0.04)',
+                      transition: 'border-color 0.15s ease',
+                    }}
+                  >
+                    <option value="ALL">Filter by Course</option>
+                    {availableCourses.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown
+                    size={16}
+                    style={{
+                      position: 'absolute',
+                      right: '12px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      pointerEvents: 'none',
+                      color: isDark ? '#94A3B8' : '#64748B',
+                    }}
+                  />
+                </div>
               </div>
 
-              {/* 7-Column Day Cells Grid (Spacious 170px vertical rows, fits width horizontally with 0 horizontal scroll) */}
+              {/* Day of Week Row: Sun, Mon, Tue, Wed, Thu, Fri, Sat */}
               <div
                 style={{
                   display: 'grid',
                   gridTemplateColumns: 'repeat(7, minmax(0, 1fr))',
-                  gridAutoRows: '170px',
-                  backgroundColor: isDark ? '#334155' : '#CBD5E1',
+                  textAlign: 'center',
+                  fontSize: '0.92rem',
+                  fontWeight: 600,
+                  color: isDark ? '#CBD5E1' : '#334155',
+                  paddingBottom: '14px',
+                  fontFamily: "'Outfit', sans-serif",
+                }}
+              >
+                <div style={{ minWidth: 0, overflow: 'hidden' }}>Sun</div>
+                <div style={{ minWidth: 0, overflow: 'hidden' }}>Mon</div>
+                <div style={{ minWidth: 0, overflow: 'hidden' }}>Tue</div>
+                <div style={{ minWidth: 0, overflow: 'hidden' }}>Wed</div>
+                <div style={{ minWidth: 0, overflow: 'hidden' }}>Thu</div>
+                <div style={{ minWidth: 0, overflow: 'hidden' }}>Fri</div>
+                <div style={{ minWidth: 0, overflow: 'hidden' }}>Sat</div>
+              </div>
+
+              {/* Clear Visible Lines Separating Day Grids */}
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(7, minmax(0, 1fr))',
+                  gridAutoRows: 'minmax(195px, auto)',
+                  backgroundColor: isDark ? '#334155' : '#CBD5E1', // Visible grid lines separating every cell!
                   gap: '1px',
-                  boxSizing: 'border-box',
+                  border: isDark ? '1px solid #334155' : '1px solid #CBD5E1',
+                  borderRadius: '12px',
+                  overflow: 'hidden',
                   width: '100%',
+                  boxSizing: 'border-box',
                 }}
               >
                 {calendarGrid.map((cell, idx) => {
-                  const dayEvents = cell.isCurrentMonth
-                    ? filteredEvents.filter((ev) => ev.day === cell.day)
-                    : [];
+                  const dayEvents = filteredEvents.filter((ev) => {
+                    if (ev.dateStr) {
+                      return ev.dateStr === cell.dateKey;
+                    }
+                    return cell.isCurrentMonth && ev.day === cell.day;
+                  });
                   const isToday = isActualToday(cell.day, cell.isCurrentMonth);
-                  const isSelected = selectedDay === cell.day && cell.isCurrentMonth;
 
                   return (
                     <div
                       key={`${cell.dateKey}-${idx}`}
                       onClick={() => {
-                        if (cell.isCurrentMonth) {
-                          setSelectedDay(cell.day);
-                          if (dayEvents.length > 0) {
-                            setSelectedEvent(dayEvents[0]);
-                          } else {
-                            setSelectedEvent(null);
-                          }
+                        setSelectedDay(cell.day);
+                        if (dayEvents.length > 0) {
+                          setSelectedEvent(dayEvents[0]);
                         }
                       }}
                       style={{
                         backgroundColor: isToday
                           ? isDark
-                            ? '#1E3A8A26'
+                            ? '#1E293B'
                             : '#FFFFFF'
-                          : isSelected
-                          ? isDark
-                            ? '#334155'
-                            : '#F1F5F9'
                           : cell.isCurrentMonth
                           ? isDark
                             ? '#1E293B'
                             : '#FFFFFF'
                           : isDark
                           ? '#0F172A'
-                          : '#F8FAFC',
-                        height: '170px',
-                        minHeight: '170px',
-                        boxSizing: 'border-box',
-                        padding: '8px 7px 6px 7px',
+                          : '#FFFFFF',
+                        minHeight: '195px',
+                        padding: '10px 10px 12px 10px',
                         display: 'flex',
                         flexDirection: 'column',
+                        minWidth: 0,
+                        width: '100%',
+                        position: 'relative',
                         cursor: cell.isCurrentMonth ? 'pointer' : 'default',
-                        transition: 'background-color 0.1s ease',
-                        overflow: 'hidden',
+                        transition: 'background-color 0.12s ease',
+                        boxSizing: 'border-box',
                       }}
                     >
-                      {/* Top Row: Date Number & Badges */}
+                      {/* Highlighted Today outline frame matching reference */}
+                      {isToday && (
+                        <div
+                          style={{
+                            position: 'absolute',
+                            inset: '3px',
+                            border: '1.5px solid #64748B',
+                            borderRadius: '10px',
+                            backgroundColor: isDark ? 'rgba(59, 130, 246, 0.12)' : '#F1F5F9',
+                            pointerEvents: 'none',
+                            zIndex: 0,
+                          }}
+                        />
+                      )}
+
+                      {/* Top Row: Date Number */}
                       <div
                         style={{
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'space-between',
-                          marginBottom: '6px',
-                          flexShrink: 0,
+                          marginBottom: '4px',
+                          position: 'relative',
+                          zIndex: 1,
                         }}
                       >
-                        <span
-                          style={{
-                            fontSize: '0.88rem',
-                            fontWeight: isToday ? 800 : cell.isCurrentMonth ? 700 : 500,
-                            color: isToday
-                              ? '#FFFFFF'
-                              : cell.isCurrentMonth
-                              ? isDark
-                                ? '#F8FAFC'
-                                : '#0F172A'
-                              : isDark
-                              ? '#64748B'
-                              : '#94A3B8',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            width: isToday ? '26px' : 'auto',
-                            height: isToday ? '26px' : 'auto',
-                            borderRadius: isToday ? '50%' : '0',
-                            backgroundColor: isToday
-                              ? isDark
-                                ? '#3B82F6'
-                                : '#0055A5'
-                              : 'transparent',
-                          }}
-                        >
-                          {cell.day}
-                        </span>
-
                         {isToday ? (
-                          <span
+                          <div
                             style={{
-                              fontSize: '0.68rem',
+                              width: '26px',
+                              height: '26px',
+                              borderRadius: '50%',
+                              backgroundColor: '#1E293B',
+                              color: '#FFFFFF',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontSize: '0.84rem',
                               fontWeight: 700,
-                              color: isDark ? '#93C5FD' : '#0055A5',
-                              padding: '2px 7px',
-                              borderRadius: '4px',
-                              backgroundColor: isDark ? 'rgba(59, 130, 246, 0.15)' : '#EFF6FF',
-                              border: isDark ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid #BFDBFE',
+                              fontFamily: "'Outfit', sans-serif",
                             }}
                           >
-                            Today
-                          </span>
-                        ) : dayEvents.length > 2 ? (
+                            {cell.day}
+                          </div>
+                        ) : (
                           <span
                             style={{
-                              fontSize: '0.68rem',
-                              fontWeight: 700,
-                              color: isDark ? '#94A3B8' : '#64748B',
-                              backgroundColor: isDark ? '#334155' : '#F1F5F9',
-                              padding: '1px 6px',
-                              borderRadius: '4px',
+                              fontSize: '0.88rem',
+                              fontWeight: cell.isCurrentMonth ? 600 : 500,
+                              color: cell.isCurrentMonth
+                                ? isDark
+                                  ? '#F8FAFC'
+                                  : '#1E293B'
+                                : isDark
+                                ? '#64748B'
+                                : '#94A3B8',
+                              fontFamily: "'Outfit', sans-serif",
+                              paddingLeft: '3px',
                             }}
                           >
-                            {dayEvents.length} events
+                            {cell.isCurrentMonth && cell.day === 1
+                              ? `${currentMonthShort} 1`
+                              : cell.day}
                           </span>
-                        ) : null}
+                        )}
                       </div>
 
-                      {/* Event Chips List: Increased size with clean vertical scrolling */}
+                      {/* Event Chips List inside cell */}
                       <div
-                        className="calendar-day-events"
                         style={{
                           display: 'flex',
                           flexDirection: 'column',
-                          gap: '5px',
+                          gap: '6px',
                           flex: 1,
-                          minHeight: 0,
-                          overflowY: 'auto',
-                          overflowX: 'hidden',
-                          paddingRight: '2px',
-                          scrollbarWidth: 'thin',
-                          scrollbarColor: isDark ? '#475569 transparent' : '#CBD5E1 transparent',
+                          minWidth: 0,
+                          width: '100%',
+                          position: 'relative',
+                          zIndex: 1,
                         }}
                       >
                         {dayEvents.map((ev) => {
-                          const badge = getEventBadge(ev.category);
-                          const isEvSelected = selectedEvent?.id === ev.id;
-
+                          const visuals = getEventVisuals(ev.category);
                           return (
                             <div
                               key={ev.id}
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setSelectedEvent(ev);
-                                setSelectedDay(ev.day);
                               }}
                               style={{
-                                display: 'flex',
-                                flexDirection: 'column',
-                                gap: '2px',
-                                padding: '4px 7px',
-                                borderRadius: '5px',
-                                fontSize: '0.8rem',
+                                backgroundColor: visuals.chipBg,
+                                color: visuals.chipText,
+                                border: `1px solid ${visuals.chipBorder}`,
+                                borderLeft: `3.5px solid ${visuals.accent}`,
+                                borderRadius: '7px',
+                                padding: '6px 9px',
+                                fontSize: '0.82rem',
                                 fontWeight: 600,
-                                backgroundColor: isEvSelected
-                                  ? isDark
-                                    ? 'rgba(59, 130, 246, 0.28)'
-                                    : '#EFF6FF'
-                                  : badge.bg,
-                                color: isEvSelected
-                                  ? isDark
-                                    ? '#FFFFFF'
-                                    : '#0F172A'
-                                  : badge.color,
-                                border: isEvSelected
-                                  ? isDark
-                                    ? '1px solid #60A5FA'
-                                    : '1px solid #93C5FD'
-                                  : `1px solid ${badge.border}`,
-                                borderLeft: `3px solid ${isEvSelected && isDark ? '#60A5FA' : badge.dot}`,
+                                fontFamily: "'Outfit', sans-serif",
+                                lineHeight: 1.3,
+                                minWidth: 0,
+                                width: '100%',
+                                boxSizing: 'border-box',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
                                 cursor: 'pointer',
+                                boxShadow: isDark
+                                  ? '0 1px 3px rgba(0, 0, 0, 0.25)'
+                                  : '0 1px 2px rgba(15, 23, 42, 0.04)',
                                 transition: 'all 0.12s ease',
-                                boxShadow: isEvSelected ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                                flexShrink: 0,
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.filter = isDark ? 'brightness(1.15)' : 'brightness(0.96)';
+                                e.currentTarget.style.transform = 'translateY(-1px)';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.filter = 'none';
+                                e.currentTarget.style.transform = 'none';
                               }}
                               title={`${ev.time} • ${ev.title}`}
                             >
-                              <div style={{ display: 'flex', alignItems: 'center' }}>
-                                <span
-                                  style={{
-                                    overflow: 'hidden',
-                                    textOverflow: 'ellipsis',
-                                    whiteSpace: 'nowrap',
-                                    flex: 1,
-                                    fontWeight: 700,
-                                    fontSize: '0.8rem',
-                                  }}
-                                >
-                                  {ev.title}
-                                </span>
-                              </div>
-                              {ev.time && (
-                                <div
-                                  style={{
-                                    fontSize: '0.7rem',
-                                    fontWeight: 600,
-                                    color: isDark ? '#94A3B8' : '#64748B',
-                                    lineHeight: 1.2,
-                                    marginTop: '1px',
-                                  }}
-                                >
-                                  {ev.time}
-                                </div>
-                              )}
+                              {ev.title}
                             </div>
                           );
                         })}
@@ -842,138 +841,255 @@ export const CalendarView: React.FC = () => {
                 })}
               </div>
             </div>
-          ) : (
-            /* Agenda / List Mode */
+          ) : viewMode === 'week' ? (
+            /* Week View: 7 columns for active week */
             <div
-              className="canvas-card"
               style={{
-                padding: '20px',
-                borderRadius: '8px',
-                border: isDark ? '1px solid #334155' : '1px solid #CBD5E1',
                 backgroundColor: isDark ? '#1E293B' : '#FFFFFF',
+                borderRadius: '20px',
+                border: isDark ? '1px solid #334155' : '1px solid #E2E8F0',
+                padding: '24px',
+                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.04)',
               }}
             >
-              <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: isDark ? '#F8FAFC' : '#0F172A', marginBottom: '14px' }}>
+              <h3 style={{ fontSize: '1.2rem', fontWeight: 700, margin: '0 0 16px 0', color: isDark ? '#F8FAFC' : '#0F172A' }}>
+                Week Overview
+              </h3>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(7, 1fr)',
+                  gap: '1px',
+                  backgroundColor: isDark ? '#334155' : '#CBD5E1',
+                  border: isDark ? '1px solid #334155' : '1px solid #CBD5E1',
+                  borderRadius: '12px',
+                  overflow: 'hidden',
+                }}
+              >
+                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d, index) => {
+                  const dayEvents = filteredEvents.filter((ev) => (ev.day % 7) === index);
+                  return (
+                    <div
+                      key={d}
+                      style={{
+                        backgroundColor: isDark ? '#1E293B' : '#FFFFFF',
+                        minHeight: '220px',
+                        padding: '12px 10px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                      }}
+                    >
+                      <div style={{ fontWeight: 700, fontSize: '0.88rem', color: '#0F172A', marginBottom: '8px', textAlign: 'center' }}>
+                        {d}
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        {dayEvents.map((ev) => {
+                          const visuals = getEventVisuals(ev.category);
+                          return (
+                            <div
+                              key={ev.id}
+                              onClick={() => setSelectedEvent(ev)}
+                              style={{
+                                backgroundColor: visuals.chipBg,
+                                color: visuals.chipText,
+                                border: `1px solid ${visuals.chipBorder}`,
+                                borderLeft: `3px solid ${visuals.accent}`,
+                                borderRadius: '6px',
+                                padding: '4px 8px',
+                                fontSize: '0.78rem',
+                                fontWeight: 600,
+                                fontFamily: "'Outfit', sans-serif",
+                                cursor: 'pointer',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              {ev.title}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : viewMode === 'day' ? (
+            /* Day View: Today or selected day timeline */
+            <div
+              style={{
+                backgroundColor: isDark ? '#1E293B' : '#FFFFFF',
+                borderRadius: '20px',
+                border: isDark ? '1px solid #334155' : '1px solid #E2E8F0',
+                padding: '24px',
+                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.04)',
+              }}
+            >
+              <h3 style={{ fontSize: '1.2rem', fontWeight: 700, margin: '0 0 16px 0', color: isDark ? '#F8FAFC' : '#0F172A' }}>
+                Day Schedule: {currentMonthShort} {selectedDay || todayDate.getDate()}
+              </h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {filteredEvents
+                  .filter((ev) => ev.day === (selectedDay || todayDate.getDate()))
+                  .map((ev) => {
+                    const visuals = getEventVisuals(ev.category);
+                    return (
+                      <div
+                        key={ev.id}
+                        style={{
+                          padding: '16px',
+                          borderRadius: '12px',
+                          border: '1px solid #E2E8F0',
+                          borderLeft: `5px solid ${visuals.chipBg}`,
+                          backgroundColor: '#FFFFFF',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                        }}
+                      >
+                        <div>
+                          <div style={{ fontSize: '0.8rem', fontWeight: 600, color: '#64748B' }}>{ev.time}</div>
+                          <div style={{ fontSize: '1rem', fontWeight: 700, color: '#0F172A', marginTop: '2px' }}>{ev.title}</div>
+                        </div>
+                        {ev.meetLink && (
+                          <a
+                            href={ev.meetLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                              border: '1.5px solid #2563EB',
+                              borderRadius: '9999px',
+                              color: '#2563EB',
+                              backgroundColor: '#FFFFFF',
+                              padding: '6px 18px',
+                              fontSize: '0.82rem',
+                              fontWeight: 700,
+                              textDecoration: 'none',
+                            }}
+                          >
+                            Join Meet
+                          </a>
+                        )}
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
+          ) : (
+            /* Agenda View */
+            <div
+              style={{
+                backgroundColor: isDark ? '#1E293B' : '#FFFFFF',
+                borderRadius: '20px',
+                border: isDark ? '1px solid #334155' : '1px solid #E2E8F0',
+                padding: '24px',
+                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.04)',
+              }}
+            >
+              <h3 style={{ fontSize: '1.2rem', fontWeight: 700, margin: '0 0 16px 0', color: isDark ? '#F8FAFC' : '#0F172A' }}>
                 Schedule Agenda for {currentMonthTitle}
               </h3>
-
-              {filteredEvents.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '40px 20px', color: '#94A3B8' }}>
-                  <CalIcon size={40} style={{ opacity: 0.35, margin: '0 auto 10px auto' }} />
-                  <p style={{ fontWeight: 600, margin: 0 }}>No scheduled events match your current filters.</p>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  {[...filteredEvents]
-                    .sort((a, b) => a.day - b.day)
-                    .map((ev) => {
-                      const badge = getEventBadge(ev.category);
-                      return (
-                        <div
-                          key={ev.id}
-                          onClick={() => setSelectedEvent(ev)}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            padding: '12px 16px',
-                            borderRadius: '6px',
-                            border: `1px solid ${isDark ? '#334155' : '#CBD5E1'}`,
-                            borderLeft: `4px solid ${badge.dot}`,
-                            backgroundColor: isDark ? '#0F172A' : '#FFFFFF',
-                            cursor: 'pointer',
-                          }}
-                        >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                            <div
-                              style={{
-                                width: '42px',
-                                height: '42px',
-                                borderRadius: '6px',
-                                backgroundColor: badge.bg,
-                                color: isDark ? badge.color : badge.dot,
-                                border: `1px solid ${badge.border}`,
-                                display: 'flex',
-                                flexDirection: 'column',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                fontWeight: 800,
-                              }}
-                            >
-                              <span style={{ fontSize: '0.65rem', textTransform: 'uppercase' }}>Day</span>
-                              <span style={{ fontSize: '1.05rem', lineHeight: 1 }}>{ev.day}</span>
-                            </div>
-
-                            <div>
-                              <div style={{ fontSize: '0.9rem', fontWeight: 700, color: isDark ? '#F8FAFC' : '#1E293B' }}>
-                                {ev.title}
-                              </div>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.76rem', color: isDark ? '#94A3B8' : '#64748B', marginTop: '2px' }}>
-                                <span>{ev.courseCode}</span>
-                                <span>•</span>
-                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
-                                  <Clock size={12} />
-                                  <span>{ev.time}</span>
-                                </span>
-                              </div>
-                            </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {[...filteredEvents]
+                  .sort((a, b) => a.day - b.day)
+                  .map((ev) => {
+                    const visuals = getEventVisuals(ev.category);
+                    return (
+                      <div
+                        key={ev.id}
+                        onClick={() => setSelectedEvent(ev)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '14px 18px',
+                          borderRadius: '12px',
+                          border: isDark ? '1px solid #334155' : '1px solid #E2E8F0',
+                          borderLeft: `4px solid ${visuals.chipBg}`,
+                          backgroundColor: isDark ? '#0F172A' : '#FFFFFF',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                          <div
+                            style={{
+                              width: '44px',
+                              height: '44px',
+                              borderRadius: '8px',
+                              backgroundColor: visuals.chipBg,
+                              color: '#FFFFFF',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontWeight: 800,
+                              flexShrink: 0,
+                            }}
+                          >
+                            <span style={{ fontSize: '0.62rem', textTransform: 'uppercase' }}>Day</span>
+                            <span style={{ fontSize: '1.08rem', lineHeight: 1 }}>{ev.day}</span>
                           </div>
-
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span
-                              style={{
-                                padding: '3px 8px',
-                                borderRadius: '4px',
-                                fontSize: '0.72rem',
-                                fontWeight: 700,
-                                backgroundColor: badge.bg,
-                                color: isDark ? badge.color : badge.dot,
-                                border: `1px solid ${badge.border}`,
-                              }}
-                            >
-                              {badge.label}
-                            </span>
-                            {ev.meetLink && (
-                              <a
-                                href={ev.meetLink}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                onClick={(e) => e.stopPropagation()}
-                                className="canvas-btn"
-                                style={{
-                                  padding: '5px 10px',
-                                  fontSize: '0.74rem',
-                                  fontWeight: 700,
-                                  backgroundColor: '#0055A5',
-                                  color: '#FFFFFF',
-                                  borderRadius: '4px',
-                                  textDecoration: 'none',
-                                }}
-                              >
-                                Join
-                              </a>
-                            )}
+                          <div>
+                            <div style={{ fontSize: '0.94rem', fontWeight: 700, color: isDark ? '#F8FAFC' : '#0F172A' }}>
+                              {ev.title}
+                            </div>
+                            <div style={{ fontSize: '0.78rem', color: '#64748B', marginTop: '2px' }}>
+                              <span>{ev.courseCode}</span> • <span>{ev.time}</span>
+                            </div>
                           </div>
                         </div>
-                      );
-                    })}
-                </div>
-              )}
+
+                        {ev.meetLink && (
+                          <a
+                            href={ev.meetLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            style={{
+                              border: '1.5px solid #2563EB',
+                              borderRadius: '9999px',
+                              color: '#2563EB',
+                              backgroundColor: '#FFFFFF',
+                              padding: '5px 16px',
+                              fontSize: '0.82rem',
+                              fontWeight: 700,
+                              textDecoration: 'none',
+                            }}
+                          >
+                            Join Meet
+                          </a>
+                        )}
+                      </div>
+                    );
+                  })}
+              </div>
             </div>
           )}
         </div>
 
-        {/* ─── RIGHT: SIDEBAR (FILTERS, SELECTED EVENT, UPCOMING AGENDA) ─── */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-          {/* 1. FILTER CARD */}
+        {/* ─── RIGHT: SIDEBAR (FILTERS & UPCOMING EVENTS) ─── */}
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '22px',
+            position: 'sticky',
+            top: '20px',
+          }}
+        >
+          {/* 1. EVENT FILTERS CARD (ON TOP OF UPCOMING EVENTS) */}
           <div
-            className="canvas-card"
             style={{
-              padding: '18px',
-              borderRadius: '8px',
-              border: isDark ? '1px solid #334155' : '1px solid #CBD5E1',
               backgroundColor: isDark ? '#1E293B' : '#FFFFFF',
-              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
+              borderRadius: '20px',
+              border: isDark ? '1px solid #334155' : '1px solid #E2E8F0',
+              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.04)',
+              padding: '22px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '14px',
+              boxSizing: 'border-box',
             }}
           >
             <div
@@ -981,24 +1097,24 @@ export const CalendarView: React.FC = () => {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                marginBottom: '14px',
-                paddingBottom: '10px',
+                paddingBottom: '12px',
                 borderBottom: isDark ? '1px solid #334155' : '1px solid #F1F5F9',
               }}
             >
               <h3
                 style={{
-                  fontSize: '0.88rem',
-                  fontWeight: 800,
-                  color: isDark ? '#F8FAFC' : '#0F172A',
                   margin: 0,
+                  fontSize: '1.05rem',
+                  fontWeight: 700,
+                  color: isDark ? '#F8FAFC' : '#0F172A',
+                  fontFamily: "'Outfit', sans-serif",
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '6px',
+                  gap: '8px',
                 }}
               >
-                <Filter size={15} color="#0055A5" />
-                <span>Filter Calendar</span>
+                <Filter size={17} color="#2563EB" />
+                <span>Event Filters</span>
               </h3>
 
               <button
@@ -1013,374 +1129,568 @@ export const CalendarView: React.FC = () => {
                 style={{
                   background: 'none',
                   border: 'none',
-                  fontSize: '0.72rem',
+                  fontSize: '0.78rem',
                   fontWeight: 700,
-                  color: '#0055A5',
+                  color: '#2563EB',
                   cursor: 'pointer',
                   padding: 0,
+                  fontFamily: "'Outfit', sans-serif",
                 }}
               >
                 {showLiveClasses && showQuizzes && showActivities && showExams ? 'Deselect All' : 'Select All'}
               </button>
             </div>
 
-            {/* Filter Toggle Items */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {/* Live Classes */}
+            {/* Filter Toggle List */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {/* 1. Classes */}
               <label
                 style={{
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  padding: '7px 9px',
-                  borderRadius: '6px',
-                  backgroundColor: showLiveClasses ? (isDark ? '#1E3A8A26' : '#EFF6FF') : 'transparent',
-                  border: `1px solid ${showLiveClasses ? '#BFDBFE' : isDark ? '#334155' : '#CBD5E1'}`,
+                  padding: '9px 12px',
+                  borderRadius: '10px',
+                  backgroundColor: showLiveClasses
+                    ? (isDark ? 'rgba(67, 56, 202, 0.15)' : '#EEF2FF')
+                    : (isDark ? '#0F172A' : '#F8FAFC'),
+                  border: `1px solid ${
+                    showLiveClasses
+                      ? (isDark ? 'rgba(99, 102, 241, 0.4)' : '#C7D2FE')
+                      : (isDark ? '#334155' : '#E2E8F0')
+                  }`,
                   cursor: 'pointer',
-                  fontSize: '0.8rem',
+                  fontSize: '0.84rem',
                   fontWeight: 600,
                   color: isDark ? '#F8FAFC' : '#1E293B',
-                  transition: 'background-color 0.12s ease',
+                  fontFamily: "'Outfit', sans-serif",
+                  transition: 'all 0.15s ease',
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <input
                     type="checkbox"
                     checked={showLiveClasses}
                     onChange={(e) => setShowLiveClasses(e.target.checked)}
-                    style={{ accentColor: '#0055A5', width: '15px', height: '15px' }}
+                    style={{ accentColor: '#4338CA', width: '15px', height: '15px', cursor: 'pointer' }}
                   />
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#3B82F6' }} />
-                    <span>Live Classes</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ width: '9px', height: '9px', borderRadius: '50%', backgroundColor: '#4338CA' }} />
+                    <span>Classes</span>
                   </div>
                 </div>
-                <span style={{ fontSize: '0.72rem', color: '#1D4ED8', fontWeight: 700 }}>
+                <span
+                  style={{
+                    fontSize: '0.74rem',
+                    color: '#4338CA',
+                    fontWeight: 700,
+                    backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : '#FFFFFF',
+                    padding: '2px 8px',
+                    borderRadius: '9999px',
+                  }}
+                >
                   {allEvents.filter((e) => e.category === 'LIVE_CLASS').length}
                 </span>
               </label>
 
-              {/* Quiz Deadlines */}
+              {/* 2. Quizzes */}
               <label
                 style={{
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  padding: '7px 9px',
-                  borderRadius: '6px',
-                  backgroundColor: showQuizzes ? (isDark ? '#78350F26' : '#FFFBEB') : 'transparent',
-                  border: `1px solid ${showQuizzes ? '#FDE68A' : isDark ? '#334155' : '#CBD5E1'}`,
+                  padding: '9px 12px',
+                  borderRadius: '10px',
+                  backgroundColor: showQuizzes
+                    ? (isDark ? 'rgba(239, 68, 68, 0.15)' : '#FEF2F2')
+                    : (isDark ? '#0F172A' : '#F8FAFC'),
+                  border: `1px solid ${
+                    showQuizzes
+                      ? (isDark ? 'rgba(239, 68, 68, 0.4)' : '#FECACA')
+                      : (isDark ? '#334155' : '#E2E8F0')
+                  }`,
                   cursor: 'pointer',
-                  fontSize: '0.8rem',
+                  fontSize: '0.84rem',
                   fontWeight: 600,
                   color: isDark ? '#F8FAFC' : '#1E293B',
-                  transition: 'background-color 0.12s ease',
+                  fontFamily: "'Outfit', sans-serif",
+                  transition: 'all 0.15s ease',
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <input
                     type="checkbox"
                     checked={showQuizzes}
                     onChange={(e) => setShowQuizzes(e.target.checked)}
-                    style={{ accentColor: '#B45309', width: '15px', height: '15px' }}
+                    style={{ accentColor: '#EF4444', width: '15px', height: '15px', cursor: 'pointer' }}
                   />
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#F59E0B' }} />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ width: '9px', height: '9px', borderRadius: '50%', backgroundColor: '#EF4444' }} />
                     <span>Quizzes</span>
                   </div>
                 </div>
-                <span style={{ fontSize: '0.72rem', color: '#B45309', fontWeight: 700 }}>
+                <span
+                  style={{
+                    fontSize: '0.74rem',
+                    color: '#DC2626',
+                    fontWeight: 700,
+                    backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : '#FFFFFF',
+                    padding: '2px 8px',
+                    borderRadius: '9999px',
+                  }}
+                >
                   {allEvents.filter((e) => e.category === 'QUIZ').length}
                 </span>
               </label>
 
-              {/* Activities & Homework */}
+              {/* 3. Activities */}
               <label
                 style={{
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  padding: '7px 9px',
-                  borderRadius: '6px',
-                  backgroundColor: showActivities ? (isDark ? '#312E8126' : '#EEF2FF') : 'transparent',
-                  border: `1px solid ${showActivities ? '#C7D2FE' : isDark ? '#334155' : '#CBD5E1'}`,
+                  padding: '9px 12px',
+                  borderRadius: '10px',
+                  backgroundColor: showActivities
+                    ? (isDark ? 'rgba(16, 185, 129, 0.15)' : '#ECFDF5')
+                    : (isDark ? '#0F172A' : '#F8FAFC'),
+                  border: `1px solid ${
+                    showActivities
+                      ? (isDark ? 'rgba(16, 185, 129, 0.4)' : '#A7F3D0')
+                      : (isDark ? '#334155' : '#E2E8F0')
+                  }`,
                   cursor: 'pointer',
-                  fontSize: '0.8rem',
+                  fontSize: '0.84rem',
                   fontWeight: 600,
                   color: isDark ? '#F8FAFC' : '#1E293B',
-                  transition: 'background-color 0.12s ease',
+                  fontFamily: "'Outfit', sans-serif",
+                  transition: 'all 0.15s ease',
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <input
                     type="checkbox"
                     checked={showActivities}
                     onChange={(e) => setShowActivities(e.target.checked)}
-                    style={{ accentColor: '#4338CA', width: '15px', height: '15px' }}
+                    style={{ accentColor: '#10B981', width: '15px', height: '15px', cursor: 'pointer' }}
                   />
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#6366F1' }} />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ width: '9px', height: '9px', borderRadius: '50%', backgroundColor: '#10B981' }} />
                     <span>Activities</span>
                   </div>
                 </div>
-                <span style={{ fontSize: '0.72rem', color: '#4338CA', fontWeight: 700 }}>
+                <span
+                  style={{
+                    fontSize: '0.74rem',
+                    color: '#059669',
+                    fontWeight: 700,
+                    backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : '#FFFFFF',
+                    padding: '2px 8px',
+                    borderRadius: '9999px',
+                  }}
+                >
                   {allEvents.filter((e) => e.category === 'ACTIVITY').length}
                 </span>
               </label>
 
-              {/* Mock Police Exams */}
+              {/* 4. Virtual Office Hours */}
               <label
                 style={{
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  padding: '7px 9px',
-                  borderRadius: '6px',
-                  backgroundColor: showExams ? (isDark ? '#064E3B26' : '#F0FDF4') : 'transparent',
-                  border: `1px solid ${showExams ? '#BBF7D0' : isDark ? '#334155' : '#CBD5E1'}`,
+                  padding: '9px 12px',
+                  borderRadius: '10px',
+                  backgroundColor: showExams
+                    ? (isDark ? 'rgba(245, 158, 11, 0.15)' : '#FFFBEB')
+                    : (isDark ? '#0F172A' : '#F8FAFC'),
+                  border: `1px solid ${
+                    showExams
+                      ? (isDark ? 'rgba(245, 158, 11, 0.4)' : '#FDE68A')
+                      : (isDark ? '#334155' : '#E2E8F0')
+                  }`,
                   cursor: 'pointer',
-                  fontSize: '0.8rem',
+                  fontSize: '0.84rem',
                   fontWeight: 600,
                   color: isDark ? '#F8FAFC' : '#1E293B',
-                  transition: 'background-color 0.12s ease',
+                  fontFamily: "'Outfit', sans-serif",
+                  transition: 'all 0.15s ease',
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <input
                     type="checkbox"
                     checked={showExams}
                     onChange={(e) => setShowExams(e.target.checked)}
-                    style={{ accentColor: '#15803D', width: '15px', height: '15px' }}
+                    style={{ accentColor: '#F59E0B', width: '15px', height: '15px', cursor: 'pointer' }}
                   />
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#10B981' }} />
-                    <span>Mock Exams</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ width: '9px', height: '9px', borderRadius: '50%', backgroundColor: '#F59E0B' }} />
+                    <span>Office Hours & Exams</span>
                   </div>
                 </div>
-                <span style={{ fontSize: '0.72rem', color: '#15803D', fontWeight: 700 }}>
+                <span
+                  style={{
+                    fontSize: '0.74rem',
+                    color: '#D97706',
+                    fontWeight: 700,
+                    backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : '#FFFFFF',
+                    padding: '2px 8px',
+                    borderRadius: '9999px',
+                  }}
+                >
                   {allEvents.filter((e) => e.category === 'EXAM').length}
                 </span>
               </label>
             </div>
           </div>
 
-          {/* 2. SELECTED EVENT INSPECTOR CARD */}
-          {selectedEvent ? (
-            <div
-              className="canvas-card"
+          {/* 2. "UPCOMING EVENTS" CARD */}
+          <div
+            style={{
+              backgroundColor: isDark ? '#1E293B' : '#FFFFFF',
+              borderRadius: '20px',
+              border: isDark ? '1px solid #334155' : '1px solid #E2E8F0',
+              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.04)',
+              padding: '24px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '20px',
+              boxSizing: 'border-box',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <h3
+                style={{
+                  margin: 0,
+                  fontSize: '1.25rem',
+                  fontWeight: 700,
+                  color: isDark ? '#F8FAFC' : '#0F172A',
+                  fontFamily: "'Outfit', sans-serif",
+                }}
+              >
+                Upcoming Events
+              </h3>
+              <span
+                style={{
+                  fontSize: '0.76rem',
+                  fontWeight: 700,
+                  color: isDark ? '#94A3B8' : '#64748B',
+                  backgroundColor: isDark ? '#0F172A' : '#F1F5F9',
+                  padding: '3px 10px',
+                  borderRadius: '9999px',
+                }}
+              >
+                {upcomingEvents.length} upcoming
+              </span>
+            </div>
+
+            {upcomingEvents.length === 0 ? (
+              <div
+                style={{
+                  padding: '16px 14px',
+                  borderRadius: '12px',
+                  backgroundColor: isDark ? '#0F172A' : '#F8FAFC',
+                  border: isDark ? '1px dashed #334155' : '1px dashed #CBD5E1',
+                  fontSize: '0.84rem',
+                  color: isDark ? '#94A3B8' : '#64748B',
+                  textAlign: 'center',
+                }}
+              >
+                No upcoming events scheduled
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {upcomingEvents.map((ev) => {
+                  const visuals = getEventVisuals(ev.category);
+                  const linkUrl = ev.meetLink || (ev.category === 'LIVE_CLASS' ? 'https://meet.google.com/new' : undefined);
+
+                  return linkUrl ? (
+                    <a
+                      key={ev.id}
+                      href={linkUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title={`Open link for ${ev.title}`}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: '10px',
+                        padding: '12px 14px',
+                        borderRadius: '12px',
+                        backgroundColor: isDark ? '#0F172A' : '#FFFFFF',
+                        border: isDark ? '1px solid #334155' : '1px solid #E2E8F0',
+                        borderLeft: `4px solid ${visuals.chipBg}`,
+                        textDecoration: 'none',
+                        color: isDark ? '#F8FAFC' : '#0F172A',
+                        boxShadow: '0 1px 3px rgba(15, 23, 42, 0.03)',
+                        transition: 'all 0.15s ease',
+                        cursor: 'pointer',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = isDark ? '#1E293B' : '#F8FAFC';
+                        e.currentTarget.style.borderColor = visuals.chipBg;
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = isDark ? '#0F172A' : '#FFFFFF';
+                        e.currentTarget.style.borderColor = isDark ? '#334155' : '#E2E8F0';
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                        <span
+                          style={{
+                            fontSize: '0.92rem',
+                            fontWeight: 600,
+                            fontFamily: "'Outfit', sans-serif",
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                          }}
+                        >
+                          {ev.title}
+                        </span>
+                      </div>
+                      <ExternalLink size={15} color={visuals.chipBg} style={{ flexShrink: 0 }} />
+                    </a>
+                  ) : (
+                    <div
+                      key={ev.id}
+                      onClick={() => setSelectedEvent(ev)}
+                      title={`View ${ev.title}`}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: '10px',
+                        padding: '12px 14px',
+                        borderRadius: '12px',
+                        backgroundColor: isDark ? '#0F172A' : '#FFFFFF',
+                        border: isDark ? '1px solid #334155' : '1px solid #E2E8F0',
+                        borderLeft: `4px solid ${visuals.chipBg}`,
+                        color: isDark ? '#F8FAFC' : '#0F172A',
+                        boxShadow: '0 1px 3px rgba(15, 23, 42, 0.03)',
+                        transition: 'all 0.15s ease',
+                        cursor: 'pointer',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = isDark ? '#1E293B' : '#F8FAFC';
+                        e.currentTarget.style.borderColor = visuals.chipBg;
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = isDark ? '#0F172A' : '#FFFFFF';
+                        e.currentTarget.style.borderColor = isDark ? '#334155' : '#E2E8F0';
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                        <span
+                          style={{
+                            fontSize: '0.92rem',
+                            fontWeight: 600,
+                            fontFamily: "'Outfit', sans-serif",
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                          }}
+                        >
+                          {ev.title}
+                        </span>
+                      </div>
+                      <Calendar size={15} color={visuals.chipBg} style={{ flexShrink: 0 }} />
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ─────────────────────────────────────────────────────────────
+          3. EVENT INSPECTOR MODAL DIALOG
+         ───────────────────────────────────────────────────────────── */}
+      {selectedEvent && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.45)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: '20px',
+          }}
+          onClick={() => setSelectedEvent(null)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              backgroundColor: isDark ? '#1E293B' : '#FFFFFF',
+              borderRadius: '20px',
+              border: isDark ? '1px solid #334155' : '1px solid #E2E8F0',
+              boxShadow: '0 20px 40px rgba(0, 0, 0, 0.16)',
+              padding: '28px',
+              maxWidth: '480px',
+              width: '100%',
+              position: 'relative',
+              animation: 'fadeIn 0.15s ease',
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setSelectedEvent(null)}
               style={{
-                padding: '18px',
-                borderRadius: '8px',
-                border: isDark ? '1px solid #334155' : '1px solid #CBD5E1',
-                backgroundColor: isDark ? '#1E293B' : '#FFFFFF',
-                boxShadow: '0 2px 6px rgba(0, 0, 0, 0.08)',
-                position: 'relative',
+                position: 'absolute',
+                top: '18px',
+                right: '18px',
+                background: 'none',
+                border: 'none',
+                color: '#94A3B8',
+                cursor: 'pointer',
+                padding: '4px',
               }}
             >
+              <X size={20} />
+            </button>
+
+            {/* Category tag */}
+            <div style={{ marginBottom: '12px' }}>
+              <span
+                style={{
+                  backgroundColor: getEventVisuals(selectedEvent.category).tagBg,
+                  color: '#FFFFFF',
+                  fontSize: '0.78rem',
+                  fontWeight: 700,
+                  padding: '4px 12px',
+                  borderRadius: '6px',
+                  fontFamily: "'Outfit', sans-serif",
+                }}
+              >
+                {selectedEvent.courseCode || getEventVisuals(selectedEvent.category).label}
+              </span>
+            </div>
+
+            <h3
+              style={{
+                fontSize: '1.25rem',
+                fontWeight: 700,
+                color: isDark ? '#F8FAFC' : '#0F172A',
+                margin: '0 0 10px 0',
+                fontFamily: "'Outfit', sans-serif",
+                lineHeight: 1.3,
+              }}
+            >
+              {selectedEvent.title}
+            </h3>
+
+            {/* Time badge */}
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                backgroundColor: isDark ? '#0F172A' : '#F8FAFC',
+                border: isDark ? '1px solid #334155' : '1px solid #E2E8F0',
+                borderRadius: '8px',
+                padding: '8px 14px',
+                fontSize: '0.84rem',
+                fontWeight: 600,
+                color: isDark ? '#CBD5E1' : '#334155',
+                marginBottom: '16px',
+              }}
+            >
+              <Clock size={15} color="#0055A5" />
+              <span>
+                Day {selectedEvent.day} • {selectedEvent.time}
+              </span>
+            </div>
+
+            {/* Description */}
+            {selectedEvent.description && (
+              <p
+                style={{
+                  fontSize: '0.88rem',
+                  color: isDark ? '#94A3B8' : '#475569',
+                  lineHeight: 1.55,
+                  margin: '0 0 24px 0',
+                }}
+              >
+                {selectedEvent.description}
+              </p>
+            )}
+
+            {/* Action buttons */}
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
               <button
                 type="button"
                 onClick={() => setSelectedEvent(null)}
                 style={{
-                  position: 'absolute',
-                  top: '12px',
-                  right: '12px',
-                  background: 'none',
-                  border: 'none',
-                  color: isDark ? '#94A3B8' : '#94A3B8',
+                  padding: '9px 20px',
+                  borderRadius: '9999px',
+                  border: '1px solid #CBD5E1',
+                  backgroundColor: '#FFFFFF',
+                  color: '#475569',
+                  fontSize: '0.86rem',
+                  fontWeight: 600,
                   cursor: 'pointer',
-                  padding: '2px',
+                  fontFamily: "'Outfit', sans-serif",
                 }}
               >
-                <X size={16} />
+                Close
               </button>
 
-              {/* Category Pill */}
-              <div style={{ marginBottom: '8px' }}>
-                <span
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    padding: '3px 8px',
-                    borderRadius: '4px',
-                    fontSize: '0.72rem',
-                    fontWeight: 700,
-                    backgroundColor: getEventBadge(selectedEvent.category).bg,
-                    color: isDark ? getEventBadge(selectedEvent.category).color : getEventBadge(selectedEvent.category).dot,
-                    border: `1px solid ${getEventBadge(selectedEvent.category).border}`,
-                  }}
-                >
-                  {getEventBadge(selectedEvent.category).icon}
-                  <span>{getEventBadge(selectedEvent.category).label}</span>
-                </span>
-              </div>
-
-              {/* Title & Course */}
-              <h4 style={{ fontSize: '0.98rem', fontWeight: 800, color: isDark ? '#F8FAFC' : '#0F172A', margin: '4px 0 6px 0' }}>
-                {selectedEvent.title}
-              </h4>
-              <div style={{ fontSize: '0.78rem', color: isDark ? '#94A3B8' : '#64748B', marginBottom: '10px' }}>
-                {selectedEvent.courseCode}
-              </div>
-
-              {/* Time & Date */}
-              <div
-                style={{
-                  padding: '8px 10px',
-                  borderRadius: '6px',
-                  backgroundColor: isDark ? '#0F172A' : '#F8FAFC',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  fontSize: '0.78rem',
-                  fontWeight: 600,
-                  color: isDark ? '#CBD5E1' : '#334155',
-                  marginBottom: '12px',
-                }}
-              >
-                <Clock size={14} color="#0055A5" />
-                <span>
-                  Day {selectedEvent.day} • {selectedEvent.time}
-                </span>
-              </div>
-
-              {/* Description */}
-              {selectedEvent.description && (
-                <p style={{ fontSize: '0.8rem', color: isDark ? '#94A3B8' : '#64748B', lineHeight: 1.45, marginBottom: '14px' }}>
-                  {selectedEvent.description}
-                </p>
-              )}
-
-              {/* Action Button */}
               {selectedEvent.meetLink ? (
                 <a
                   href={selectedEvent.meetLink}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="canvas-btn"
                   style={{
-                    display: 'flex',
+                    display: 'inline-flex',
                     alignItems: 'center',
-                    justifyContent: 'center',
                     gap: '6px',
-                    width: '100%',
-                    padding: '9px 12px',
-                    borderRadius: '6px',
-                    fontSize: '0.82rem',
-                    fontWeight: 700,
+                    padding: '9px 22px',
+                    borderRadius: '9999px',
                     backgroundColor: '#0055A5',
                     color: '#FFFFFF',
+                    fontSize: '0.86rem',
+                    fontWeight: 700,
                     textDecoration: 'none',
-                    boxShadow: '0 1px 3px rgba(0, 85, 165, 0.25)',
+                    fontFamily: "'Outfit', sans-serif",
+                    boxShadow: '0 2px 6px rgba(0, 85, 165, 0.25)',
                   }}
                 >
-                  <Video size={15} />
-                  <span>Join Live Class (Google Meet)</span>
+                  <Video size={16} />
+                  <span>Join Session</span>
                 </a>
               ) : (
-                <div
+                <button
+                  type="button"
+                  onClick={() => setSelectedEvent(null)}
                   style={{
-                    display: 'flex',
+                    display: 'inline-flex',
                     alignItems: 'center',
                     gap: '6px',
-                    fontSize: '0.76rem',
-                    color: '#15803D',
-                    fontWeight: 600,
+                    padding: '9px 22px',
+                    borderRadius: '9999px',
+                    backgroundColor: '#D97706',
+                    color: '#FFFFFF',
+                    fontSize: '0.86rem',
+                    fontWeight: 700,
+                    border: 'none',
+                    cursor: 'pointer',
+                    fontFamily: "'Outfit', sans-serif",
                   }}
                 >
-                  <CheckCircle2 size={14} />
-                  <span>Scheduled on course syllabus</span>
-                </div>
+                  <CheckCircle2 size={16} />
+                  <span>Mark as Viewed</span>
+                </button>
               )}
             </div>
-          ) : (
-            /* 3. UPCOMING SESSIONS / DEADLINES PREVIEW */
-            <div
-              className="canvas-card"
-              style={{
-                padding: '18px',
-                borderRadius: '8px',
-                border: isDark ? '1px solid #334155' : '1px solid #CBD5E1',
-                backgroundColor: isDark ? '#1E293B' : '#FFFFFF',
-                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
-              }}
-            >
-              <h3 style={{ fontSize: '0.88rem', fontWeight: 800, color: isDark ? '#F8FAFC' : '#0F172A', marginBottom: '12px' }}>
-                Upcoming this Month
-              </h3>
-
-              {upcomingEvents.length === 0 ? (
-                <p style={{ fontSize: '0.8rem', color: '#94A3B8', margin: 0 }}>No upcoming events for active filters.</p>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '9px' }}>
-                  {upcomingEvents.map((ev) => {
-                    const badge = getEventBadge(ev.category);
-                    return (
-                      <div
-                        key={ev.id}
-                        onClick={() => {
-                          setSelectedEvent(ev);
-                          setSelectedDay(ev.day);
-                        }}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '10px',
-                          padding: '7px 9px',
-                          borderRadius: '6px',
-                          backgroundColor: isDark ? '#0F172A' : '#FFFFFF',
-                          border: `1px solid ${isDark ? '#334155' : '#CBD5E1'}`,
-                          borderLeft: `3px solid ${badge.dot}`,
-                          cursor: 'pointer',
-                          transition: 'background-color 0.1s ease',
-                        }}
-                      >
-                        <div
-                          style={{
-                            width: '32px',
-                            height: '32px',
-                            borderRadius: '5px',
-                            backgroundColor: badge.bg,
-                            color: isDark ? badge.color : badge.dot,
-                            border: `1px solid ${badge.border}`,
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontWeight: 800,
-                            flexShrink: 0,
-                          }}
-                        >
-                          <span style={{ fontSize: '0.58rem', textTransform: 'uppercase' }}>Day</span>
-                          <span style={{ fontSize: '0.88rem', lineHeight: 1 }}>{ev.day}</span>
-                        </div>
-
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div
-                            style={{
-                              fontSize: '0.8rem',
-                              fontWeight: 700,
-                              color: isDark ? '#F8FAFC' : '#1E293B',
-                              whiteSpace: 'nowrap',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                            }}
-                          >
-                            {ev.title}
-                          </div>
-                          <div style={{ fontSize: '0.72rem', color: isDark ? '#94A3B8' : '#64748B' }}>
-                            {ev.time}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

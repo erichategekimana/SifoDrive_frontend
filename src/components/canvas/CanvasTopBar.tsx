@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Bell, Globe, ChevronRight } from 'lucide-react';
 
 import { useAuth } from '../../context/AuthContext';
@@ -17,6 +17,11 @@ export const CanvasTopBar: React.FC<CanvasTopBarProps> = ({ breadcrumbs = [] }) 
   const { user } = useAuth();
   const { language, setLanguage, t } = useTranslation();
   const [showNotifications, setShowNotifications] = useState(false);
+  const [avatarError, setAvatarError] = useState(false);
+
+  useEffect(() => {
+    setAvatarError(false);
+  }, [user?.profilePhoto]);
 
   // Mock notifications for demonstration
   const notifications = [
@@ -239,9 +244,20 @@ export const CanvasTopBar: React.FC<CanvasTopBarProps> = ({ breadcrumbs = [] }) 
                 justifyContent: 'center',
                 fontWeight: 800,
                 fontSize: '0.82rem',
+                overflow: 'hidden',
+                flexShrink: 0,
               }}
             >
-              {user.fullName ? user.fullName.charAt(0).toUpperCase() : 'U'}
+              {user.profilePhoto && !avatarError ? (
+                <img
+                  src={user.profilePhoto}
+                  alt={user.fullName || 'User'}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  onError={() => setAvatarError(true)}
+                />
+              ) : (
+                user.fullName ? user.fullName.charAt(0).toUpperCase() : 'U'
+              )}
             </div>
             <div style={{ display: 'flex', flexDirection: 'column' }}>
               <span style={{ fontSize: '0.86rem', fontWeight: 600, color: '#FFFFFF', lineHeight: 1.15 }}>

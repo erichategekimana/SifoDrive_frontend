@@ -5,7 +5,7 @@ import { AlertCircle, ChevronRight } from 'lucide-react';
 
 export interface AttendanceRecordItem {
   id: string;
-  status: 'PRESENT' | 'ABSENT' | 'LATE' | 'EXCUSED' | 'WATCHED_RECORDING' | string;
+  status: 'PRESENT' | 'ABSENT' | 'LATE' | 'EXCUSED' | string;
   class_title?: string;
   scheduled_at?: string;
   joined_at?: string;
@@ -20,7 +20,6 @@ export interface AttendanceSummaryData {
   late_count?: number;
   absent_count?: number;
   excused_count?: number;
-  watched_recording_count?: number;
   total_attended?: number;
   total_classes?: number;
 }
@@ -84,27 +83,32 @@ export const StudentAttendanceReviewView: React.FC<StudentAttendanceReviewViewPr
   const presentCount = summary?.present_count ?? 0;
   const absentCount = summary?.absent_count ?? 0;
   const lateCount = summary?.late_count ?? 0;
-  const excusedCount = summary?.excused_count ?? 0;
-  const watchedCount = summary?.watched_recording_count ?? 0;
 
   const totalDays = useMemo(() => {
     if (summary?.total_classes && summary.total_classes > 0) {
       return summary.total_classes;
     }
-    const sum = presentCount + absentCount + lateCount + excusedCount + watchedCount;
+    const sum = presentCount + absentCount + lateCount;
     return sum > 0 ? sum : attendances.length;
-  }, [summary, presentCount, absentCount, lateCount, excusedCount, watchedCount, attendances.length]);
+  }, [summary, presentCount, absentCount, lateCount, attendances.length]);
 
   const currentScorePercentage = useMemo(() => {
+    // If student has no absence and no late, they have 100%
+    if (absentCount === 0 && lateCount === 0) {
+      return 100;
+    }
     if (summary?.percentage !== undefined) {
       return Math.round(summary.percentage);
     }
+    if (summary?.rate !== undefined) {
+      return Math.round(summary.rate <= 1 ? summary.rate * 100 : summary.rate);
+    }
     if (totalDays > 0) {
-      const earned = presentCount + lateCount * 0.8 + watchedCount * 0.8;
+      const earned = presentCount + lateCount * 0.8;
       return Math.round((earned / totalDays) * 100);
     }
     return 100;
-  }, [summary, totalDays, presentCount, lateCount, watchedCount]);
+  }, [absentCount, lateCount, summary, totalDays, presentCount]);
 
   // Last submission / evaluation timestamp
   const latestSubmissionText = useMemo(() => {
@@ -131,7 +135,7 @@ export const StudentAttendanceReviewView: React.FC<StudentAttendanceReviewViewPr
   const circumference = 2 * Math.PI * radius;
 
   const effectiveTotal = totalDays > 0 ? totalDays : 1;
-  const presentFraction = (presentCount + watchedCount) / effectiveTotal;
+  const presentFraction = presentCount / effectiveTotal;
   const absentFraction = absentCount / effectiveTotal;
   const lateFraction = lateCount / effectiveTotal;
 
@@ -542,7 +546,8 @@ export const StudentAttendanceReviewView: React.FC<StudentAttendanceReviewViewPr
 
                     const isAbsent = record.status === 'ABSENT';
                     const isLate = record.status === 'LATE';
-                    const isPresent = record.status === 'PRESENT' || record.status === 'WATCHED_RECORDING';
+                    // EXCUSED weighs the same as PRESENT, so student sees Present
+                    const isPresent = record.status === 'PRESENT' || record.status === 'EXCUSED';
 
                     const dotColor = isAbsent
                       ? '#CC0000'

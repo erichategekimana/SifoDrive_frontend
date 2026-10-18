@@ -45,6 +45,8 @@ export interface AuthSuccessData {
     full_name: string;
     status: string;
     student_id?: string | null;
+    profile_photo?: string | null;
+    profilePhoto?: string | null;
     terms_accepted: boolean;
     privacy_accepted: boolean;
   };

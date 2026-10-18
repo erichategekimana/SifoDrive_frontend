@@ -16,6 +16,7 @@ import {
   CheckCircle2,
   BookOpen,
   Layers,
+  UserCheck,
 } from 'lucide-react';
 import { useTranslation } from '../../context/I18nContext';
 import { TutorService, type TutorAssignedStudentDTO } from '../../core/services/TutorService';
@@ -32,6 +33,7 @@ import {
   type HelpTicketDTO,
   type SupportAnnouncementDTO,
 } from '../../core/services/SupportTicketService';
+import { StudentAttendanceDrawer } from '../../features/lms/components/course/attendance/StudentAttendanceDrawer';
 import { Spinner } from '../../components/common/Spinner';
 
 export const TutorDashboard: React.FC = () => {
@@ -60,6 +62,7 @@ export const TutorDashboard: React.FC = () => {
   const [selectedTicket, setSelectedTicket] = useState<HelpTicketDTO | null>(null);
   const [ticketResponse, setTicketResponse] = useState('');
   const [isSubmittingTicketResponse, setIsSubmittingTicketResponse] = useState(false);
+  const [selectedStudentForAttendance, setSelectedStudentForAttendance] = useState<string | null>(null);
 
   const loadAllOperationalData = async () => {
     setIsLoading(true);
@@ -615,25 +618,46 @@ export const TutorDashboard: React.FC = () => {
                           </div>
                         </div>
 
-                        <a
-                          href="/tutor"
-                          className="btn btn-secondary btn-sm"
-                          style={{
-                            fontSize: '0.80rem',
-                            padding: '5px 14px',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            fontWeight: 600,
-                            textDecoration: 'none',
-                            color: 'var(--text-primary)',
-                            whiteSpace: 'nowrap',
-                          }}
-                        >
-                          <BookOpen size={13} />
-                          <span>Cohort Studio</span>
-                          <ExternalLink size={12} />
-                        </a>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <a
+                            href={`/courses?cohort=${c.id}&tab=attendance`}
+                            className="btn btn-secondary btn-sm"
+                            style={{
+                              fontSize: '0.80rem',
+                              padding: '5px 12px',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '5px',
+                              fontWeight: 600,
+                              textDecoration: 'none',
+                              color: 'var(--text-primary)',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            <UserCheck size={13} color="#058728" />
+                            <span>Attendance</span>
+                          </a>
+
+                          <a
+                            href="/tutor"
+                            className="btn btn-secondary btn-sm"
+                            style={{
+                              fontSize: '0.80rem',
+                              padding: '5px 14px',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              fontWeight: 600,
+                              textDecoration: 'none',
+                              color: 'var(--text-primary)',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            <BookOpen size={13} />
+                            <span>Cohort Studio</span>
+                            <ExternalLink size={12} />
+                          </a>
+                        </div>
                       </div>
                     </div>
                   );
@@ -675,27 +699,38 @@ export const TutorDashboard: React.FC = () => {
                 </h2>
               </div>
 
-              {/* Filter Search */}
-              <div style={{ position: 'relative', width: '290px' }}>
-                <Search
-                  size={15}
-                  style={{ position: 'absolute', left: '12px', top: '11px', color: 'var(--text-secondary)' }}
-                />
-                <input
-                  type="text"
-                  placeholder="Search students by name or phone..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px 8px 36px',
-                    fontSize: '0.86rem',
-                    borderRadius: 'var(--radius-sm)',
-                    border: '1px solid var(--border-subtle)',
-                    background: 'var(--bg-surface)',
-                    color: 'var(--text-primary)',
-                  }}
-                />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                <Link
+                  to="/tutor?tab=people"
+                  className="btn btn-secondary btn-sm"
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <Users size={15} />
+                  <span>People & Study Groups</span>
+                </Link>
+
+                {/* Filter Search */}
+                <div style={{ position: 'relative', width: '270px' }}>
+                  <Search
+                    size={15}
+                    style={{ position: 'absolute', left: '12px', top: '11px', color: 'var(--text-secondary)' }}
+                  />
+                  <input
+                    type="text"
+                    placeholder="Search students by name or phone..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px 8px 36px',
+                      fontSize: '0.86rem',
+                      borderRadius: 'var(--radius-sm)',
+                      border: '1px solid var(--border-subtle)',
+                      background: 'var(--bg-surface)',
+                      color: 'var(--text-primary)',
+                    }}
+                  />
+                </div>
               </div>
             </div>
 
@@ -745,10 +780,19 @@ export const TutorDashboard: React.FC = () => {
                                   fontSize: '0.8rem',
                                   fontWeight: 800,
                                   color: 'var(--text-primary)',
+                                  overflow: 'hidden',
                                   flexShrink: 0,
                                 }}
                               >
-                                {initials}
+                                {s.profile_photo ? (
+                                  <img
+                                    src={s.profile_photo}
+                                    alt={s.full_name}
+                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                  />
+                                ) : (
+                                  initials
+                                )}
                               </div>
                               <div>
                                 <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.94rem' }}>
@@ -784,9 +828,29 @@ export const TutorDashboard: React.FC = () => {
                             {s.cohort_identifier ? `${s.cohort_identifier} • ` : ''}{s.cohort_name || '—'}
                           </td>
                           <td style={{ padding: '14px 16px' }}>
-                            <span style={{ fontWeight: 800, color: 'var(--text-primary)', fontSize: '0.94rem' }}>
-                              {Math.round(attRate * 100)}%
-                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedStudentForAttendance(s.id)}
+                              title="Click to view live attendance history"
+                              style={{
+                                background: 'none',
+                                border: 'none',
+                                cursor: 'pointer',
+                                padding: 0,
+                                textAlign: 'left',
+                              }}
+                            >
+                              <span
+                                style={{
+                                  fontWeight: 800,
+                                  color: attRate >= 0.75 ? '#058728' : '#ea580c',
+                                  fontSize: '0.94rem',
+                                  textDecoration: 'underline',
+                                }}
+                              >
+                                {Math.round(attRate * 100)}%
+                              </span>
+                            </button>
                           </td>
                           <td style={{ padding: '14px 16px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '9px' }}>
@@ -1543,6 +1607,15 @@ export const TutorDashboard: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Student Attendance Drawer */}
+      {selectedStudentForAttendance && (
+        <StudentAttendanceDrawer
+          studentId={selectedStudentForAttendance}
+          onClose={() => setSelectedStudentForAttendance(null)}
+        />
+      )}
     </div>
   );
 };
+

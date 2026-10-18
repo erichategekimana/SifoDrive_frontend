@@ -8,6 +8,7 @@ import {
   MessageSquare,
   Users,
   Video,
+  UserCheck,
 } from 'lucide-react';
 
 export type CourseWorkspaceTab =
@@ -15,6 +16,7 @@ export type CourseWorkspaceTab =
   | 'modules'
   | 'assignments'
   | 'grades'
+  | 'attendance'
   | 'announcements'
   | 'discussions'
   | 'people'
@@ -44,14 +46,17 @@ export const CourseSecondaryNav: React.FC<CourseSecondaryNavProps> = ({
     { id: 'modules', label: 'Modules', icon: <Layers size={16} /> },
     { id: 'assignments', label: 'Assignments', icon: <FileText size={16} /> },
     { id: 'grades', label: 'Grades', icon: <Award size={16} />, badge: gradesCount },
+    { id: 'attendance', label: 'Attendance', icon: <UserCheck size={16} /> },
     { id: 'announcements', label: 'Announcements', icon: <Bell size={16} />, badge: announcementsCount },
     { id: 'discussions', label: 'Discussions', icon: <MessageSquare size={16} /> },
     { id: 'people', label: 'People', icon: <Users size={16} /> },
     { id: 'live', label: 'Live Classes', icon: <Video size={16} /> },
   ];
 
-  // Only students see Grades tab; tutors manage assignments & see student completions directly in Assignments
-  const navItems = isTutor ? allNavItems.filter((item) => item.id !== 'grades') : allNavItems;
+  // Tutors see Attendance to manage student roll call and exam eligibility; students see Grades (with student attendance view)
+  const navItems = isTutor
+    ? allNavItems.filter((item) => item.id !== 'grades')
+    : allNavItems.filter((item) => item.id !== 'attendance');
 
   if (isCollapsed) return null;
 

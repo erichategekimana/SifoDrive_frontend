@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Users, UserCheck, Plus, RefreshCw } from 'lucide-react';
 import { useAuth } from '../../../../../context/AuthContext';
+import { useToast } from '../../../../../context/ToastContext';
 import type { Course } from '../../../../../core/models/Course';
 import {
   CourseGroupService,
@@ -12,6 +13,7 @@ import { GroupChatView } from './GroupChatView';
 import { StudyGroupsList } from './StudyGroupsList';
 import { PeopleRosterView } from './PeopleRosterView';
 import { CreateGroupModal } from './CreateGroupModal';
+import { AddGroupMemberModal } from './AddGroupMemberModal';
 
 export interface CoursePeopleTabProps {
   course: Course;
@@ -29,6 +31,7 @@ export const CoursePeopleTab: React.FC<CoursePeopleTabProps> = ({
   onGroupsLoaded,
 }) => {
   const { user } = useAuth();
+  const { success: toastSuccess, error: toastError } = useToast();
   const groupService = CourseGroupService.getInstance();
 
   const isCurrentUserTutor = Boolean(
@@ -70,12 +73,15 @@ export const CoursePeopleTab: React.FC<CoursePeopleTabProps> = ({
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
   const [isJoiningGroup, setIsJoiningGroup] = useState(false);
+  const [isUpdatingPermission, setIsUpdatingPermission] = useState(false);
 
-  // Modal State for Group Creation
+  // Modal States
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showAddMemberModal, setShowAddMemberModal] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
   const [newGroupDesc, setNewGroupDesc] = useState('');
   const [newGroupCategory, setNewGroupCategory] = useState('General Road Rules & Highway Code');
+  const [allowStudentsToAddMembers, setAllowStudentsToAddMembers] = useState(false);
 
   // Chat Composer State
   const [chatInput, setChatInput] = useState('');
@@ -89,7 +95,11 @@ export const CoursePeopleTab: React.FC<CoursePeopleTabProps> = ({
     setIsLoadingRoster(true);
     try {
       const data = await groupService.getRoster(course.id);
-      setRoster(data);
+      // Strictly show students and tutors (instructors) only
+      const validRoster = (data || []).filter(
+        (u) => u.role === 'Instructor' || u.role === 'Student'
+      );
+      setRoster(validRoster);
     } catch (err) {
       console.error('Failed to load course roster:', err);
     } finally {
@@ -119,7 +129,14 @@ export const CoursePeopleTab: React.FC<CoursePeopleTabProps> = ({
         setCourseGroups((prev) =>
           prev.map((g) =>
             g.id === groupId
-              ? { ...g, members_count: detail.members_count, is_member: detail.is_member }
+              ? {
+                  ...g,
+                  members_count: detail.members_count,
+                  is_member: detail.is_member,
+                  can_add_members: detail.can_add_members,
+                  can_manage_group: detail.can_manage_group,
+                  allow_students_to_add_members: detail.allow_students_to_add_members,
+                }
               : g
           )
         );
@@ -148,9 +165,24 @@ export const CoursePeopleTab: React.FC<CoursePeopleTabProps> = ({
   useEffect(() => {
     if (!activeGroupId) return;
     const interval = setInterval(() => {
-      fetchGroupDetail(activeGroupId, true);
-    }, 4000);
-    return () => clearInterval(interval);
+      if (document.visibilityState === 'visible') {
+        fetchGroupDetail(activeGroupId, true);
+      }
+    }, 2500);
+
+    const handleFocus = () => {
+      if (document.visibilityState === 'visible') {
+        fetchGroupDetail(activeGroupId, true);
+      }
+    };
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleFocus);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleFocus);
+    };
   }, [activeGroupId, fetchGroupDetail]);
 
   useEffect(() => {
@@ -168,9 +200,11 @@ export const CoursePeopleTab: React.FC<CoursePeopleTabProps> = ({
       const created = await groupService.createGroup(course.id, {
         name: newGroupName.trim(),
         description: newGroupDesc.trim(),
-        category: newGroupCategory,
+        category: isCurrentUserTutor ? 'General' : newGroupCategory,
+        allow_students_to_add_members: isCurrentUserTutor ? allowStudentsToAddMembers : false,
       });
 
+      toastSuccess(`Group "${created.name}" created successfully.`);
       setCourseGroups((prev) => {
         const next = [created, ...prev];
         onGroupsLoaded?.(next);
@@ -181,8 +215,10 @@ export const CoursePeopleTab: React.FC<CoursePeopleTabProps> = ({
       setShowCreateModal(false);
       setNewGroupName('');
       setNewGroupDesc('');
-    } catch (err) {
+      setAllowStudentsToAddMembers(false);
+    } catch (err: any) {
       console.error('Failed to create group:', err);
+      toastError(err?.message || 'Failed to create group.');
     } finally {
       setIsCreatingGroup(false);
     }
@@ -209,8 +245,9 @@ export const CoursePeopleTab: React.FC<CoursePeopleTabProps> = ({
         };
       });
       setTimeout(() => scrollToBottom('smooth'), 50);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to send group message:', err);
+      toastError(err?.message || 'Failed to send message.');
       setChatInput(content);
     } finally {
       setIsSendingMessage(false);
@@ -239,14 +276,79 @@ export const CoursePeopleTab: React.FC<CoursePeopleTabProps> = ({
             : g
         )
       );
-    } catch (err) {
+      toastSuccess(result.is_member ? 'You joined the study group.' : 'You left the study group.');
+    } catch (err: any) {
       console.error('Failed to toggle group membership:', err);
+      toastError(err?.message || 'Failed to update membership.');
     } finally {
       setIsJoiningGroup(false);
     }
   };
 
+  const handleToggleStudentAddPermission = async (enabled: boolean) => {
+    if (!activeGroupId || isUpdatingPermission) return;
+    setIsUpdatingPermission(true);
+    try {
+      const updated = await groupService.updateGroupSettings(activeGroupId, {
+        allow_students_to_add_members: enabled,
+      });
+      setActiveGroupDetail(updated);
+      setCourseGroups((prev) =>
+        prev.map((g) =>
+          g.id === activeGroupId
+            ? { ...g, allow_students_to_add_members: enabled, can_add_members: updated.can_add_members }
+            : g
+        )
+      );
+      toastSuccess(
+        enabled
+          ? 'Students can now invite classmates to this circle.'
+          : 'Peer invite access revoked.'
+      );
+    } catch (err: any) {
+      console.error('Failed to update group permissions:', err);
+      toastError(err?.message || 'Failed to update group permissions.');
+    } finally {
+      setIsUpdatingPermission(false);
+    }
+  };
+
+  const handleRemoveMember = async (userId: string) => {
+    if (!activeGroupId) return;
+    try {
+      const updated = await groupService.removeMember(activeGroupId, userId);
+      setActiveGroupDetail(updated);
+      setCourseGroups((prev) =>
+        prev.map((g) =>
+          g.id === activeGroupId ? { ...g, members_count: updated.members_count } : g
+        )
+      );
+      toastSuccess('Member removed from group.');
+    } catch (err: any) {
+      console.error('Failed to remove member:', err);
+      toastError(err?.message || 'Failed to remove member.');
+    }
+  };
+
+  const handleMembersAdded = (updatedDetail: CourseGroupDetailDTO) => {
+    setActiveGroupDetail(updatedDetail);
+    setCourseGroups((prev) =>
+      prev.map((g) =>
+        g.id === updatedDetail.id
+          ? {
+              ...g,
+              members_count: updatedDetail.members_count,
+              can_add_members: updatedDetail.can_add_members,
+            }
+          : g
+      )
+    );
+  };
+
   const filteredRoster = roster.filter((u) => {
+    // Only display students and tutors
+    if (u.role !== 'Instructor' && u.role !== 'Student') return false;
+
     const matchesSearch =
       u.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (u.student_id && u.student_id.toLowerCase().includes(searchTerm.toLowerCase())) ||
@@ -271,6 +373,10 @@ export const CoursePeopleTab: React.FC<CoursePeopleTabProps> = ({
           onToggleJoin={handleToggleJoin}
           onSendMessage={handleSendMessage}
           onCloseChat={() => setActiveGroupId(null)}
+          onOpenAddMembers={() => setShowAddMemberModal(true)}
+          onToggleStudentAddPermission={handleToggleStudentAddPermission}
+          isUpdatingPermission={isUpdatingPermission}
+          onRemoveMember={handleRemoveMember}
         />
       ) : (
         <div>
@@ -350,7 +456,7 @@ export const CoursePeopleTab: React.FC<CoursePeopleTabProps> = ({
                 }}
               >
                 <Plus size={15} />
-                <span>{isCurrentUserTutor ? 'Create Student Group' : 'Create Study Group'}</span>
+                <span>{isCurrentUserTutor ? 'Create Student Study Group' : 'Create Study Group'}</span>
               </button>
             </div>
           </div>
@@ -377,6 +483,7 @@ export const CoursePeopleTab: React.FC<CoursePeopleTabProps> = ({
         </div>
       )}
 
+      {/* Create Group Modal */}
       <CreateGroupModal
         isOpen={showCreateModal}
         isCurrentUserTutor={isCurrentUserTutor}
@@ -387,10 +494,25 @@ export const CoursePeopleTab: React.FC<CoursePeopleTabProps> = ({
         setNewGroupDesc={setNewGroupDesc}
         newGroupCategory={newGroupCategory}
         setNewGroupCategory={setNewGroupCategory}
+        allowStudentsToAddMembers={allowStudentsToAddMembers}
+        setAllowStudentsToAddMembers={setAllowStudentsToAddMembers}
         isCreatingGroup={isCreatingGroup}
         onClose={() => setShowCreateModal(false)}
         onSubmit={handleCreateGroup}
       />
+
+      {/* Add Members Modal */}
+      {activeGroupDetail && (
+        <AddGroupMemberModal
+          isOpen={showAddMemberModal}
+          onClose={() => setShowAddMemberModal(false)}
+          group={activeGroupDetail}
+          courseId={course.id}
+          roster={roster}
+          currentMemberIds={activeGroupDetail.members?.map((m) => m.id) || []}
+          onMembersAdded={handleMembersAdded}
+        />
+      )}
     </div>
   );
 };

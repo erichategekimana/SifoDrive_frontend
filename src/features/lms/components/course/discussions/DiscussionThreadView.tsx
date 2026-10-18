@@ -246,9 +246,19 @@ export const DiscussionThreadView: React.FC<DiscussionThreadViewProps> = ({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
+              overflow: 'hidden',
+              flexShrink: 0,
             }}
           >
-            {selectedTopic.author_name.substring(0, 2).toUpperCase()}
+            {selectedTopic.author_photo ? (
+              <img
+                src={selectedTopic.author_photo}
+                alt={selectedTopic.author_name}
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              />
+            ) : (
+              selectedTopic.author_name.substring(0, 2).toUpperCase()
+            )}
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>

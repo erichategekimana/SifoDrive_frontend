@@ -30,7 +30,7 @@ export const GradesSummaryFooter: React.FC<GradesSummaryFooterProps> = ({
     totalPoints += 100;
   }
 
-  const averagePct = totalPoints > 0 ? (earnedPoints / totalPoints) * 100 : 94.2;
+  const averagePct = totalPoints > 0 ? (earnedPoints / totalPoints) * 100 : studentAttendanceRate;
   const formattedPct = averagePct.toFixed(1);
 
   const getLetterGrade = (pct: number) => {

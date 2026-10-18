@@ -16,6 +16,7 @@ import { TutorLmsService, type CohortActivityItem } from '../../../../core/servi
 import { LmsService } from '../../../../core/services/LmsService';
 import { Spinner } from '../../../../components/common/Spinner';
 import { PdfViewer } from '../common/PdfViewer';
+import { StudentSubmitActivityModal } from './StudentSubmitActivityModal';
 
 export interface StudentAssessmentReviewViewProps {
   assessmentId: string;
@@ -42,66 +43,58 @@ export const StudentAssessmentReviewView: React.FC<StudentAssessmentReviewViewPr
   const [submission, setSubmission] = useState<QuizSubmissionItem | null>(null);
   const [activity, setActivity] = useState<CohortActivityItem | null>(null);
 
-  useEffect(() => {
-    let isMounted = true;
+  const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
 
-    async function loadData() {
-      if (!assessmentId) {
-        setError('Assessment identifier not found.');
-        setLoading(false);
-        return;
-      }
-
-      setLoading(true);
-      setError(null);
-
-      try {
-        if (!initialCourseTitle && courseId && courseId !== 'all') {
-          LmsService.getInstance()
-            .getCourseDetail(courseId)
-            .then((c) => {
-              if (isMounted && c?.title) setCourseTitle(c.title);
-            })
-            .catch(() => {});
-        }
-
-        if (isActivity) {
-          const activities = await TutorLmsService.getInstance().getStudentCohortActivities(
-            undefined,
-            courseId !== 'all' ? courseId : undefined
-          );
-          const found = activities.find((a) => String(a.id) === String(assessmentId));
-          if (!found) {
-            throw new Error('Activity details could not be found.');
-          }
-          if (isMounted) setActivity(found);
-        } else {
-          const [quizData, subs] = await Promise.all([
-            AdminService.getInstance().getQuizDetail(assessmentId),
-            AdminService.getInstance().getQuizSubmissions(assessmentId),
-          ]);
-
-          if (isMounted) {
-            setQuiz(quizData);
-            if (subs && subs.length > 0) {
-              setSubmission(subs[0]);
-            }
-          }
-        }
-      } catch (err: any) {
-        if (isMounted) {
-          setError(err?.message || 'Failed to load assessment review details.');
-        }
-      } finally {
-        if (isMounted) setLoading(false);
-      }
+  const loadData = async () => {
+    if (!assessmentId) {
+      setError('Assessment identifier not found.');
+      setLoading(false);
+      return;
     }
 
-    loadData();
+    setLoading(true);
+    setError(null);
 
-    return () => {
-      isMounted = false;
-    };
+    try {
+      if (!initialCourseTitle && courseId && courseId !== 'all') {
+        LmsService.getInstance()
+          .getCourseDetail(courseId)
+          .then((c) => {
+            if (c?.title) setCourseTitle(c.title);
+          })
+          .catch(() => {});
+      }
+
+      if (isActivity) {
+        const activities = await TutorLmsService.getInstance().getStudentCohortActivities(
+          undefined,
+          courseId !== 'all' ? courseId : undefined
+        );
+        const found = activities.find((a) => String(a.id) === String(assessmentId));
+        if (!found) {
+          throw new Error('Activity details could not be found.');
+        }
+        setActivity(found);
+      } else {
+        const [quizData, subs] = await Promise.all([
+          AdminService.getInstance().getQuizDetail(assessmentId),
+          AdminService.getInstance().getQuizSubmissions(assessmentId),
+        ]);
+
+        setQuiz(quizData);
+        if (subs && subs.length > 0) {
+          setSubmission(subs[0]);
+        }
+      }
+    } catch (err: any) {
+      setError(err?.message || 'Failed to load assessment review details.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
   }, [assessmentId, isActivity, courseId, initialCourseTitle]);
 
   const parsedRubrics = useMemo(() => {
@@ -288,6 +281,27 @@ export const StudentAssessmentReviewView: React.FC<StudentAssessmentReviewViewPr
               <Clock size={16} />
               <span>Submission Received • Awaiting Grade Release</span>
             </div>
+          ) : isActivity && activity ? (
+            <button
+              type="button"
+              onClick={() => setIsSubmitModalOpen(true)}
+              style={{
+                padding: '10px 18px',
+                borderRadius: '8px',
+                backgroundColor: '#058728',
+                color: '#ffffff',
+                border: 'none',
+                fontSize: '0.84rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                boxShadow: '0 2px 4px rgba(5, 135, 40, 0.2)',
+              }}
+            >
+              Submit Activity
+            </button>
           ) : (
             <div
               style={{
@@ -690,6 +704,18 @@ export const StudentAssessmentReviewView: React.FC<StudentAssessmentReviewViewPr
             {instructions}
           </p>
         </div>
+      )}
+      {/* Student Activity Submission Modal */}
+      {isActivity && activity && (
+        <StudentSubmitActivityModal
+          isOpen={isSubmitModalOpen}
+          activity={activity}
+          onClose={() => setIsSubmitModalOpen(false)}
+          onSuccess={() => {
+            setIsSubmitModalOpen(false);
+            loadData();
+          }}
+        />
       )}
     </div>
   );

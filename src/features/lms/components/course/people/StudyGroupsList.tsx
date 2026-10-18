@@ -66,20 +66,54 @@ export const StudyGroupsList: React.FC<StudyGroupsListProps> = ({
               <h4 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#1E293B', margin: 0, lineHeight: 1.3 }}>
                 {grp.name}
               </h4>
+            </div>
+            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '8px' }}>
               <span
                 style={{
                   fontSize: '0.68rem',
-                  fontWeight: 600,
-                  backgroundColor: '#F3F4F6',
-                  color: '#374151',
-                  border: '1px solid #E5E7EB',
-                  padding: '2px 8px',
+                  fontWeight: 700,
+                  backgroundColor: grp.creator_role === 'Tutor' ? '#DCFCE7' : '#EFF6FF',
+                  color: grp.creator_role === 'Tutor' ? '#15803D' : '#0055A5',
+                  border: `1px solid ${grp.creator_role === 'Tutor' ? '#BBF7D0' : '#BFDBFE'}`,
+                  padding: '1px 7px',
                   borderRadius: '4px',
                   whiteSpace: 'nowrap',
                 }}
               >
-                {grp.creator_role === 'Tutor' ? 'Instructor Created' : 'Student Group'}
+                {grp.creator_role === 'Tutor' ? 'Instructor Group' : 'Student Group'}
               </span>
+
+              {/* Invite Permission Badge */}
+              {(grp.creator_role === 'Student' || grp.allow_students_to_add_members) && (
+                <span
+                  style={{
+                    fontSize: '0.66rem',
+                    fontWeight: 600,
+                    backgroundColor: '#F0FDF4',
+                    color: '#15803D',
+                    border: '1px solid #BBF7D0',
+                    padding: '1px 6px',
+                    borderRadius: '4px',
+                  }}
+                >
+                  {grp.creator_role === 'Student' ? 'Open Peer Invites' : 'Student Invites On'}
+                </span>
+              )}
+
+              {grp.is_member && (
+                <span
+                  style={{
+                    fontSize: '0.66rem',
+                    fontWeight: 700,
+                    backgroundColor: '#E0F2FE',
+                    color: '#0369A1',
+                    padding: '1px 6px',
+                    borderRadius: '4px',
+                  }}
+                >
+                  ✓ Joined
+                </span>
+              )}
             </div>
 
             {grp.description && (

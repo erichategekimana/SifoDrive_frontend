@@ -64,7 +64,7 @@ export const CanvasLayout: React.FC = () => {
             id: c.id,
             code: c.code || 'THEORY',
             title: c.title,
-            subtitle: c.curriculumTitle || c.description,
+            subtitle: c.description || '',
             progress: c.progressPercentage || 0,
             badge: c.modulesCount > 0 ? `${c.modulesCount} Modules` : undefined,
             path: `/courses/${c.id}`,

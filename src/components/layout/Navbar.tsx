@@ -211,9 +211,19 @@ export const Navbar: React.FC = () => {
                     justifyContent: 'center',
                     fontWeight: 700,
                     fontSize: '0.8rem',
+                    overflow: 'hidden',
+                    flexShrink: 0,
                   }}
                 >
-                  {user.getInitials()}
+                  {user.profilePhoto ? (
+                    <img
+                      src={user.profilePhoto}
+                      alt={user.fullName}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    />
+                  ) : (
+                    user.getInitials()
+                  )}
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
                   <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>

@@ -359,7 +359,7 @@ export const BroadcastComposer: React.FC<BroadcastComposerProps> = ({
             >
               <Shield size={15} color="#0055A5" />
               <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#0055A5' }}>
-                Official Academy Bulletins & Updates
+                Announcements
               </span>
             </div>
 

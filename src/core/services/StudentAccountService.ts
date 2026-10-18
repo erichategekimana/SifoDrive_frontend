@@ -52,8 +52,8 @@ export class StudentAccountService {
         reasons: ['Tuition fee has not been paid.'],
         criteria: {
           tuition_paid: false,
-          attendance_rate: 0.8,
-          module_completion: 0.65,
+          attendance_rate: 0,
+          module_completion: 0,
         },
       };
     }
@@ -66,11 +66,11 @@ export class StudentAccountService {
     } catch {
       return {
         preferred_language: 'rw',
-        license_category: 'B',
-        enrollment_date: '2026-09-01',
-        current_streak_days: 5,
-        longest_streak_days: 12,
-        last_activity_date: '2026-09-30',
+        license_category: '',
+        enrollment_date: null,
+        current_streak_days: 0,
+        longest_streak_days: 0,
+        last_activity_date: null,
       };
     }
   }

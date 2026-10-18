@@ -65,10 +65,51 @@ export class LiveClass {
     this.startTime = dto.start_time;
     this.endTime = dto.end_time;
     this.googleMeetUrl = dto.google_meet_url;
-    this.status = dto.status;
     this.notes = dto.notes || '';
     this.recordingUrl = dto.recording_url || '';
-    this.isPast = dto.is_past ?? false;
+
+    // Dynamically evaluate status based on current date & time
+    const initialStatus = dto.status;
+    if (initialStatus === 'CANCELLED' || initialStatus === 'RESCHEDULED') {
+      this.status = initialStatus;
+      this.isPast = dto.is_past ?? false;
+    } else if (dto.scheduled_date) {
+      const parts = dto.scheduled_date.split('T')[0].split('-').map(Number);
+      if (parts.length === 3) {
+        const now = new Date();
+        let startH = 0, startM = 0;
+        if (dto.start_time) {
+          const sp = dto.start_time.split(':').map(Number);
+          startH = sp[0] || 0;
+          startM = sp[1] || 0;
+        }
+        let endH = startH + 1, endM = startM;
+        if (dto.end_time) {
+          const ep = dto.end_time.split(':').map(Number);
+          endH = ep[0] || 0;
+          endM = ep[1] || 0;
+        }
+        const startDt = new Date(parts[0], parts[1] - 1, parts[2], startH, startM, 0);
+        const endDt = new Date(parts[0], parts[1] - 1, parts[2], endH, endM, 0);
+
+        if (now > endDt) {
+          this.status = 'COMPLETED';
+          this.isPast = true;
+        } else if (now >= startDt && now <= endDt) {
+          this.status = 'IN_PROGRESS';
+          this.isPast = false;
+        } else {
+          this.status = 'SCHEDULED';
+          this.isPast = false;
+        }
+      } else {
+        this.status = dto.status || 'SCHEDULED';
+        this.isPast = dto.is_past ?? false;
+      }
+    } else {
+      this.status = dto.status || 'SCHEDULED';
+      this.isPast = dto.is_past ?? false;
+    }
   }
 
   public isLiveNow(): boolean {
