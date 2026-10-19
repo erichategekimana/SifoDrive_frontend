@@ -256,7 +256,7 @@ export const QuizInspectionModal: React.FC<QuizInspectionModalProps> = ({
           }}
         >
           <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#ffffff' }}>
-            Tutor Permissions & Access Control:
+            Tutor Permissions:
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
             <span

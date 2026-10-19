@@ -14,6 +14,8 @@ import {
   FileQuestion,
   Users,
   BookOpen,
+  Eye,
+  Play,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTranslation } from '../../context/I18nContext';
@@ -25,7 +27,7 @@ import { Spinner } from '../../components/common/Spinner';
 import { TutorLmsService, type CohortActivityItem } from '../../core/services/TutorLmsService';
 import { SupportTicketService, type SupportAnnouncementDTO } from '../../core/services/SupportTicketService';
 import { StudentSubmitActivityModal } from '../../features/lms/components/student/StudentSubmitActivityModal';
-import { AdminService, type QuizItem } from '../../core/services/AdminService';
+import { AdminService, type QuizItem, type StudentAvailableExamItem } from '../../core/services/AdminService';
 import { HttpClient } from '../../core/api/HttpClient';
 
 import { Course } from '../../core/models/Course';
@@ -43,7 +45,9 @@ export const StudentCanvasDashboard: React.FC = () => {
   const [cohortActivities, setCohortActivities] = useState<CohortActivityItem[]>([]);
   const [announcements, setAnnouncements] = useState<SupportAnnouncementDTO[]>([]);
   const [quizzes, setQuizzes] = useState<QuizItem[]>([]);
+  const [officialExams, setOfficialExams] = useState<StudentAvailableExamItem[]>([]);
   const [dismissedTodoIds, setDismissedTodoIds] = useState<Set<string>>(new Set());
+
   const [selectedActivityForSubmit, setSelectedActivityForSubmit] = useState<CohortActivityItem | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -105,7 +109,7 @@ export const StudentCanvasDashboard: React.FC = () => {
   useEffect(() => {
     const loadAll = async () => {
       try {
-        const [eligData, profData, classesData, schedulesData, coursesData, activitiesData, announcementsData, quizData, attRes] = await Promise.all([
+        const [eligData, profData, classesData, schedulesData, coursesData, activitiesData, announcementsData, quizData, attRes, examsData] = await Promise.all([
           StudentAccountService.getInstance().getEligibility(),
           StudentAccountService.getInstance().getProfile(),
           LiveClassService.getInstance().getClasses().catch(() => []),
@@ -115,6 +119,7 @@ export const StudentCanvasDashboard: React.FC = () => {
           SupportTicketService.getInstance().getAnnouncements().catch(() => []),
           AdminService.getInstance().getQuizzes().catch(() => []),
           HttpClient.getInstance().get<any>('/api/v1/live-classes/my-attendance/').catch(() => null),
+          AdminService.getInstance().getStudentAvailableExams().catch(() => []),
         ]);
         setEligibility(eligData);
         setStudentProfile(profData);
@@ -123,6 +128,8 @@ export const StudentCanvasDashboard: React.FC = () => {
         setPublishedCourses(coursesData);
         setCohortActivities(activitiesData || []);
         setAnnouncements(announcementsData || []);
+        setOfficialExams(examsData || []);
+
 
         // Enrich quizzes with student's actual database submissions
         let enrichedQuizzes: QuizItem[] = quizData || [];
@@ -551,6 +558,142 @@ export const StudentCanvasDashboard: React.FC = () => {
         {/* LEFT COLUMN: Course Work, Stats & Assignments */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
 
+          {/* Official Scheduled Examinations Section */}
+          {officialExams.length > 0 && (
+            <div
+              style={{
+                background: 'rgba(15, 23, 42, 0.75)',
+                border: '1px solid rgba(3, 116, 181, 0.3)',
+                borderRadius: 'var(--radius-lg)',
+                padding: '24px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '16px',
+                boxShadow: '0 8px 24px rgba(0, 0, 0, 0.25)',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <Award size={22} color="#38bdf8" />
+                  <h2 style={{ fontSize: '1.2rem', fontWeight: 800, margin: 0, color: '#ffffff' }}>
+                    Official Driving Theory Examinations
+                  </h2>
+                </div>
+                <span
+                  style={{
+                    background: 'rgba(3, 116, 181, 0.15)',
+                    color: '#38bdf8',
+                    padding: '3px 10px',
+                    borderRadius: '999px',
+                    fontSize: '0.75rem',
+                    fontWeight: 700,
+                  }}
+                >
+                  Cohort Accreditation
+                </span>
+              </div>
+
+              {officialExams.map((exam) => {
+                const attemptStatus = exam.attempt?.status || 'NOT_STARTED';
+                const isCompleted = ['BOARD_REVIEW', 'TRAINING_REVIEW', 'SYSTEM_REVIEW', 'APPROVED', 'PUBLISHED', 'REJECTED'].includes(attemptStatus);
+                const isRunning = attemptStatus === 'ACTIVE';
+
+                return (
+                  <div
+                    key={exam.id}
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.03)',
+                      border: '1px solid rgba(255, 255, 255, 0.08)',
+                      borderRadius: '16px',
+                      padding: '20px',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      flexWrap: 'wrap',
+                      gap: '16px',
+                    }}
+                  >
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontWeight: 800, fontSize: '1.05rem', color: '#ffffff' }}>{exam.title}</span>
+                        <span
+                          style={{
+                            background: exam.window_status === 'OPEN' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(234, 179, 8, 0.15)',
+                            color: exam.window_status === 'OPEN' ? '#10b981' : '#facc15',
+                            padding: '2px 8px',
+                            borderRadius: '6px',
+                            fontSize: '0.72rem',
+                            fontWeight: 700,
+                          }}
+                        >
+                          Window: {exam.window_status}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
+                        {exam.open_date ? `Open: ${new Date(exam.open_date).toLocaleDateString()}` : 'Open now'}
+                        {exam.due_date ? ` • Due: ${new Date(exam.due_date).toLocaleDateString()}` : ''}
+                        {exam.closing_date ? ` • Closes: ${new Date(exam.closing_date).toLocaleDateString()}` : ''}
+                        {' • 20 Questions • 20 Min Countdown • 1 Attempt'}
+                      </div>
+                      {exam.instructions && (
+                        <div style={{ fontSize: '0.8rem', color: '#cbd5e1', marginTop: '4px', maxWidth: '650px' }}>
+                          {exam.instructions}
+                        </div>
+                      )}
+                    </div>
+
+                    <div>
+                      {isCompleted ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <div style={{ textAlign: 'right' }}>
+                            <div style={{ fontSize: '1.05rem', fontWeight: 800, color: exam.attempt?.passed ? '#10b981' : '#ef4444' }}>
+                              Score: {exam.attempt?.score} / 20
+                            </div>
+                            <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
+                              {attemptStatus === 'BOARD_REVIEW' ? 'In Board Review' : attemptStatus}
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => navigate(`/examinations/session/${exam.attempt?.attempt_id}`)}
+                            className="btn btn-secondary btn-sm"
+                            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                          >
+                            <Eye size={14} /> Review Answers
+                          </button>
+                        </div>
+                      ) : isRunning ? (
+                        <button
+                          onClick={() => navigate(`/examinations/session/${exam.attempt?.attempt_id}`)}
+                          className="btn btn-primary btn-md"
+                          style={{ background: '#38bdf8', borderColor: '#38bdf8', color: '#0f172a', fontWeight: 800 }}
+                        >
+                          Resume Active Exam
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => navigate(`/examinations/take/${exam.id}`)}
+                          disabled={!exam.can_start}
+                          className="btn btn-primary btn-md"
+                          style={{
+                            background: exam.can_start ? 'linear-gradient(135deg, #0374b5 0%, #003366 100%)' : 'rgba(255, 255, 255, 0.08)',
+                            borderColor: exam.can_start ? '#0374b5' : 'transparent',
+                            color: exam.can_start ? '#ffffff' : '#64748b',
+                            fontWeight: 800,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                          }}
+                        >
+                          <Play size={16} /> Start Proctored Exam
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
           {/* Canvas Course Work Header with Show Summary Counts Toggle */}
           <div
             style={{
@@ -560,6 +703,7 @@ export const StudentCanvasDashboard: React.FC = () => {
               padding: '24px',
             }}
           >
+
             <div
               style={{
                 display: 'flex',

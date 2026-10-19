@@ -268,13 +268,34 @@ export const ApiEndpoints = {
     EXAM_SESSION_DETAIL: (id: string) => `${API_BASE_URL}/examinations/admin/sessions/${id}/`,
     EXAM_SESSION_ACTION: (id: string) => `${API_BASE_URL}/examinations/admin/sessions/${id}/action/`,
     EXAM_PUBLISH: `${API_BASE_URL}/examinations/admin/publish/`,
+    OFFICIAL_EXAMS: `${API_BASE_URL}/examinations/admin/exams/`,
+    OFFICIAL_EXAM_DETAIL: (id: string) => `${API_BASE_URL}/examinations/admin/exams/${id}/`,
+    OFFICIAL_EXAM_AUDIT: (idOrType: string) => `${API_BASE_URL}/examinations/admin/exams/${idOrType}/audit/`,
+    OFFICIAL_EXAM_TOGGLE_PUBLISH: (id: string) => `${API_BASE_URL}/examinations/admin/exams/${id}/toggle-publish/`,
     EXAM_CERTIFICATES: `${API_BASE_URL}/examinations/admin/certificates/`,
     EXAM_CERTIFICATE_DETAIL: (id: string) => `${API_BASE_URL}/examinations/admin/certificates/${id}/`,
     EXAM_CERTIFICATE_TEMPLATES: `${API_BASE_URL}/examinations/admin/templates/`,
     EXAM_CERTIFICATE_TEMPLATE_DETAIL: (id: string) => `${API_BASE_URL}/examinations/admin/templates/${id}/`,
     EXAM_QUESTIONS: `${API_BASE_URL}/examinations/admin/questions/`,
+    EXAM_QUESTION_EDIT_ACCESS: `${API_BASE_URL}/examinations/admin/questions/edit-access/`,
     EXAM_QUESTION_DETAIL: (id: string) => `${API_BASE_URL}/examinations/admin/questions/${id}/`,
     EXAM_CERTIFICATE_VERIFY: (hashOrCode: string) => `${API_BASE_URL}/examinations/verify/${hashOrCode}/`,
+
+    // Candidate Examination Runner & Proctoring
+    STUDENT_OFFICIAL_EXAMS: `${API_BASE_URL}/examinations/student/exams/`,
+    STUDENT_START_EXAM: (examId: string) => `${API_BASE_URL}/examinations/student/exams/${examId}/start/`,
+    CANDIDATE_SESSION_DETAIL: (sessionId: string) => `${API_BASE_URL}/examinations/sessions/${sessionId}/`,
+    CANDIDATE_SESSION_ANSWER: (sessionId: string) => `${API_BASE_URL}/examinations/sessions/${sessionId}/answer/`,
+    CANDIDATE_SESSION_PROCTOR: (sessionId: string) => `${API_BASE_URL}/examinations/sessions/${sessionId}/proctor-event/`,
+    CANDIDATE_SESSION_SUBMIT: (sessionId: string) => `${API_BASE_URL}/examinations/sessions/${sessionId}/submit/`,
+    CANDIDATE_SESSION_RESULTS: (sessionId: string) => `${API_BASE_URL}/examinations/sessions/${sessionId}/results/`,
+
+    // Guest & Public Paid Examination
+    PUBLIC_EXAM_PACKAGES: `${API_BASE_URL}/examinations/public/packages/`,
+    PUBLIC_EXAM_CREDITS: `${API_BASE_URL}/examinations/public/credits/`,
+    PUBLIC_EXAM_BUY: `${API_BASE_URL}/examinations/public/buy/`,
+    PUBLIC_EXAM_START: `${API_BASE_URL}/examinations/public/start/`,
+
 
     // Security & Cryptographic Audit
     AUDIT_LOGS: `${API_BASE_URL}/audit/logs/`,

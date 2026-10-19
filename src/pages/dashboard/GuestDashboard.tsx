@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTranslation } from '../../context/I18nContext';
+import { GuestExamsSection } from '../../features/examinations/components/practice/GuestExamsSection';
 
 export const GuestDashboard: React.FC = () => {
   const { user } = useAuth();
@@ -79,8 +80,12 @@ export const GuestDashboard: React.FC = () => {
         </button>
       </div>
 
+      {/* Official Practice Examinations Engine */}
+      <GuestExamsSection />
+
       {/* Comparison Grid: Guest vs Enrolled Student */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px' }}>
+
         {/* Guest Features */}
         <div
           style={{

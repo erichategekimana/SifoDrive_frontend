@@ -649,7 +649,14 @@ export const TutorStudentGradingModal: React.FC<TutorStudentGradingModalProps> =
                               rawSub.flagged_questions.includes(q.order) ||
                               rawSub.flagged_questions.includes(String(q.order))))
                       );
-                      const opts = q.options && typeof q.options === 'object' ? q.options : {};
+                      const opts =
+                        (q.options && typeof q.options === 'object' && Object.keys(q.options).length > 0)
+                          ? q.options
+                          : (q.options_kinyarwanda && typeof q.options_kinyarwanda === 'object' && Object.keys(q.options_kinyarwanda).length > 0)
+                          ? q.options_kinyarwanda
+                          : (q.options_french && typeof q.options_french === 'object')
+                          ? q.options_french
+                          : {};
                       const optKeys = Object.keys(opts);
 
                       return (
@@ -668,7 +675,7 @@ export const TutorStudentGradingModal: React.FC<TutorStudentGradingModalProps> =
                           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '10px' }}>
                             <div style={{ fontSize: '0.86rem', fontWeight: 700, color: '#1E293B', flex: 1 }}>
                               <span style={{ color: '#64748B', marginRight: '6px' }}>Q{q.order || idx + 1}.</span>
-                              {q.question_text}
+                              {q.question_text || q.question_text_kinyarwanda || q.question_text_french}
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
                               {isFlaggedForReview && (

@@ -15,7 +15,7 @@ import { Badge } from '../../../../components/common/Badge';
 import { Spinner } from '../../../../components/common/Spinner';
 import { useToast } from '../../../../context/ToastContext';
 import { useTranslation } from '../../../../context/I18nContext';
-import { DOMAIN_LABELS_KINYARWANDA, DIFFICULTY_LABELS_KINYARWANDA } from '../../constants/examConstants';
+import { DOMAIN_LABELS_KINYARWANDA } from '../../constants/examConstants';
 import { QuestionEditModal } from './QuestionEditModal';
 
 export const QuestionBankSection: React.FC = () => {
@@ -36,12 +36,6 @@ export const QuestionBankSection: React.FC = () => {
     const key = `admin.examinations.domains.${domain}`;
     const translated = t(key);
     return translated !== key ? translated : (DOMAIN_LABELS_KINYARWANDA[domain] || domain);
-  };
-
-  const getDifficultyLabel = (diff: string) => {
-    const key = `admin.examinations.difficulties.${diff}`;
-    const translated = t(key);
-    return translated !== key ? translated : (DIFFICULTY_LABELS_KINYARWANDA[diff] || diff);
   };
 
   const fetchQuestions = useCallback(async () => {
@@ -192,9 +186,6 @@ export const QuestionBankSection: React.FC = () => {
                     </span>
                     <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
                       {getDomainLabel(q.domain)}
-                    </span>
-                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                      &bull; {getDifficultyLabel(q.difficulty)}
                     </span>
                   </div>
                   <button

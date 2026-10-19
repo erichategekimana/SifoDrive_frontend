@@ -113,8 +113,8 @@ export const QuizDirectoryTab: React.FC<QuizDirectoryTabProps> = ({
               }}
             >
               <option value="ALL">All Quiz Types</option>
-              <option value="LIVE_TIMED">Live Timed (Proctored)</option>
-              <option value="WORK_SUBMISSION">Work Submission (Take-Home)</option>
+              <option value="LIVE_TIMED">Live Timed</option>
+              <option value="WORK_SUBMISSION">Work Submission</option>
             </select>
           </div>
 
@@ -198,12 +198,12 @@ export const QuizDirectoryTab: React.FC<QuizDirectoryTabProps> = ({
                 key={quiz.id}
                 className="glass-panel"
                 style={{
-                  padding: '20px 24px',
+                  padding: '16px 20px',
                   borderRadius: 'var(--radius-xl)',
                   border: '1px solid var(--border-subtle)',
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: '14px',
+                  gap: '12px',
                   transition: 'all 0.2s ease',
                 }}
               >
@@ -215,13 +215,14 @@ export const QuizDirectoryTab: React.FC<QuizDirectoryTabProps> = ({
                         width: '44px',
                         height: '44px',
                         borderRadius: 'var(--radius-lg)',
-                        background: isLive ? 'rgba(56, 189, 248, 0.15)' : 'rgba(168, 85, 247, 0.15)',
-                        color: isLive ? '#38bdf8' : '#c084fc',
+                        background: 'rgba(56, 189, 248, 0.15)',
+                        color: '#38bdf8',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         flexShrink: 0,
                       }}
+                      title={isLive ? 'Live Timed Quiz' : 'Work Submission'}
                     >
                       {isLive ? <Clock size={22} /> : <FileCheck size={22} />}
                     </div>
@@ -230,13 +231,10 @@ export const QuizDirectoryTab: React.FC<QuizDirectoryTabProps> = ({
                         <h3 style={{ fontSize: '1.08rem', fontWeight: 800, color: '#ffffff', margin: 0 }}>
                           {quiz.title}
                         </h3>
-                        <Badge variant={isLive ? 'info' : 'neutral'}>
-                          {isLive ? 'Live Timed' : 'Work Submission'}
-                        </Badge>
                         {isProctored && (
                           <Badge variant="warning">
                             <ShieldAlert size={12} style={{ marginRight: '3px' }} />
-                            Tab Proctoring (Max {quiz.max_tab_switches_allowed || 3})
+                            Proctoring on
                           </Badge>
                         )}
                         {quiz.is_final_exam && (
@@ -271,17 +269,10 @@ export const QuizDirectoryTab: React.FC<QuizDirectoryTabProps> = ({
                   </div>
                 </div>
 
-                {/* Middle description */}
-                {quiz.description && (
-                  <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.45 }}>
-                    {quiz.description}
-                  </p>
-                )}
-
                 {/* Lower specs & action bar */}
                 <div
                   style={{
-                    paddingTop: '12px',
+                    paddingTop: '10px',
                     borderTop: '1px solid var(--border-subtle)',
                     display: 'flex',
                     alignItems: 'center',
@@ -291,37 +282,23 @@ export const QuizDirectoryTab: React.FC<QuizDirectoryTabProps> = ({
                   }}
                 >
                   {/* Specifications */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '18px', flexWrap: 'wrap', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
                     <div>
                       <strong style={{ color: '#ffffff' }}>{quiz.question_count || quiz.items?.length || 0}</strong> Questions
                     </div>
-                    <div>
-                      Passing: <strong style={{ color: '#ffffff' }}>{quiz.passing_score}%</strong>
-                    </div>
-                    <div>
-                      Time: <strong style={{ color: '#ffffff' }}>{quiz.time_limit_minutes > 0 ? `${quiz.time_limit_minutes}m` : 'Untimed'}</strong>
-                    </div>
-                    <div>
-                      Attempts: <strong style={{ color: '#ffffff' }}>{quiz.max_attempts > 0 ? quiz.max_attempts : 'Unlimited'}</strong>
-                    </div>
-                    {quiz.deadline && (
-                      <div>
-                        Deadline: <strong style={{ color: '#ffffff' }}>{new Date(quiz.deadline).toLocaleDateString()}</strong>
-                      </div>
-                    )}
                   </div>
 
                   {/* Action buttons */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                    {/* Test Drive in Simulator */}
+                    {/* Simulation */}
                     <button
                       onClick={() => onLaunchSimulator(quiz)}
                       className="btn btn-secondary btn-sm"
                       style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#38bdf8' }}
-                      title="Test-drive this quiz in interactive simulation mode"
+                      title="Launch interactive simulation mode"
                     >
                       <Play size={14} />
-                      <span>Test Drive</span>
+                      <span>Simulation</span>
                     </button>
 
                     {/* Submissions & Telemetry */}

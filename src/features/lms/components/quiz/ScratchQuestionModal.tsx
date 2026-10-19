@@ -33,7 +33,6 @@ export const ScratchQuestionModal: React.FC<ScratchQuestionModalProps> = ({
   const [scratchExplanation, setScratchExplanation] = useState<string>('');
   const [scratchExplanationRw, setScratchExplanationRw] = useState<string>('');
   const [scratchDomain, setScratchDomain] = useState<string>('PRIORITY');
-  const [scratchDifficulty, setScratchDifficulty] = useState<'EASY' | 'MEDIUM' | 'HARD'>('MEDIUM');
 
   if (!isOpen) return null;
 
@@ -63,7 +62,6 @@ export const ScratchQuestionModal: React.FC<ScratchQuestionModalProps> = ({
       explanation: scratchExplanation.trim(),
       explanation_kinyarwanda: scratchExplanationRw.trim(),
       domain: scratchDomain,
-      difficulty: scratchDifficulty,
     };
     onAddQuestion(newItem);
     setScratchQuestionText('');
@@ -220,21 +218,6 @@ export const ScratchQuestionModal: React.FC<ScratchQuestionModalProps> = ({
                 <option value="LEGAL">Legal Framework</option>
                 <option value="SAFETY">Vehicle Safety</option>
                 <option value="PARKING">Parking & Stopping</option>
-              </select>
-            </div>
-
-            <div>
-              <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>
-                Difficulty
-              </label>
-              <select
-                value={scratchDifficulty}
-                onChange={(e) => setScratchDifficulty(e.target.value as any)}
-                style={{ width: '100%', padding: '8px 10px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', color: '#ffffff', fontSize: '0.82rem' }}
-              >
-                <option value="EASY">Easy</option>
-                <option value="MEDIUM">Medium</option>
-                <option value="HARD">Hard</option>
               </select>
             </div>
           </div>

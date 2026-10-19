@@ -21,6 +21,7 @@ import type {
   LiveClassAdminItem,
   CurriculumItem,
   QuizItem,
+  CohortActivityItem,
 } from '../../../core/services/AdminService';
 
 export interface LmsStudioData {
@@ -33,6 +34,7 @@ export interface LmsStudioData {
   questions: any[];
   liveClasses: LiveClassAdminItem[];
   quizzes: QuizItem[];
+  activities: CohortActivityItem[];
   isLoading: boolean;
   isRefetching: boolean;
   refetch: () => Promise<void>;
@@ -50,6 +52,7 @@ export function useLmsStudioData(): LmsStudioData {
   const [questions, setQuestions] = useState<any[]>([]);
   const [liveClasses, setLiveClasses] = useState<LiveClassAdminItem[]>([]);
   const [quizzes, setQuizzes] = useState<QuizItem[]>([]);
+  const [activities, setActivities] = useState<CohortActivityItem[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isRefetching, setIsRefetching] = useState<boolean>(false);
 
@@ -66,6 +69,7 @@ export function useLmsStudioData(): LmsStudioData {
         questionsRes,
         classesRes,
         quizzesRes,
+        activitiesRes,
       ] = await Promise.allSettled([
         adminService.getCurricula(),
         adminService.getCourses(),
@@ -76,6 +80,7 @@ export function useLmsStudioData(): LmsStudioData {
         adminService.getQuestions(),
         adminService.getLiveClasses(),
         adminService.getQuizzes(),
+        adminService.getCohortActivities(),
       ]);
 
       if (curriculaRes.status === 'fulfilled') setCurricula(curriculaRes.value);
@@ -90,6 +95,11 @@ export function useLmsStudioData(): LmsStudioData {
         setQuizzes(quizzesRes.value);
       } else {
         setQuizzes([]);
+      }
+      if (activitiesRes.status === 'fulfilled' && Array.isArray(activitiesRes.value)) {
+        setActivities(activitiesRes.value);
+      } else {
+        setActivities([]);
       }
     } catch (err) {
       console.error('Failed to load LMS data:', err);
@@ -113,6 +123,7 @@ export function useLmsStudioData(): LmsStudioData {
     questions,
     liveClasses,
     quizzes,
+    activities,
     isLoading,
     isRefetching,
     refetch,

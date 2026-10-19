@@ -47,8 +47,11 @@ import { AdminSettingsPage } from '../pages/admin/AdminSettingsPage';
 import { AdminAgentsStaffPage } from '../pages/admin/AdminAgentsStaffPage';
 import { AdminTicketsPage } from '../pages/admin/AdminTicketsPage';
 import { AdminQuizBankPage } from '../pages/admin/AdminQuizBankPage';
+import { AdminQuizBuilderPage } from '../pages/admin/quiz-bank/AdminQuizBuilderPage';
 import { BroadcastStudioPage } from '../pages/admin/BroadcastStudioPage';
 import { CertificateVerificationPage } from '../pages/public/CertificateVerificationPage';
+import { CandidateExamPage } from '../pages/examinations/CandidateExamPage';
+import { ExamAuditDetailPage } from '../pages/admin/examinations/ExamAuditDetailPage';
 
 export const AppRoutes: React.FC = () => {
   return (
@@ -59,6 +62,9 @@ export const AppRoutes: React.FC = () => {
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/road-signs" element={<RoadSignsPage />} />
       <Route path="/verify/certificate/:hashOrCode" element={<CertificateVerificationPage />} />
+      <Route path="/practice-exams" element={<CandidateExamPage />} />
+      <Route path="/examinations/session/:sessionId" element={<CandidateExamPage />} />
+
 
       {/* Protected Learner, Student & Role Routes */}
       <Route element={<ProtectedRoute />}>
@@ -91,7 +97,11 @@ export const AppRoutes: React.FC = () => {
         {/* Full-screen distraction-free Quiz Player */}
         <Route path="/quiz/:quizId" element={<StudentQuizPage />} />
         <Route path="/courses/:courseId/quiz/:quizId" element={<StudentQuizPage />} />
+
+        {/* Full-screen Proctored Official Examination Runner */}
+        <Route path="/examinations/take/:examId" element={<CandidateExamPage />} />
       </Route>
+
 
 
       {/* Exclusively Protected System Admin Routes */}
@@ -105,7 +115,10 @@ export const AppRoutes: React.FC = () => {
           <Route path="/admin/users" element={<AdminUsersPage />} />
           <Route path="/admin/courses" element={<AdminCoursesPage />} />
           <Route path="/admin/quizzes" element={<AdminQuizBankPage />} />
+          <Route path="/admin/quizzes/create" element={<AdminQuizBuilderPage />} />
+          <Route path="/admin/quizzes/:id/edit" element={<AdminQuizBuilderPage />} />
           <Route path="/admin/examinations" element={<AdminExaminationsPage />} />
+          <Route path="/admin/examinations/audit/:idOrType" element={<ExamAuditDetailPage />} />
           <Route path="/admin/bookings" element={<AdminBookingsPage />} />
           <Route path="/admin/schedules" element={<AdminSchedulesPage />} />
           <Route path="/admin/live-classes" element={<AdminLiveClassesPage />} />

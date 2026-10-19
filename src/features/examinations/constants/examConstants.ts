@@ -16,10 +16,3 @@ export const DOMAIN_LABELS_KINYARWANDA: Record<string, string> = {
   GENERAL_RULES: "Amategeko Rusange n'Ibiziririzwa",
   ACCIDENTS: "Impanuka, Ubutabazi n'Umutekano wo mu Muhanda",
 };
-
-export const DIFFICULTY_LABELS_KINYARWANDA: Record<string, string> = {
-  ALL: "Ingorane Zose",
-  EASY: "Byoroshye",
-  MEDIUM: "Kiringaniye",
-  HARD: "Gikomeye",
-};

@@ -55,7 +55,7 @@ export const StudentQuizRunner: React.FC<StudentQuizRunnerProps> = ({
   const [step, setStep] = useState<RunnerStep>('PREFLIGHT');
   const [quiz, setQuiz] = useState<QuizItem | null>(initialQuiz || null);
   const [loadingQuiz, setLoadingQuiz] = useState<boolean>(!initialQuiz);
-  const [language, setLanguage] = useState<'EN' | 'RW'>('EN');
+  const [language, setLanguage] = useState<'EN' | 'RW' | 'FR'>('EN');
 
   // Diagnostics state
   const [diagnostics, setDiagnostics] = useState<DiagnosticCheck[]>([
@@ -883,7 +883,7 @@ export const StudentQuizRunner: React.FC<StudentQuizRunnerProps> = ({
               {/* Language Switch */}
               <button
                 type="button"
-                onClick={() => setLanguage((l) => (l === 'EN' ? 'RW' : 'EN'))}
+                onClick={() => setLanguage((l) => (l === 'EN' ? 'RW' : l === 'RW' ? 'FR' : 'EN'))}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -899,7 +899,7 @@ export const StudentQuizRunner: React.FC<StudentQuizRunnerProps> = ({
                 }}
               >
                 <Globe size={14} />
-                <span>{language === 'EN' ? 'English' : 'Kinyarwanda'}</span>
+                <span>{language === 'EN' ? 'English' : language === 'RW' ? 'Kinyarwanda' : 'Français'}</span>
               </button>
 
               {/* Fullscreen Toggle */}
@@ -1016,13 +1016,15 @@ export const StudentQuizRunner: React.FC<StudentQuizRunnerProps> = ({
                         lineHeight: 1.5,
                       }}
                     >
-                      {language === 'RW' && currentQuestion.question_text_kinyarwanda
+                      {language === 'FR' && currentQuestion.question_text_french
+                        ? currentQuestion.question_text_french
+                        : language === 'RW' && currentQuestion.question_text_kinyarwanda
                         ? currentQuestion.question_text_kinyarwanda
-                        : currentQuestion.question_text}
+                        : currentQuestion.question_text || currentQuestion.question_text_kinyarwanda || currentQuestion.question_text_french}
                     </div>
 
-                    {/* Bilingual sub-text if in English mode */}
-                    {language === 'EN' && currentQuestion.question_text_kinyarwanda && (
+                    {/* Bilingual sub-text if in English/French mode */}
+                    {(language === 'EN' || language === 'FR') && currentQuestion.question_text_kinyarwanda && (
                       <div style={{ fontSize: '0.9rem', color: '#94A3B8', fontStyle: 'italic', marginTop: '-12px' }}>
                         {currentQuestion.question_text_kinyarwanda}
                       </div>
@@ -1033,9 +1035,15 @@ export const StudentQuizRunner: React.FC<StudentQuizRunnerProps> = ({
                       {(['A', 'B', 'C', 'D'] as const).map((optKey) => {
                         const optTextEn = (currentQuestion as any)[`option_${optKey.toLowerCase()}`];
                         const optTextRw = (currentQuestion as any)[`option_${optKey.toLowerCase()}_kinyarwanda`];
-                        if (!optTextEn && !optTextRw) return null;
+                        const optTextFr = (currentQuestion as any)[`option_${optKey.toLowerCase()}_french`];
+                        if (!optTextEn && !optTextRw && !optTextFr) return null;
 
-                        const displayText = language === 'RW' && optTextRw ? optTextRw : optTextEn;
+                        const displayText =
+                          language === 'FR' && optTextFr
+                            ? optTextFr
+                            : language === 'RW' && optTextRw
+                            ? optTextRw
+                            : optTextEn || optTextRw || optTextFr;
                         const isSelected = selectedAnswers[currentQId] === optKey;
 
                         return (

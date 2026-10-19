@@ -199,10 +199,10 @@ export const ReviewSubmissionsModal: React.FC<ReviewSubmissionsModalProps> = ({
       style={{
         width: '100%',
         minHeight: '82vh',
-        backgroundColor: '#FFFFFF',
+        backgroundColor: 'var(--bg-surface)',
         borderRadius: '8px',
-        border: '1px solid #E2E8F0',
-        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
+        border: '1px solid var(--border-medium)',
+        boxShadow: 'var(--shadow-md)',
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
@@ -212,11 +212,11 @@ export const ReviewSubmissionsModal: React.FC<ReviewSubmissionsModalProps> = ({
       <div
         style={{
           padding: '16px 24px',
-          borderBottom: '1px solid #E2E8F0',
+          borderBottom: '1px solid var(--border-subtle)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          backgroundColor: '#F8FAFC',
+          backgroundColor: 'var(--bg-surface-elevated)',
           flexWrap: 'wrap',
           gap: '12px',
         }}
@@ -229,8 +229,8 @@ export const ReviewSubmissionsModal: React.FC<ReviewSubmissionsModalProps> = ({
                   width: '34px',
                   height: '34px',
                   borderRadius: '8px',
-                  backgroundColor: '#EFF6FF',
-                  color: '#0055A5',
+                  backgroundColor: 'rgba(56, 189, 248, 0.12)',
+                  color: 'var(--primary-400)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -238,12 +238,12 @@ export const ReviewSubmissionsModal: React.FC<ReviewSubmissionsModalProps> = ({
               >
                 <Award size={18} />
               </div>
-              <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: '#1E293B' }}>
+              <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-primary)' }}>
                 Submissions: {activity.title}
               </h3>
             </div>
-            <p style={{ margin: '4px 0 0', fontSize: '0.8rem', color: '#64748B' }}>
-              Max Points: <strong style={{ color: '#0F172A' }}>{activity.max_score}</strong> • Passing: <strong style={{ color: '#0F172A' }}>{activity.pass_score}</strong> • Total Submissions: <strong style={{ color: '#0055A5' }}>{submissions.length}</strong>
+            <p style={{ margin: '4px 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+              Max Points: <strong style={{ color: 'var(--text-primary)' }}>{activity.max_score}</strong> • Passing: <strong style={{ color: 'var(--text-primary)' }}>{activity.pass_score}</strong> • Total Submissions: <strong style={{ color: 'var(--primary-400)' }}>{submissions.length}</strong>
             </p>
           </div>
         </div>
@@ -352,9 +352,9 @@ export const ReviewSubmissionsModal: React.FC<ReviewSubmissionsModalProps> = ({
           {/* Left Student List */}
           <div
             style={{
-              borderRight: '1px solid #E2E8F0',
+              borderRight: '1px solid var(--border-subtle)',
               overflowY: 'auto',
-              backgroundColor: '#F8FAFC',
+              backgroundColor: 'var(--bg-surface-elevated)',
               maxHeight: 'calc(100vh - 200px)',
             }}
           >
@@ -363,7 +363,7 @@ export const ReviewSubmissionsModal: React.FC<ReviewSubmissionsModalProps> = ({
                 <Spinner size={24} message="Loading submissions..." />
               </div>
             ) : submissions.length === 0 ? (
-              <div style={{ padding: '32px', textAlign: 'center', color: '#64748B', fontSize: '0.86rem' }}>
+              <div style={{ padding: '32px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.86rem' }}>
                 No submissions recorded yet for this activity.
               </div>
             ) : (
@@ -392,15 +392,15 @@ export const ReviewSubmissionsModal: React.FC<ReviewSubmissionsModalProps> = ({
                     onClick={() => handleSelectSubmission(sub)}
                     style={{
                       padding: '14px 16px',
-                      borderBottom: '1px solid #E2E8F0',
-                      backgroundColor: isSelected ? '#EFF6FF' : 'transparent',
-                      borderLeft: isSelected ? '3px solid #0055A5' : '3px solid transparent',
+                      borderBottom: '1px solid var(--border-subtle)',
+                      backgroundColor: isSelected ? 'rgba(56, 189, 248, 0.12)' : 'transparent',
+                      borderLeft: isSelected ? '3px solid var(--primary-400)' : '3px solid transparent',
                       cursor: 'pointer',
                       transition: 'background 0.15s ease',
                     }}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                      <span style={{ fontWeight: 700, color: '#1E293B', fontSize: '0.88rem' }}>
+                      <span style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.88rem' }}>
                         {sub.student_name || 'Student'}
                       </span>
                       <span
@@ -457,9 +457,9 @@ export const ReviewSubmissionsModal: React.FC<ReviewSubmissionsModalProps> = ({
           </div>
 
           {/* Right Detail & Grading Pane */}
-          <div style={{ overflowY: 'auto', padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px', backgroundColor: '#FFFFFF', maxHeight: 'calc(100vh - 200px)' }}>
+          <div style={{ overflowY: 'auto', padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px', backgroundColor: 'var(--bg-surface)', maxHeight: 'calc(100vh - 200px)' }}>
             {!selectedSub ? (
-              <div style={{ margin: 'auto', textAlign: 'center', color: '#64748B' }}>
+              <div style={{ margin: 'auto', textAlign: 'center', color: 'var(--text-muted)' }}>
                 Select a student submission from the left list to review and grade.
               </div>
             ) : (
@@ -469,8 +469,8 @@ export const ReviewSubmissionsModal: React.FC<ReviewSubmissionsModalProps> = ({
                   style={{
                     padding: '16px',
                     borderRadius: '8px',
-                    backgroundColor: '#F8FAFC',
-                    border: '1px solid #E2E8F0',
+                    backgroundColor: 'var(--bg-surface-elevated)',
+                    border: '1px solid var(--border-subtle)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
@@ -482,8 +482,8 @@ export const ReviewSubmissionsModal: React.FC<ReviewSubmissionsModalProps> = ({
                         width: '40px',
                         height: '40px',
                         borderRadius: '50%',
-                        backgroundColor: '#EFF6FF',
-                        color: '#0055A5',
+                        backgroundColor: 'rgba(56, 189, 248, 0.12)',
+                        color: 'var(--primary-400)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -492,10 +492,10 @@ export const ReviewSubmissionsModal: React.FC<ReviewSubmissionsModalProps> = ({
                       <User size={20} />
                     </div>
                     <div>
-                      <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, color: '#1E293B' }}>
+                      <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)' }}>
                         {selectedSub.student_name || 'Enrolled Student'}
                       </h4>
-                      <p style={{ margin: '2px 0 0', fontSize: '0.78rem', color: '#64748B' }}>
+                      <p style={{ margin: '2px 0 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
                         {selectedSub.student_phone || 'Learner in cohort'}
                       </p>
                     </div>
@@ -507,9 +507,9 @@ export const ReviewSubmissionsModal: React.FC<ReviewSubmissionsModalProps> = ({
                       selectedSub.status === 'GRADED'
                         ? undefined
                         : {
-                            backgroundColor: '#F1F5F9',
-                            color: '#334155',
-                            border: '1px solid #CBD5E1',
+                            backgroundColor: 'var(--bg-surface)',
+                            color: 'var(--text-secondary)',
+                            border: '1px solid var(--border-subtle)',
                             fontWeight: 700,
                           }
                     }
@@ -520,7 +520,7 @@ export const ReviewSubmissionsModal: React.FC<ReviewSubmissionsModalProps> = ({
 
                 {/* Submitted Content Display */}
                 <div>
-                  <h5 style={{ margin: '0 0 12px 0', fontSize: '0.9rem', fontWeight: 700, color: '#1E293B' }}>
+                  <h5 style={{ margin: '0 0 12px 0', fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                     Submitted Materials
                   </h5>
 
@@ -811,21 +811,21 @@ export const ReviewSubmissionsModal: React.FC<ReviewSubmissionsModalProps> = ({
                   style={{
                     padding: '20px',
                     borderRadius: '8px',
-                    backgroundColor: '#F8FAFC',
-                    border: '1px solid #E2E8F0',
+                    backgroundColor: 'var(--bg-surface-elevated)',
+                    border: '1px solid var(--border-subtle)',
                     display: 'flex',
                     flexDirection: 'column',
                     gap: '14px',
                     marginTop: 'auto',
                   }}
                 >
-                  <h5 style={{ margin: 0, fontSize: '0.92rem', fontWeight: 800, color: '#1E293B' }}>
+                  <h5 style={{ margin: 0, fontSize: '0.92rem', fontWeight: 800, color: 'var(--text-primary)' }}>
                     Instructor Evaluation & Grade
                   </h5>
 
                   <div style={{ display: 'grid', gridTemplateColumns: '160px 1fr', gap: '14px' }}>
                     <div>
-                      <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                      <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '4px' }}>
                         Awarded Score (Max {activity.max_score})
                       </label>
                       <input
@@ -841,9 +841,9 @@ export const ReviewSubmissionsModal: React.FC<ReviewSubmissionsModalProps> = ({
                           width: '100%',
                           padding: '8px 12px',
                           borderRadius: '6px',
-                          border: '1px solid #CBD5E1',
-                          backgroundColor: '#FFFFFF',
-                          color: '#1E293B',
+                          border: '1px solid var(--border-medium)',
+                          backgroundColor: 'var(--bg-surface)',
+                          color: 'var(--text-primary)',
                           fontSize: '0.95rem',
                           fontWeight: 700,
                           outline: 'none',
@@ -852,7 +852,7 @@ export const ReviewSubmissionsModal: React.FC<ReviewSubmissionsModalProps> = ({
                     </div>
 
                     <div>
-                      <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                      <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '4px' }}>
                         Instructor Feedback & Corrections
                       </label>
                       <textarea
@@ -864,9 +864,9 @@ export const ReviewSubmissionsModal: React.FC<ReviewSubmissionsModalProps> = ({
                           width: '100%',
                           padding: '8px 12px',
                           borderRadius: '6px',
-                          border: '1px solid #CBD5E1',
-                          backgroundColor: '#FFFFFF',
-                          color: '#1E293B',
+                          border: '1px solid var(--border-medium)',
+                          backgroundColor: 'var(--bg-surface)',
+                          color: 'var(--text-primary)',
                           fontSize: '0.85rem',
                           resize: 'vertical',
                           outline: 'none',

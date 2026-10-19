@@ -34,6 +34,7 @@ export const BankPickerModal: React.FC<BankPickerModalProps> = ({
         q.question_text?.toLowerCase().includes(search) ||
         q.question_text_rw?.toLowerCase().includes(search) ||
         q.question_text_kinyarwanda?.toLowerCase().includes(search) ||
+        q.question_text_french?.toLowerCase().includes(search) ||
         String(q.question_number || '').includes(search)
       );
     });
@@ -220,7 +221,7 @@ export const BankPickerModal: React.FC<BankPickerModalProps> = ({
                         #{q.question_number || 'Bank'}
                       </span>
                       <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                        {q.domain || 'PRIORITY'} • {q.difficulty || 'MEDIUM'}
+                        {q.domain || 'PRIORITY'}
                       </span>
                       {q.correct_option && (
                         <span

@@ -999,6 +999,7 @@
       "title": "Examinations & Review Pipeline",
       "subtitle": "Sequential 3-stage review pipeline for proctored mock exam attempts, certification, and question bank.",
       "tabPipeline": "Review Pipeline",
+      "tabExams": "Exam",
       "tabQuestions": "Question Bank",
       "tabCertificates": "Certificates",
       "tabSettings": "Exam Settings",

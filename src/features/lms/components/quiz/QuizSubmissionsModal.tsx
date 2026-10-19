@@ -115,8 +115,8 @@ export const QuizSubmissionsModal: React.FC<QuizSubmissionsModalProps> = ({ quiz
                 width: '42px',
                 height: '42px',
                 borderRadius: 'var(--radius-lg)',
-                background: isLive ? 'rgba(56, 189, 248, 0.15)' : 'rgba(168, 85, 247, 0.15)',
-                color: isLive ? '#38bdf8' : '#c084fc',
+                background: 'rgba(56, 189, 248, 0.15)',
+                color: '#38bdf8',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -134,7 +134,7 @@ export const QuizSubmissionsModal: React.FC<QuizSubmissionsModalProps> = ({ quiz
                 </Badge>
                 {quiz.enable_proctoring && (
                   <Badge variant="warning">
-                    Tab Proctoring (Max {quiz.max_tab_switches_allowed || 3} allowed)
+                    Proctoring on
                   </Badge>
                 )}
               </div>

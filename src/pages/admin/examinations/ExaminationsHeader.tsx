@@ -1,11 +1,11 @@
 import React from 'react';
-import { Layers, HelpCircle, Award, Settings } from 'lucide-react';
+import { Layers, Award, Settings } from 'lucide-react';
 
 interface ExaminationsHeaderProps {
   isBoardReviewer: boolean;
   isSystemAdmin: boolean;
-  activeTab: 'pipeline' | 'questions' | 'certificates' | 'settings';
-  onTabChange: (tab: 'pipeline' | 'questions' | 'certificates' | 'settings') => void;
+  activeTab: 'pipeline' | 'exams' | 'certificates' | 'settings';
+  onTabChange: (tab: 'pipeline' | 'exams' | 'certificates' | 'settings') => void;
 }
 
 export const ExaminationsHeader: React.FC<ExaminationsHeaderProps> = ({
@@ -55,7 +55,7 @@ export const ExaminationsHeader: React.FC<ExaminationsHeaderProps> = ({
             <span>Pipeline</span>
           </button>
           <button
-            onClick={() => onTabChange('questions')}
+            onClick={() => onTabChange('exams')}
             className="btn btn-secondary btn-sm"
             style={{
               display: 'flex',
@@ -63,13 +63,13 @@ export const ExaminationsHeader: React.FC<ExaminationsHeaderProps> = ({
               gap: '6px',
               fontSize: '0.8rem',
               padding: '6px 12px',
-              background: activeTab === 'questions' ? 'var(--bg-surface-elevated)' : 'var(--bg-surface)',
-              color: activeTab === 'questions' ? 'var(--text-primary)' : 'var(--text-secondary)',
-              borderColor: activeTab === 'questions' ? 'var(--text-muted)' : 'var(--border-subtle)',
+              background: activeTab === 'exams' ? 'var(--bg-surface-elevated)' : 'var(--bg-surface)',
+              color: activeTab === 'exams' ? 'var(--text-primary)' : 'var(--text-secondary)',
+              borderColor: activeTab === 'exams' ? 'var(--text-muted)' : 'var(--border-subtle)',
             }}
           >
-            <HelpCircle size={13} />
-            <span>Question Bank</span>
+            <Award size={13} />
+            <span>Exam</span>
           </button>
           <button
             onClick={() => onTabChange('certificates')}

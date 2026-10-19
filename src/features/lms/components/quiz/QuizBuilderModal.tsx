@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   X,
+  ArrowLeft,
   Sliders,
   HelpCircle,
   FileCheck,
@@ -24,7 +25,7 @@ import { BankPickerModal } from './BankPickerModal';
 import { ScratchQuestionModal } from './ScratchQuestionModal';
 
 interface QuizBuilderModalProps {
-  isOpen: boolean;
+  isOpen?: boolean;
   isEditMode: boolean;
   editingQuizId?: string;
   courses: any[];
@@ -35,10 +36,12 @@ interface QuizBuilderModalProps {
   onSuccess: () => void;
   fetchBankQuestions: () => Promise<void>;
   isLoadingBankQuestions: boolean;
+  initialIsFinalExam?: boolean;
+  asPage?: boolean;
 }
 
 export const QuizBuilderModal: React.FC<QuizBuilderModalProps> = ({
-  isOpen,
+  isOpen = true,
   isEditMode,
   editingQuizId,
   courses,
@@ -49,6 +52,8 @@ export const QuizBuilderModal: React.FC<QuizBuilderModalProps> = ({
   onSuccess,
   fetchBankQuestions,
   isLoadingBankQuestions,
+  initialIsFinalExam = false,
+  asPage = false,
 }) => {
   const { t } = useTranslation();
   const { warning, success, error: toastError } = useToast();
@@ -73,7 +78,7 @@ export const QuizBuilderModal: React.FC<QuizBuilderModalProps> = ({
   const [quizTotalScore, setQuizTotalScore] = useState<number>(100);
   const [quizPassingScore, setQuizPassingScore] = useState<number>(70);
   const [quizMaxAttempts, setQuizMaxAttempts] = useState<number>(1);
-  const [quizShuffle, setQuizShuffle] = useState<boolean>(false);
+  const [quizShuffle, setQuizShuffle] = useState<boolean>(true);
   const [quizRubric, setQuizRubric] = useState<string>('');
   const [quizRubricRw, setQuizRubricRw] = useState<string>('');
   const [allowTutorScheduling, setAllowTutorScheduling] = useState<boolean>(true);
@@ -153,12 +158,12 @@ export const QuizBuilderModal: React.FC<QuizBuilderModalProps> = ({
       setQuizDeadline('');
       setQuizClosingDate('');
       setAllowLateSubmission(false);
-      setIsFinalExam(false);
-      setQuizTimeLimit(30);
+      setIsFinalExam(initialIsFinalExam);
+      setQuizTimeLimit(initialIsFinalExam ? 20 : 30);
       setQuizTotalScore(100);
-      setQuizPassingScore(70);
+      setQuizPassingScore(initialIsFinalExam ? 80 : 70);
       setQuizMaxAttempts(1);
-      setQuizShuffle(false);
+      setQuizShuffle(true);
       setQuizRubric(
         'Each question carries equal weight unless specified. Answer all questions within the allocated time limit. Passing threshold is 70%.'
       );
@@ -200,6 +205,7 @@ export const QuizBuilderModal: React.FC<QuizBuilderModalProps> = ({
       points: 1,
       question_text: bq.question_text || bq.question_text_rw || bq.question_text_kinyarwanda || '',
       question_text_kinyarwanda: bq.question_text_kinyarwanda || bq.question_text_rw || '',
+      question_text_french: bq.question_text_french || '',
       option_a: bq.option_a || bq.option_a_rw || '',
       option_b: bq.option_b || bq.option_b_rw || '',
       option_c: bq.option_c || bq.option_c_rw || '',
@@ -208,11 +214,15 @@ export const QuizBuilderModal: React.FC<QuizBuilderModalProps> = ({
       option_b_kinyarwanda: bq.option_b_kinyarwanda || bq.option_b_rw || '',
       option_c_kinyarwanda: bq.option_c_kinyarwanda || bq.option_c_rw || '',
       option_d_kinyarwanda: bq.option_d_kinyarwanda || bq.option_d_rw || '',
+      option_a_french: bq.option_a_french || '',
+      option_b_french: bq.option_b_french || '',
+      option_c_french: bq.option_c_french || '',
+      option_d_french: bq.option_d_french || '',
       correct_option: bq.correct_option || 'A',
       explanation: bq.explanation || bq.explanation_kinyarwanda || bq.explanation_rw || '',
       explanation_kinyarwanda: bq.explanation_kinyarwanda || bq.explanation_rw || '',
+      explanation_french: bq.explanation_french || '',
       domain: bq.domain || 'PRIORITY',
-      difficulty: bq.difficulty || 'MEDIUM',
     }));
     setQuizItems((prev) => [...prev, ...newItems]);
     setIsBankPickerOpen(false);
@@ -309,60 +319,67 @@ export const QuizBuilderModal: React.FC<QuizBuilderModalProps> = ({
     }
   };
 
-  if (!isOpen) return null;
+  if (!isOpen && !asPage) return null;
 
-  return (
+  const builderPanel = (
     <div
+      className="glass-panel"
       style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 1000,
+        width: '100%',
+        maxWidth: asPage ? '1060px' : '860px',
+        maxHeight: asPage ? undefined : '92vh',
+        overflowY: asPage ? undefined : 'auto',
+        borderRadius: 'var(--radius-2xl)',
+        padding: asPage ? '32px' : '28px',
+        border: '1px solid var(--border-medium)',
         display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: 'rgba(0, 0, 0, 0.75)',
-        backdropFilter: 'blur(8px)',
-        padding: '16px',
+        flexDirection: 'column',
+        gap: '20px',
+        margin: asPage ? '0 auto' : undefined,
       }}
     >
-      <div
-        className="glass-panel"
-        style={{
-          width: '100%',
-          maxWidth: '860px',
-          maxHeight: '92vh',
-          overflowY: 'auto',
-          borderRadius: 'var(--radius-2xl)',
-          padding: '28px',
-          border: '1px solid var(--border-medium)',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '20px',
-        }}
-      >
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '16px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{ width: '40px', height: '40px', borderRadius: '8px', background: 'rgba(255, 255, 255, 0.05)', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border-subtle)' }}>
-              <ListChecks size={20} />
-            </div>
-            <div>
-              <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, color: '#ffffff' }}>
-                {isEditMode ? t('admin.courses.editQuiz') : t('admin.courses.createQuiz')}
-              </h3>
-            </div>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {asPage && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="btn btn-secondary btn-sm"
+              style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', marginRight: '4px' }}
+              title="Return to quizzes directory"
+            >
+              <ArrowLeft size={15} />
+              <span>Back</span>
+            </button>
+          )}
+          <div style={{ width: '40px', height: '40px', borderRadius: '8px', background: 'rgba(255, 255, 255, 0.05)', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border-subtle)' }}>
+            <ListChecks size={20} />
           </div>
-
-          <button
-            type="button"
-            onClick={onClose}
-            style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '6px' }}
-          >
-            <X size={20} />
-          </button>
+          <div>
+            <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, color: '#ffffff' }}>
+              {isEditMode ? t('admin.courses.editQuiz') : t('admin.courses.createQuiz')}
+            </h3>
+            {asPage && (
+              <p style={{ margin: '2px 0 0 0', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                Configure assessment questions, scoring rubric, passing thresholds, and tutor permissions.
+              </p>
+            )}
+          </div>
         </div>
 
-        {isLoadingDetails ? (
+        <button
+          type="button"
+          onClick={onClose}
+          className="btn btn-secondary btn-sm"
+          style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+        >
+          <X size={16} />
+          <span>Cancel</span>
+        </button>
+      </div>
+
+      {isLoadingDetails ? (
           <div style={{ padding: '60px', textAlign: 'center' }}>
             <Spinner size={32} />
           </div>
@@ -484,7 +501,7 @@ export const QuizBuilderModal: React.FC<QuizBuilderModalProps> = ({
                 >
                   <div style={{ fontSize: '0.86rem', fontWeight: 700, color: '#ffffff', display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <Layers size={16} style={{ color: '#38bdf8' }} />
-                    <span>Quiz Assessment Mode</span>
+                    <span>Quiz Mode</span>
                   </div>
 
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
@@ -501,7 +518,7 @@ export const QuizBuilderModal: React.FC<QuizBuilderModalProps> = ({
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
                         <Clock size={16} style={{ color: '#38bdf8' }} />
-                        <span style={{ fontWeight: 700, fontSize: '0.88rem', color: '#ffffff' }}>Live Timed (Proctored)</span>
+                        <span style={{ fontWeight: 700, fontSize: '0.88rem', color: '#ffffff' }}>Live Timed</span>
                       </div>
                       <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: 0, lineHeight: 1.4 }}>
                         Live test with time countdown, maximum attempts, and simple proctoring tracking if student leaves the active tab.
@@ -513,15 +530,15 @@ export const QuizBuilderModal: React.FC<QuizBuilderModalProps> = ({
                       style={{
                         padding: '14px',
                         borderRadius: 'var(--radius-md)',
-                        border: quizType === 'WORK_SUBMISSION' ? '2px solid #a855f7' : '1px solid var(--border-subtle)',
-                        background: quizType === 'WORK_SUBMISSION' ? 'rgba(168, 85, 247, 0.12)' : 'var(--bg-surface-elevated)',
+                        border: quizType === 'WORK_SUBMISSION' ? '2px solid #38bdf8' : '1px solid var(--border-subtle)',
+                        background: quizType === 'WORK_SUBMISSION' ? 'rgba(56, 189, 248, 0.12)' : 'var(--bg-surface-elevated)',
                         cursor: 'pointer',
                         transition: 'all 0.15s ease',
                       }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                        <FileCheck size={16} style={{ color: '#c084fc' }} />
-                        <span style={{ fontWeight: 700, fontSize: '0.88rem', color: '#ffffff' }}>Work Submission (Take-Home)</span>
+                        <FileCheck size={16} style={{ color: '#38bdf8' }} />
+                        <span style={{ fontWeight: 700, fontSize: '0.88rem', color: '#ffffff' }}>Work Submission</span>
                       </div>
                       <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: 0, lineHeight: 1.4 }}>
                         Self-paced assessment where students submit their written work, project answers, or documents.
@@ -738,9 +755,8 @@ export const QuizBuilderModal: React.FC<QuizBuilderModalProps> = ({
                         type="checkbox"
                         id="allowLateSubmissionCheckbox"
                         checked={allowLateSubmission}
-                        disabled={isFinalExam}
                         onChange={(e) => setAllowLateSubmission(e.target.checked)}
-                        style={{ width: '16px', height: '16px', marginTop: '2px', cursor: isFinalExam ? 'not-allowed' : 'pointer' }}
+                        style={{ width: '16px', height: '16px', marginTop: '2px', cursor: 'pointer' }}
                       />
                       <div>
                         <label
@@ -748,44 +764,15 @@ export const QuizBuilderModal: React.FC<QuizBuilderModalProps> = ({
                           style={{
                             fontSize: '0.84rem',
                             fontWeight: 600,
-                            color: isFinalExam ? 'var(--text-muted)' : '#ffffff',
-                            cursor: isFinalExam ? 'not-allowed' : 'pointer',
+                            color: '#ffffff',
+                            cursor: 'pointer',
                             display: 'block',
                           }}
                         >
                           Allow late submission up to closing date
                         </label>
                         <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-                          {isFinalExam
-                            ? 'Not applicable for Final Exams (final exams enforce strict deadline cutoff).'
-                            : 'Students submitting after the deadline will be flagged as "Late" with the number of days overdue.'}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
-                      <input
-                        type="checkbox"
-                        id="isFinalExamCheckbox"
-                        checked={isFinalExam}
-                        onChange={(e) => {
-                          const checked = e.target.checked;
-                          setIsFinalExam(checked);
-                          if (checked) {
-                            setAllowLateSubmission(false);
-                          }
-                        }}
-                        style={{ width: '16px', height: '16px', marginTop: '2px', cursor: 'pointer' }}
-                      />
-                      <div>
-                        <label
-                          htmlFor="isFinalExamCheckbox"
-                          style={{ fontSize: '0.84rem', fontWeight: 600, color: '#ffffff', cursor: 'pointer', display: 'block' }}
-                        >
-                          Designate as School Theory Final Exam
-                        </label>
-                        <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-                          Final exams enforce strict deadline closure. Late submissions are strictly disallowed.
+                          Students submitting after the deadline will be flagged as "Late" with the number of days overdue.
                         </span>
                       </div>
                     </div>
@@ -1358,6 +1345,46 @@ export const QuizBuilderModal: React.FC<QuizBuilderModalProps> = ({
           </>
         )}
       </div>
+  );
+
+  if (asPage) {
+    return (
+      <div style={{ width: '100%', maxWidth: '1060px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '40px' }}>
+        {builderPanel}
+
+        <BankPickerModal
+          isOpen={isBankPickerOpen}
+          onClose={() => setIsBankPickerOpen(false)}
+          questions={questions}
+          onAddQuestions={handleAddBankQuestions}
+          fetchBankQuestions={fetchBankQuestions}
+          isLoadingBankQuestions={isLoadingBankQuestions}
+        />
+
+        <ScratchQuestionModal
+          isOpen={isScratchQuestionOpen}
+          onClose={() => setIsScratchQuestionOpen(false)}
+          onAddQuestion={(item) => setQuizItems((prev) => [...prev, item])}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 1000,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'rgba(0, 0, 0, 0.75)',
+        backdropFilter: 'blur(8px)',
+        padding: '16px',
+      }}
+    >
+      {builderPanel}
 
       <BankPickerModal
         isOpen={isBankPickerOpen}

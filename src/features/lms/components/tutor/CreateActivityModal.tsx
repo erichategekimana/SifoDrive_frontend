@@ -239,18 +239,18 @@ export const CreateActivityModal: React.FC<CreateActivityModalProps> = ({
       }}
     >
       <div
-        className="canvas-card"
         style={{
           width: '100%',
           maxWidth: '740px',
-          borderRadius: '12px',
-          backgroundColor: '#FFFFFF',
-          border: '1px solid #E2E8F0',
-          boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.12), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+          borderRadius: '16px',
+          backgroundColor: '#0F172A',
+          border: '1px solid rgba(255, 255, 255, 0.16)',
+          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.6)',
           overflow: 'hidden',
           display: 'flex',
           flexDirection: 'column',
           maxHeight: '92vh',
+          fontFamily: "'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
         }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -258,11 +258,11 @@ export const CreateActivityModal: React.FC<CreateActivityModalProps> = ({
         <div
           style={{
             padding: '18px 24px',
-            borderBottom: '1px solid #E2E8F0',
+            borderBottom: '1px solid rgba(255, 255, 255, 0.16)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            backgroundColor: '#F8FAFC',
+            background: 'linear-gradient(135deg, #1e3a5f 0%, #155e75 45%, #2e2870 100%)',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -270,21 +270,22 @@ export const CreateActivityModal: React.FC<CreateActivityModalProps> = ({
               style={{
                 width: '38px',
                 height: '38px',
-                borderRadius: '8px',
-                background: '#EFF6FF',
-                color: '#0055A5',
+                borderRadius: '9999px',
+                background: 'rgba(255, 255, 255, 0.16)',
+                border: '1px solid rgba(255, 255, 255, 0.25)',
+                color: '#FFFFFF',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
             >
-              <FileText size={20} />
+              <FileText size={18} />
             </div>
             <div>
-              <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: '#1E293B' }}>
+              <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: '#FFFFFF' }}>
                 {activityToEdit ? 'Edit Activity' : 'Create Activity'}
               </h3>
-              <p style={{ margin: '2px 0 0', fontSize: '0.8rem', color: '#64748B' }}>
+              <p style={{ margin: '2px 0 0', fontSize: '0.8rem', color: 'rgba(255, 255, 255, 0.75)' }}>
                 Design drills, slides tasks, or assignments with rich media & targeted cohorts
               </p>
             </div>
@@ -293,12 +294,12 @@ export const CreateActivityModal: React.FC<CreateActivityModalProps> = ({
             onClick={onClose}
             type="button"
             style={{
-              background: 'transparent',
-              border: 'none',
-              color: '#64748B',
+              background: 'rgba(255, 255, 255, 0.12)',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
+              color: '#FFFFFF',
               cursor: 'pointer',
               padding: '6px',
-              borderRadius: '6px',
+              borderRadius: '50%',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -324,7 +325,7 @@ export const CreateActivityModal: React.FC<CreateActivityModalProps> = ({
           {/* 1. Targeting Section (Dropdown) */}
           {!activityToEdit && (
             <div>
-              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
+              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '6px' }}>
                 Target Cohorts <span style={{ color: '#EF4444' }}>*</span>
               </label>
               <select
@@ -354,28 +355,28 @@ export const CreateActivityModal: React.FC<CreateActivityModalProps> = ({
                   width: '100%',
                   padding: '10px 14px',
                   borderRadius: '6px',
-                  border: '1px solid #CBD5E1',
-                  backgroundColor: '#FFFFFF',
-                  color: '#1E293B',
+                  border: '1px solid var(--border-medium)',
+                  backgroundColor: 'var(--bg-surface-elevated)',
+                  color: 'var(--text-primary)',
                   fontSize: '0.88rem',
                   outline: 'none',
                   cursor: 'pointer',
                 }}
               >
-                <option value="ALL_COHORTS">All Active Cohorts</option>
+                <option value="ALL_COHORTS" style={{ background: 'var(--bg-surface-elevated)', color: 'var(--text-primary)' }}>All Active Cohorts</option>
                 {availableCohorts.length > 0 ? (
-                  <optgroup label="Specific Cohort">
+                  <optgroup label="Specific Cohort" style={{ background: 'var(--bg-surface-elevated)', color: 'var(--text-primary)' }}>
                     {availableCohorts.map((c) => (
-                      <option key={c.id} value={c.id}>
+                      <option key={c.id} value={c.id} style={{ background: 'var(--bg-surface-elevated)', color: 'var(--text-primary)' }}>
                         {c.name || c.code || 'Cohort'}
                       </option>
                     ))}
                   </optgroup>
                 ) : cohortId ? (
-                  <option value={cohortId}>Current Cohort</option>
+                  <option value={cohortId} style={{ background: 'var(--bg-surface-elevated)', color: 'var(--text-primary)' }}>Current Cohort</option>
                 ) : null}
                 {availableCohorts.length > 1 && (
-                  <option value="MULTIPLE_COHORTS">Multiple Cohorts (Custom Selection)...</option>
+                  <option value="MULTIPLE_COHORTS" style={{ background: 'var(--bg-surface-elevated)', color: 'var(--text-primary)' }}>Multiple Cohorts (Custom Selection)...</option>
                 )}
               </select>
 
@@ -385,12 +386,12 @@ export const CreateActivityModal: React.FC<CreateActivityModalProps> = ({
                   style={{
                     marginTop: '10px',
                     padding: '12px 14px',
-                    backgroundColor: '#F8FAFC',
+                    backgroundColor: 'var(--bg-surface-elevated)',
                     borderRadius: '6px',
-                    border: '1px solid #E2E8F0',
+                    border: '1px solid var(--border-subtle)',
                   }}
                 >
-                  <div style={{ fontSize: '0.78rem', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>
+                  <div style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '8px' }}>
                     Select which cohorts receive this activity:
                   </div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
@@ -406,16 +407,16 @@ export const CreateActivityModal: React.FC<CreateActivityModalProps> = ({
                             borderRadius: '6px',
                             fontSize: '0.8rem',
                             fontWeight: selected ? 700 : 500,
-                            border: selected ? '1px solid #10B981' : '1px solid #CBD5E1',
-                            backgroundColor: selected ? '#ECFDF5' : '#FFFFFF',
-                            color: selected ? '#047857' : '#475569',
+                            border: selected ? '1px solid #10B981' : '1px solid var(--border-subtle)',
+                            backgroundColor: selected ? 'rgba(16, 185, 129, 0.15)' : 'var(--bg-surface)',
+                            color: selected ? '#10B981' : 'var(--text-secondary)',
                             cursor: 'pointer',
                             display: 'flex',
                             alignItems: 'center',
                             gap: '6px',
                           }}
                         >
-                          {selected ? <Check size={13} color="#047857" /> : null}
+                          {selected ? <Check size={13} color="#10B981" /> : null}
                           <span>{c.name || c.code || 'Cohort'}</span>
                         </button>
                       );
@@ -428,7 +429,7 @@ export const CreateActivityModal: React.FC<CreateActivityModalProps> = ({
 
           {/* Activity Title */}
           <div>
-            <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
+            <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '6px' }}>
               Activity Title <span style={{ color: '#EF4444' }}>*</span>
             </label>
             <input
@@ -441,9 +442,9 @@ export const CreateActivityModal: React.FC<CreateActivityModalProps> = ({
                 width: '100%',
                 padding: '10px 14px',
                 borderRadius: '6px',
-                border: '1px solid #CBD5E1',
-                backgroundColor: '#FFFFFF',
-                color: '#1E293B',
+                border: '1px solid var(--border-medium)',
+                backgroundColor: 'var(--bg-surface-elevated)',
+                color: 'var(--text-primary)',
                 fontSize: '0.9rem',
                 outline: 'none',
               }}
@@ -454,16 +455,16 @@ export const CreateActivityModal: React.FC<CreateActivityModalProps> = ({
           <div
             style={{
               padding: '16px',
-              backgroundColor: '#F8FAFC',
+              backgroundColor: 'var(--bg-surface-elevated)',
               borderRadius: '8px',
-              border: '1px solid #E2E8F0',
+              border: '1px solid var(--border-subtle)',
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-              <label style={{ fontSize: '0.86rem', fontWeight: 700, color: '#1E293B', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <label style={{ fontSize: '0.86rem', fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span>Activity Media & Materials</span>
               </label>
-              <span style={{ fontSize: '0.75rem', color: '#64748B' }}>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                 Attach text, images, Google Slides, or PDF
               </span>
             </div>
@@ -493,9 +494,9 @@ export const CreateActivityModal: React.FC<CreateActivityModalProps> = ({
                       borderRadius: '8px',
                       fontSize: '0.82rem',
                       fontWeight: active ? 700 : 500,
-                      border: active ? '1px solid #0055A5' : '1px solid #CBD5E1',
-                      backgroundColor: active ? '#EFF6FF' : '#FFFFFF',
-                      color: active ? '#0055A5' : '#475569',
+                      border: active ? '1px solid var(--primary-400)' : '1px solid var(--border-subtle)',
+                      backgroundColor: active ? 'rgba(56, 189, 248, 0.15)' : 'var(--bg-surface)',
+                      color: active ? 'var(--primary-400)' : 'var(--text-secondary)',
                       cursor: 'pointer',
                     }}
                   >
@@ -509,14 +510,14 @@ export const CreateActivityModal: React.FC<CreateActivityModalProps> = ({
             {/* Google Slides input */}
             {resourceType === 'GOOGLE_SLIDES' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#334155' }}>
+                <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
                   Google Slides Link or Embed URL
                 </label>
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <div style={{ position: 'relative', flex: 1 }}>
                     <Presentation
                       size={16}
-                      color="#D97706"
+                      color="#f59e0b"
                       style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }}
                     />
                     <input
@@ -528,16 +529,16 @@ export const CreateActivityModal: React.FC<CreateActivityModalProps> = ({
                         width: '100%',
                         padding: '10px 14px 10px 38px',
                         borderRadius: '6px',
-                        border: '1px solid #CBD5E1',
-                        backgroundColor: '#FFFFFF',
-                        color: '#1E293B',
+                        border: '1px solid var(--border-medium)',
+                        backgroundColor: 'var(--bg-surface)',
+                        color: 'var(--text-primary)',
                         fontSize: '0.88rem',
                         outline: 'none',
                       }}
                     />
                   </div>
                 </div>
-                <div style={{ fontSize: '0.74rem', color: '#64748B', lineHeight: 1.4 }}>
+                <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>
                   Students will be able to review these slides directly within their activity window or open them in Google Slides.
                 </div>
               </div>
@@ -548,7 +549,7 @@ export const CreateActivityModal: React.FC<CreateActivityModalProps> = ({
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.78rem', color: '#334155', fontWeight: 600, marginBottom: '4px' }}>
+                    <label style={{ display: 'block', fontSize: '0.78rem', color: 'var(--text-secondary)', fontWeight: 600, marginBottom: '4px' }}>
                       Image File Upload
                     </label>
                     <input
@@ -563,15 +564,15 @@ export const CreateActivityModal: React.FC<CreateActivityModalProps> = ({
                         width: '100%',
                         padding: '8px',
                         borderRadius: '6px',
-                        border: '1px solid #CBD5E1',
-                        backgroundColor: '#FFFFFF',
-                        color: '#1E293B',
+                        border: '1px solid var(--border-medium)',
+                        backgroundColor: 'var(--bg-surface)',
+                        color: 'var(--text-primary)',
                         fontSize: '0.8rem',
                       }}
                     />
                   </div>
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.78rem', color: '#334155', fontWeight: 600, marginBottom: '4px' }}>
+                    <label style={{ display: 'block', fontSize: '0.78rem', color: 'var(--text-secondary)', fontWeight: 600, marginBottom: '4px' }}>
                       Or Image URL
                     </label>
                     <input
@@ -583,9 +584,9 @@ export const CreateActivityModal: React.FC<CreateActivityModalProps> = ({
                         width: '100%',
                         padding: '8px 12px',
                         borderRadius: '6px',
-                        border: '1px solid #CBD5E1',
-                        backgroundColor: '#FFFFFF',
-                        color: '#1E293B',
+                        border: '1px solid var(--border-medium)',
+                        backgroundColor: 'var(--bg-surface)',
+                        color: 'var(--text-primary)',
                         fontSize: '0.85rem',
                         outline: 'none',
                       }}
@@ -593,7 +594,7 @@ export const CreateActivityModal: React.FC<CreateActivityModalProps> = ({
                   </div>
                 </div>
                 {(attachmentFile || attachmentUrl) && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.78rem', color: '#0284C7', fontWeight: 600 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.78rem', color: 'var(--primary-400)', fontWeight: 600 }}>
                     <ImageIcon size={14} />
                     <span>Attached image ready for preview</span>
                   </div>
@@ -606,7 +607,7 @@ export const CreateActivityModal: React.FC<CreateActivityModalProps> = ({
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.78rem', color: '#334155', fontWeight: 600, marginBottom: '4px' }}>
+                    <label style={{ display: 'block', fontSize: '0.78rem', color: 'var(--text-secondary)', fontWeight: 600, marginBottom: '4px' }}>
                       PDF File Upload
                     </label>
                     <input
@@ -621,15 +622,15 @@ export const CreateActivityModal: React.FC<CreateActivityModalProps> = ({
                         width: '100%',
                         padding: '8px',
                         borderRadius: '6px',
-                        border: '1px solid #CBD5E1',
-                        backgroundColor: '#FFFFFF',
-                        color: '#1E293B',
+                        border: '1px solid var(--border-medium)',
+                        backgroundColor: 'var(--bg-surface)',
+                        color: 'var(--text-primary)',
                         fontSize: '0.8rem',
                       }}
                     />
                   </div>
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.78rem', color: '#334155', fontWeight: 600, marginBottom: '4px' }}>
+                    <label style={{ display: 'block', fontSize: '0.78rem', color: 'var(--text-secondary)', fontWeight: 600, marginBottom: '4px' }}>
                       Or PDF Web Link
                     </label>
                     <input
@@ -641,9 +642,9 @@ export const CreateActivityModal: React.FC<CreateActivityModalProps> = ({
                         width: '100%',
                         padding: '8px 12px',
                         borderRadius: '6px',
-                        border: '1px solid #CBD5E1',
-                        backgroundColor: '#FFFFFF',
-                        color: '#1E293B',
+                        border: '1px solid var(--border-medium)',
+                        backgroundColor: 'var(--bg-surface)',
+                        color: 'var(--text-primary)',
                         fontSize: '0.85rem',
                         outline: 'none',
                       }}
@@ -656,7 +657,7 @@ export const CreateActivityModal: React.FC<CreateActivityModalProps> = ({
 
           {/* Instructions & Guidelines for Learners */}
           <div>
-            <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
+            <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '6px' }}>
               Instructions & Description for Learners
             </label>
             <textarea
@@ -668,9 +669,9 @@ export const CreateActivityModal: React.FC<CreateActivityModalProps> = ({
                 width: '100%',
                 padding: '10px 14px',
                 borderRadius: '6px',
-                border: '1px solid #CBD5E1',
-                backgroundColor: '#FFFFFF',
-                color: '#1E293B',
+                border: '1px solid var(--border-medium)',
+                backgroundColor: 'var(--bg-surface-elevated)',
+                color: 'var(--text-primary)',
                 fontSize: '0.88rem',
                 resize: 'vertical',
                 outline: 'none',
@@ -682,12 +683,12 @@ export const CreateActivityModal: React.FC<CreateActivityModalProps> = ({
           <div
             style={{
               padding: '14px 16px',
-              backgroundColor: '#F8FAFC',
+              backgroundColor: 'var(--bg-surface-elevated)',
               borderRadius: '8px',
-              border: '1px solid #E2E8F0',
+              border: '1px solid var(--border-subtle)',
             }}
           >
-            <label style={{ display: 'block', fontSize: '0.84rem', fontWeight: 700, color: '#1E293B', marginBottom: '8px' }}>
+            <label style={{ display: 'block', fontSize: '0.84rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '8px' }}>
               Allowed Submission Methods
             </label>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '8px' }}>
@@ -712,9 +713,9 @@ export const CreateActivityModal: React.FC<CreateActivityModalProps> = ({
                       gap: '8px',
                       padding: '8px 12px',
                       borderRadius: '8px',
-                      border: isSelected ? '1px solid #10B981' : '1px solid #CBD5E1',
-                      backgroundColor: isSelected ? '#ECFDF5' : '#FFFFFF',
-                      color: isSelected ? '#047857' : '#475569',
+                      border: isSelected ? '1px solid rgba(16, 185, 129, 0.5)' : '1px solid var(--border-subtle)',
+                      backgroundColor: isSelected ? 'rgba(16, 185, 129, 0.12)' : 'var(--bg-surface)',
+                      color: isSelected ? '#10b981' : 'var(--text-secondary)',
                       cursor: 'pointer',
                       fontSize: '0.82rem',
                       fontWeight: isSelected ? 700 : 500,
@@ -723,7 +724,7 @@ export const CreateActivityModal: React.FC<CreateActivityModalProps> = ({
                   >
                     <Icon size={14} />
                     <span>{method.label}</span>
-                    {isSelected && <Check size={13} color="#047857" style={{ marginLeft: 'auto' }} />}
+                    {isSelected && <Check size={13} color="#10b981" style={{ marginLeft: 'auto' }} />}
                   </button>
                 );
               })}
@@ -733,7 +734,7 @@ export const CreateActivityModal: React.FC<CreateActivityModalProps> = ({
           {/* Points & Schedule */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
             <div>
-              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
+              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '6px' }}>
                 Max Points
               </label>
               <input
@@ -746,9 +747,9 @@ export const CreateActivityModal: React.FC<CreateActivityModalProps> = ({
                   width: '100%',
                   padding: '10px 14px',
                   borderRadius: '6px',
-                  border: '1px solid #CBD5E1',
-                  backgroundColor: '#FFFFFF',
-                  color: '#1E293B',
+                  border: '1px solid var(--border-medium)',
+                  backgroundColor: 'var(--bg-surface-elevated)',
+                  color: 'var(--text-primary)',
                   fontSize: '0.88rem',
                   outline: 'none',
                 }}
@@ -756,7 +757,7 @@ export const CreateActivityModal: React.FC<CreateActivityModalProps> = ({
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
+              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '6px' }}>
                 Passing Score
               </label>
               <input
@@ -769,9 +770,9 @@ export const CreateActivityModal: React.FC<CreateActivityModalProps> = ({
                   width: '100%',
                   padding: '10px 14px',
                   borderRadius: '6px',
-                  border: '1px solid #CBD5E1',
-                  backgroundColor: '#FFFFFF',
-                  color: '#1E293B',
+                  border: '1px solid var(--border-medium)',
+                  backgroundColor: 'var(--bg-surface-elevated)',
+                  color: 'var(--text-primary)',
                   fontSize: '0.88rem',
                   outline: 'none',
                 }}
@@ -781,7 +782,7 @@ export const CreateActivityModal: React.FC<CreateActivityModalProps> = ({
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
             <div>
-              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
+              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '6px' }}>
                 Available From (Schedule Open)
               </label>
               <input
@@ -792,9 +793,9 @@ export const CreateActivityModal: React.FC<CreateActivityModalProps> = ({
                   width: '100%',
                   padding: '10px 14px',
                   borderRadius: '6px',
-                  border: '1px solid #CBD5E1',
-                  backgroundColor: '#FFFFFF',
-                  color: '#1E293B',
+                  border: '1px solid var(--border-medium)',
+                  backgroundColor: 'var(--bg-surface-elevated)',
+                  color: 'var(--text-primary)',
                   fontSize: '0.88rem',
                   outline: 'none',
                 }}
@@ -802,7 +803,7 @@ export const CreateActivityModal: React.FC<CreateActivityModalProps> = ({
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
+              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '6px' }}>
                 Due Date (Deadline)
               </label>
               <input
@@ -813,9 +814,9 @@ export const CreateActivityModal: React.FC<CreateActivityModalProps> = ({
                   width: '100%',
                   padding: '10px 14px',
                   borderRadius: '6px',
-                  border: '1px solid #CBD5E1',
-                  backgroundColor: '#FFFFFF',
-                  color: '#1E293B',
+                  border: '1px solid var(--border-medium)',
+                  backgroundColor: 'var(--bg-surface-elevated)',
+                  color: 'var(--text-primary)',
                   fontSize: '0.88rem',
                   outline: 'none',
                 }}
@@ -831,17 +832,17 @@ export const CreateActivityModal: React.FC<CreateActivityModalProps> = ({
               justifyContent: 'space-between',
               padding: '14px 16px',
               borderRadius: '8px',
-              backgroundColor: isLocked ? '#FEF2F2' : '#F0FDF4',
-              border: isLocked ? '1px solid #FECACA' : '1px solid #BBF7D0',
+              backgroundColor: isLocked ? 'rgba(239, 68, 68, 0.12)' : 'rgba(16, 185, 129, 0.12)',
+              border: isLocked ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(16, 185, 129, 0.3)',
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              {isLocked ? <Lock size={18} color="#DC2626" /> : <Unlock size={18} color="#16A34A" />}
+              {isLocked ? <Lock size={18} color="#ef4444" /> : <Unlock size={18} color="#10b981" />}
               <div>
-                <div style={{ fontSize: '0.86rem', fontWeight: 700, color: isLocked ? '#DC2626' : '#16A34A' }}>
+                <div style={{ fontSize: '0.86rem', fontWeight: 700, color: isLocked ? '#ef4444' : '#10b981' }}>
                   {isLocked ? 'Activity Locked (Hidden from Students)' : 'Activity Unlocked (Visible to Students)'}
                 </div>
-                <div style={{ fontSize: '0.74rem', color: isLocked ? '#991B1B' : '#166534', marginTop: '2px' }}>
+                <div style={{ fontSize: '0.74rem', color: isLocked ? '#f87171' : 'var(--text-muted)', marginTop: '2px' }}>
                   {isLocked
                     ? 'Learners cannot see or work on this activity until you unlock it.'
                     : 'Targeted learners will immediately see this activity in their assignments.'}
@@ -858,7 +859,7 @@ export const CreateActivityModal: React.FC<CreateActivityModalProps> = ({
                 fontSize: '0.8rem',
                 fontWeight: 700,
                 border: 'none',
-                backgroundColor: isLocked ? '#DC2626' : '#16A34A',
+                backgroundColor: isLocked ? '#ef4444' : '#10b981',
                 color: '#FFFFFF',
                 cursor: 'pointer',
               }}
@@ -868,12 +869,12 @@ export const CreateActivityModal: React.FC<CreateActivityModalProps> = ({
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '20px', paddingTop: '4px' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.85rem', color: '#334155', fontWeight: 600 }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
               <input
                 type="checkbox"
                 checked={allowLateSubmissions}
                 onChange={(e) => setAllowLateSubmissions(e.target.checked)}
-                style={{ accentColor: '#0055A5', width: '16px', height: '16px' }}
+                style={{ accentColor: 'var(--primary-400)', width: '16px', height: '16px' }}
               />
               <span>Allow Late Submissions</span>
             </label>
@@ -883,12 +884,12 @@ export const CreateActivityModal: React.FC<CreateActivityModalProps> = ({
           <div
             style={{
               padding: '14px 16px',
-              backgroundColor: '#F8FAFC',
+              backgroundColor: 'var(--bg-surface-elevated)',
               borderRadius: '8px',
-              border: '1px solid #E2E8F0',
+              border: '1px solid var(--border-subtle)',
             }}
           >
-            <label style={{ display: 'block', fontSize: '0.84rem', fontWeight: 700, color: '#1E293B', marginBottom: '8px' }}>
+            <label style={{ display: 'block', fontSize: '0.84rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '8px' }}>
               Grade Release Policy
             </label>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -899,8 +900,8 @@ export const CreateActivityModal: React.FC<CreateActivityModalProps> = ({
                   gap: '10px',
                   padding: '10px 12px',
                   borderRadius: '6px',
-                  border: `1.5px solid ${!releaseGradesImmediately ? '#0055A5' : '#E2E8F0'}`,
-                  backgroundColor: !releaseGradesImmediately ? '#F0F7FF' : '#FFFFFF',
+                  border: `1.5px solid ${!releaseGradesImmediately ? 'var(--primary-400)' : 'var(--border-subtle)'}`,
+                  backgroundColor: !releaseGradesImmediately ? 'rgba(56, 189, 248, 0.12)' : 'var(--bg-surface)',
                   cursor: 'pointer',
                 }}
               >
@@ -909,13 +910,13 @@ export const CreateActivityModal: React.FC<CreateActivityModalProps> = ({
                   name="activityGradeReleasePolicy"
                   checked={!releaseGradesImmediately}
                   onChange={() => setReleaseGradesImmediately(false)}
-                  style={{ marginTop: '2px', accentColor: '#0055A5', width: '15px', height: '15px' }}
+                  style={{ marginTop: '2px', accentColor: 'var(--primary-400)', width: '15px', height: '15px' }}
                 />
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
-                  <span style={{ fontSize: '0.84rem', fontWeight: 700, color: '#1E293B' }}>
+                  <span style={{ fontSize: '0.84rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                     Manual Release by Tutor (Recommended / Default)
                   </span>
-                  <span style={{ fontSize: '0.74rem', color: '#64748B' }}>
+                  <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
                     Grades and feedback stay hidden from students until you click "Publish Grades".
                   </span>
                 </div>
@@ -928,8 +929,8 @@ export const CreateActivityModal: React.FC<CreateActivityModalProps> = ({
                   gap: '10px',
                   padding: '10px 12px',
                   borderRadius: '6px',
-                  border: `1.5px solid ${releaseGradesImmediately ? '#0055A5' : '#E2E8F0'}`,
-                  backgroundColor: releaseGradesImmediately ? '#F0F7FF' : '#FFFFFF',
+                  border: `1.5px solid ${releaseGradesImmediately ? 'var(--primary-400)' : 'var(--border-subtle)'}`,
+                  backgroundColor: releaseGradesImmediately ? 'rgba(56, 189, 248, 0.12)' : 'var(--bg-surface)',
                   cursor: 'pointer',
                 }}
               >
@@ -938,13 +939,13 @@ export const CreateActivityModal: React.FC<CreateActivityModalProps> = ({
                   name="activityGradeReleasePolicy"
                   checked={releaseGradesImmediately}
                   onChange={() => setReleaseGradesImmediately(true)}
-                  style={{ marginTop: '2px', accentColor: '#0055A5', width: '15px', height: '15px' }}
+                  style={{ marginTop: '2px', accentColor: 'var(--primary-400)', width: '15px', height: '15px' }}
                 />
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
-                  <span style={{ fontSize: '0.84rem', fontWeight: 700, color: '#1E293B' }}>
+                  <span style={{ fontSize: '0.84rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                     Immediate Grade Release
                   </span>
-                  <span style={{ fontSize: '0.74rem', color: '#64748B' }}>
+                  <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
                     Release scores and results directly to students upon evaluation.
                   </span>
                 </div>
@@ -953,20 +954,21 @@ export const CreateActivityModal: React.FC<CreateActivityModalProps> = ({
           </div>
 
           {/* Footer buttons */}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '12px' }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '12px' }}>
             <button
               type="button"
               onClick={onClose}
               disabled={isSubmitting}
               style={{
-                padding: '9px 18px',
-                borderRadius: '6px',
-                border: '1px solid #CBD5E1',
-                backgroundColor: '#FFFFFF',
-                color: '#475569',
-                fontSize: '0.86rem',
+                padding: '8px 20px',
+                borderRadius: '9999px',
+                border: '1px solid rgba(255, 255, 255, 0.18)',
+                backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                color: '#FFFFFF',
+                fontSize: '0.84rem',
                 fontWeight: 600,
                 cursor: 'pointer',
+                backdropFilter: 'blur(8px)',
               }}
             >
               Cancel
@@ -975,17 +977,18 @@ export const CreateActivityModal: React.FC<CreateActivityModalProps> = ({
               type="submit"
               disabled={isSubmitting}
               style={{
-                padding: '9px 20px',
-                borderRadius: '6px',
-                border: 'none',
-                backgroundColor: '#0055A5',
+                padding: '8px 24px',
+                borderRadius: '9999px',
+                border: '1px solid rgba(255, 255, 255, 0.28)',
+                background: 'linear-gradient(135deg, #1e3a5f 0%, #155e75 45%, #2e2870 100%)',
                 color: '#FFFFFF',
-                fontSize: '0.86rem',
+                fontSize: '0.84rem',
                 fontWeight: 700,
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '8px',
+                boxShadow: '0 2px 10px rgba(0, 0, 0, 0.25)',
               }}
             >
               {isSubmitting ? <Spinner size={16} /> : <Check size={16} />}

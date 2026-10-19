@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
+import { X, ShieldCheck } from 'lucide-react';
 import {
+
+
   AdminService,
   type ExamSessionDetailItem,
 } from '../../../../core/services/AdminService';
@@ -303,7 +305,113 @@ export const InspectSessionModal: React.FC<InspectSessionModalProps> = ({
               </div>
             </div>
 
+            {/* Proctoring & Identity Audit Evidence Section */}
+            <div
+              style={{
+                background: 'var(--bg-surface-elevated)',
+                border: '1px solid var(--border-subtle)',
+                borderRadius: 'var(--radius-lg)',
+                padding: '16px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '12px',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <ShieldCheck size={18} color="#0055A5" />
+                  <span style={{ fontSize: '0.86rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                    Proctoring & Identity Audit Dossier
+                  </span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span
+                    style={{
+                      background: (inspectDetail.violation_count || 0) > 0 ? 'rgba(209, 56, 56, 0.15)' : 'rgba(5, 135, 40, 0.15)',
+                      color: (inspectDetail.violation_count || 0) > 0 ? '#d13838' : '#058728',
+                      padding: '2px 8px',
+                      borderRadius: '999px',
+                      fontSize: '0.72rem',
+                      fontWeight: 700,
+                    }}
+                  >
+                    {inspectDetail.violation_count || 0} {(inspectDetail.violation_count || 0) === 1 ? 'Violation Flag' : 'Violations Flagged'}
+                  </span>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                    Auto-Graded (Score Locked)
+                  </span>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: (inspectDetail as any).identity_image ? '130px 1fr' : '1fr', gap: '14px', alignItems: 'center' }}>
+                {(inspectDetail as any).identity_image && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <div
+                      style={{
+                        width: '130px',
+                        height: '98px',
+                        borderRadius: '8px',
+                        overflow: 'hidden',
+                        border: '1px solid var(--border-subtle)',
+                        background: '#000',
+                      }}
+                    >
+                      <img
+                        src={(inspectDetail as any).identity_image}
+                        alt="Candidate Identity"
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      />
+                    </div>
+                    <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textAlign: 'center' }}>
+                      Pre-flight Selfie
+                    </span>
+                  </div>
+                )}
+
+                {/* Telemetry stream logs */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {(() => {
+                    const events = (inspectDetail as any).proctoring_events || [];
+                    if (events.length === 0) {
+                      return (
+                        <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                          No proctoring violations recorded. Clean session telemetry.
+                        </div>
+                      );
+                    }
+                    return (
+                      <div style={{ maxHeight: '100px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        {events.map((evt: any, eIdx: number) => (
+                          <div
+                            key={evt.id || eIdx}
+                            style={{
+                              background: evt.is_violation ? 'rgba(209, 56, 56, 0.08)' : 'rgba(0, 85, 165, 0.05)',
+                              borderLeft: evt.is_violation ? '3px solid #d13838' : '3px solid #0055A5',
+                              padding: '4px 8px',
+                              borderRadius: '4px',
+                              fontSize: '0.74rem',
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                            }}
+                          >
+                            <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>
+                              {evt.event_type} {evt.is_violation ? '(Violation Flag)' : ''}
+                            </span>
+                            <span style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>
+                              {evt.created_at ? new Date(evt.created_at).toLocaleTimeString() : ''}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
+            </div>
+
             {/* Questions Table */}
+
             <div>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
                 <span style={{ fontSize: '0.86rem', fontWeight: 600, color: 'var(--text-primary)' }}>

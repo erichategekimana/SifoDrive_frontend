@@ -1,19 +1,30 @@
 import React, { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
 import { ExamPipelineSection } from '../../../features/examinations/components/pipeline/ExamPipelineSection';
-import { QuestionBankSection } from '../../../features/examinations/components/questions/QuestionBankSection';
+import { ExamsDirectoryTab } from '../quiz-bank/ExamsDirectoryTab';
 import { CertificatesSection } from '../../../features/examinations/components/certificates/CertificatesSection';
 import { ExamSettingsSection } from '../../../features/examinations/components/settings/ExamSettingsSection';
 import { ExaminationsHeader } from './ExaminationsHeader';
 
 export const AdminExaminationsPage: React.FC = () => {
   const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const isSystemAdmin = user?.role === 'SYSTEM_ADMIN' || Boolean(user?.isSystemAdmin?.());
   const isTrainingAdmin = user?.role === 'TRAINING_ADMIN' || Boolean(user?.isTrainingAdmin?.());
   const isBoardReviewer = user?.role === 'BOARD_REVIEWER' || Boolean(user?.isBoardReviewer?.());
 
-  const [activeTab, setActiveTab] = useState<'pipeline' | 'questions' | 'certificates' | 'settings'>('pipeline');
+  const initialTab = (searchParams.get('tab') as any) || 'pipeline';
+  const validTabs: Array<'pipeline' | 'exams' | 'certificates' | 'settings'> = ['pipeline', 'exams', 'certificates', 'settings'];
+  const [activeTab, setActiveTabState] = useState<'pipeline' | 'exams' | 'certificates' | 'settings'>(
+    validTabs.includes(initialTab) ? initialTab : 'pipeline'
+  );
+
+  const handleTabChange = (tab: 'pipeline' | 'exams' | 'certificates' | 'settings') => {
+    setActiveTabState(tab);
+    setSearchParams(tab === 'pipeline' ? {} : { tab });
+  };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -22,7 +33,7 @@ export const AdminExaminationsPage: React.FC = () => {
         isBoardReviewer={isBoardReviewer}
         isSystemAdmin={isSystemAdmin}
         activeTab={activeTab}
-        onTabChange={setActiveTab}
+        onTabChange={handleTabChange}
       />
 
       {/* Tab Panels */}
@@ -34,7 +45,9 @@ export const AdminExaminationsPage: React.FC = () => {
         />
       )}
 
-      {!isBoardReviewer && activeTab === 'questions' && <QuestionBankSection />}
+      {!isBoardReviewer && activeTab === 'exams' && (
+        <ExamsDirectoryTab />
+      )}
 
       {!isBoardReviewer && activeTab === 'certificates' && (
         <CertificatesSection isSystemAdmin={isSystemAdmin} />

@@ -42,6 +42,7 @@ export const StudentAssessmentReviewView: React.FC<StudentAssessmentReviewViewPr
   const [quiz, setQuiz] = useState<QuizItem | null>(null);
   const [submission, setSubmission] = useState<QuizSubmissionItem | null>(null);
   const [activity, setActivity] = useState<CohortActivityItem | null>(null);
+  const [reviewLang, setReviewLang] = useState<'EN' | 'RW' | 'FR'>('EN');
 
   const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
 
@@ -346,9 +347,33 @@ export const StudentAssessmentReviewView: React.FC<StudentAssessmentReviewViewPr
       {!isActivity && questionsBreakdown.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
-            <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#111827', margin: 0 }}>
-              Questions Review ({questionsBreakdown.length} Questions)
-            </h3>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#111827', margin: 0 }}>
+                Questions Review ({questionsBreakdown.length} Questions)
+              </h3>
+              {/* Language Switcher */}
+              <div style={{ display: 'inline-flex', padding: '2px', backgroundColor: '#F1F5F9', borderRadius: '6px', border: '1px solid #E2E8F0' }}>
+                {(['EN', 'RW', 'FR'] as const).map((l) => (
+                  <button
+                    key={l}
+                    onClick={() => setReviewLang(l)}
+                    style={{
+                      padding: '3px 10px',
+                      fontSize: '0.75rem',
+                      fontWeight: reviewLang === l ? 700 : 500,
+                      borderRadius: '4px',
+                      border: 'none',
+                      cursor: 'pointer',
+                      backgroundColor: reviewLang === l ? '#0055A5' : 'transparent',
+                      color: reviewLang === l ? '#FFFFFF' : '#64748B',
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    {l === 'EN' ? 'English' : l === 'RW' ? 'Kinyarwanda' : 'Français'}
+                  </button>
+                ))}
+              </div>
+            </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '0.82rem' }}>
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', color: '#15803D', fontWeight: 700 }}>
                 <CheckCircle2 size={16} />
@@ -363,10 +388,29 @@ export const StudentAssessmentReviewView: React.FC<StudentAssessmentReviewViewPr
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             {questionsBreakdown.map((q, idx) => {
-              const options = q.options || {};
+              const options =
+                (reviewLang === 'FR' && q.options_french && Object.keys(q.options_french).length > 0)
+                  ? q.options_french
+                  : (reviewLang === 'RW' && q.options_kinyarwanda && Object.keys(q.options_kinyarwanda).length > 0)
+                  ? q.options_kinyarwanda
+                  : q.options || {};
               const optionKeys = Object.keys(options);
               const studentChoice = q.student_answer ? String(q.student_answer).trim().toUpperCase() : null;
               const correctChoice = q.correct_option ? String(q.correct_option).trim().toUpperCase() : null;
+
+              const questionText =
+                (reviewLang === 'FR' && q.question_text_french)
+                  ? q.question_text_french
+                  : (reviewLang === 'RW' && q.question_text_kinyarwanda)
+                  ? q.question_text_kinyarwanda
+                  : q.question_text || q.question_text_kinyarwanda || q.question_text_french || '';
+
+              const explanation =
+                (reviewLang === 'FR' && q.explanation_french)
+                  ? q.explanation_french
+                  : (reviewLang === 'RW' && q.explanation_kinyarwanda)
+                  ? q.explanation_kinyarwanda
+                  : q.explanation;
 
               return (
                 <div
@@ -431,7 +475,7 @@ export const StudentAssessmentReviewView: React.FC<StudentAssessmentReviewViewPr
 
                   {/* Question text */}
                   <p style={{ margin: '0 0 16px 0', fontSize: '0.94rem', fontWeight: 600, color: '#111827', lineHeight: 1.5 }}>
-                    {q.question_text}
+                    {questionText}
                   </p>
 
                   {/* Options */}
@@ -514,7 +558,7 @@ export const StudentAssessmentReviewView: React.FC<StudentAssessmentReviewViewPr
                   </div>
 
                   {/* Question explanation */}
-                  {q.explanation && (
+                  {explanation && (
                     <div
                       style={{
                         marginTop: '12px',
@@ -528,7 +572,7 @@ export const StudentAssessmentReviewView: React.FC<StudentAssessmentReviewViewPr
                       }}
                     >
                       <strong style={{ color: '#1E293B' }}>Explanation: </strong>
-                      {q.explanation}
+                      {explanation}
                     </div>
                   )}
                 </div>

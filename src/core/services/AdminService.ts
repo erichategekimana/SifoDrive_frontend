@@ -2,6 +2,9 @@ import { ApiEndpoints } from '../api/ApiEndpoints';
 import { HttpClient } from '../api/HttpClient';
 import { LocalStorageService } from '../storage/LocalStorageService';
 import { Logger } from '../utils/Logger';
+import type { CohortActivityItem } from './TutorLmsService';
+
+export type { CohortActivityItem };
 
 const logger = new Logger('AdminService');
 
@@ -185,6 +188,7 @@ export interface QuizQuestionItem {
   points: number;
   question_text: string;
   question_text_kinyarwanda?: string;
+  question_text_french?: string;
   option_a: string;
   option_b: string;
   option_c?: string;
@@ -193,11 +197,15 @@ export interface QuizQuestionItem {
   option_b_kinyarwanda?: string;
   option_c_kinyarwanda?: string;
   option_d_kinyarwanda?: string;
+  option_a_french?: string;
+  option_b_french?: string;
+  option_c_french?: string;
+  option_d_french?: string;
   correct_option: 'A' | 'B' | 'C' | 'D';
   explanation?: string;
   explanation_kinyarwanda?: string;
+  explanation_french?: string;
   domain?: string;
-  difficulty?: 'EASY' | 'MEDIUM' | 'HARD';
 }
 
 export interface QuizItem {
@@ -211,8 +219,10 @@ export interface QuizItem {
   max_tab_switches_allowed?: number;
   title: string;
   title_kinyarwanda?: string;
+  title_french?: string;
   description?: string;
   description_kinyarwanda?: string;
+  description_french?: string;
   open_date?: string | null;
   deadline?: string | null;
   closing_date?: string | null;
@@ -224,6 +234,7 @@ export interface QuizItem {
   passing_score: number;
   rubric?: string;
   rubric_kinyarwanda?: string;
+  rubric_french?: string;
   max_attempts: number;
   shuffle_questions: boolean;
   is_published: boolean;
@@ -283,6 +294,143 @@ export interface QuizPayload {
   items?: QuizQuestionItem[];
 }
 
+export interface AdminExamItem {
+  id: string;
+  title: string;
+  title_kinyarwanda?: string;
+  title_french?: string;
+  exam_type: 'STUDENT' | 'PUBLIC_PRACTICE';
+  status: 'DRAFT' | 'PUBLISHED' | 'CLOSED';
+  cohort_id?: string | null;
+  cohort_name?: string;
+  open_date?: string | null;
+  due_date?: string | null;
+  closing_date?: string | null;
+  instructions?: string;
+  instructions_kinyarwanda?: string;
+  instructions_french?: string;
+  rubric?: string;
+  rubric_kinyarwanda?: string;
+  rubric_french?: string;
+  is_published: boolean;
+  total_questions: number;
+  duration_minutes: number;
+  points_per_question: number;
+  passing_score: number;
+  created_at: string;
+  updated_at: string;
+  created_by_name?: string;
+  active_sessions_count: number;
+  completed_sessions_count: number;
+}
+
+export interface AdminExamPayload {
+  title: string;
+  title_kinyarwanda?: string;
+  title_french?: string;
+  exam_type?: 'STUDENT' | 'PUBLIC_PRACTICE';
+  status?: 'DRAFT' | 'PUBLISHED' | 'CLOSED';
+  cohort_id?: string | null;
+  cohort_name?: string;
+  open_date?: string | null;
+  due_date?: string | null;
+  closing_date?: string | null;
+  instructions?: string;
+  instructions_kinyarwanda?: string;
+  instructions_french?: string;
+  rubric?: string;
+  rubric_kinyarwanda?: string;
+  rubric_french?: string;
+  is_published?: boolean;
+}
+
+export interface CandidateExamQuestionItem {
+  sequence_number: number;
+  selected_option: string;
+  answered_at?: string | null;
+  id: string;
+  question_number: number;
+  domain: string;
+  question_text: string;
+  question_text_kinyarwanda?: string;
+  question_text_french?: string;
+  option_a: string;
+  option_b: string;
+  option_c: string;
+  option_d: string;
+  option_a_kinyarwanda?: string;
+  option_b_kinyarwanda?: string;
+  option_c_kinyarwanda?: string;
+  option_d_kinyarwanda?: string;
+  option_a_french?: string;
+  option_b_french?: string;
+  option_c_french?: string;
+  option_d_french?: string;
+  image?: string | null;
+  // Post-submission review fields:
+  correct_option?: string;
+  is_correct?: boolean | null;
+  explanation?: string;
+  explanation_kinyarwanda?: string;
+  explanation_french?: string;
+}
+
+export interface CandidateSessionItem {
+  id: string;
+  exam_id?: string | null;
+  exam_title: string;
+  track: 'STUDENT' | 'GUEST' | 'PUBLIC' | 'B2B';
+  status: string;
+  started_at: string;
+  expires_at?: string;
+  submitted_at?: string | null;
+  duration_minutes: number;
+  time_remaining_seconds?: number;
+  total_questions: number;
+  answered_count?: number;
+  violation_count?: number;
+  score?: number | null;
+  passing_score?: number;
+  passed?: boolean | null;
+  questions: CandidateExamQuestionItem[];
+}
+
+export interface StudentAvailableExamItem extends AdminExamItem {
+  window_status: 'UPCOMING' | 'OPEN' | 'CLOSED';
+  can_start: boolean;
+  attempt?: {
+    has_attempt: boolean;
+    attempt_id?: string | null;
+    status: string;
+    score?: number | null;
+    passed?: boolean | null;
+    total_questions: number;
+    passing_score: number;
+    time_remaining_seconds: number;
+  };
+}
+
+export interface ExamPackageItem {
+  key: string;
+  name: string;
+  name_kinyarwanda?: string;
+  name_french?: string;
+  credits: number;
+  price_rwf: number;
+  badge?: string;
+  description: string;
+}
+
+export interface ExamCreditBalance {
+  identifier: string;
+  credits: number;
+  total_purchased: number;
+  total_consumed: number;
+  last_purchased_at?: string;
+  transactions_count?: number;
+}
+
+
 export interface QuizSubmissionItem {
   id: string;
   quiz: string;
@@ -307,10 +455,16 @@ export interface QuizSubmissionItem {
     item_id: string;
     order: number;
     question_text: string;
+    question_text_kinyarwanda?: string;
+    question_text_french?: string;
     points: number;
     options: Record<string, string>;
+    options_kinyarwanda?: Record<string, string>;
+    options_french?: Record<string, string>;
     correct_option: string;
     explanation?: string;
+    explanation_kinyarwanda?: string;
+    explanation_french?: string;
     student_answer?: string;
     is_correct: boolean;
     is_flagged_for_review?: boolean;
@@ -1012,6 +1166,21 @@ export class AdminService {
     throw new Error('Failed to toggle quiz publish state: invalid response from server.');
   }
 
+  public async getCohortActivities(courseId?: string): Promise<CohortActivityItem[]> {
+    try {
+      const url = ApiEndpoints.LMS.STUDENT_COHORT_ACTIVITIES();
+      const query = courseId && courseId !== 'ALL' ? `?course_id=${encodeURIComponent(courseId)}` : '';
+      const res = await this.http.get<any>(`${url}${query}`);
+      if (Array.isArray(res)) return res;
+      if (res?.data && Array.isArray(res.data)) return res.data;
+      if (res?.results && Array.isArray(res.results)) return res.results;
+      return [];
+    } catch (err) {
+      logger.warn('Failed to fetch cohort activities:', err);
+      return [];
+    }
+  }
+
   public async submitQuiz(
     quizId: string,
     payload: {
@@ -1484,6 +1653,15 @@ export class AdminService {
     return { count: 0, results: [] };
   }
 
+  public async createQuizQuestion(
+    data: Partial<AdminQuizQuestionItem>
+  ): Promise<AdminQuizQuestionItem> {
+    return this.http.post<AdminQuizQuestionItem>(
+      ApiEndpoints.ADMIN.EXAM_QUESTIONS,
+      data
+    );
+  }
+
   public async updateQuizQuestion(
     id: string,
     data: Partial<AdminQuizQuestionItem>
@@ -1494,9 +1672,191 @@ export class AdminService {
     );
   }
 
+  public async deleteQuizQuestion(id: string): Promise<void> {
+    return this.http.delete<void>(ApiEndpoints.ADMIN.EXAM_QUESTION_DETAIL(id));
+  }
+
+  public async getQuestionBankEditAccess(): Promise<{
+    edit_access_enabled: boolean;
+    updated_at: string | null;
+    updated_by: string | null;
+    can_manage_toggle: boolean;
+  }> {
+    const response = await this.http.get<{
+      success: boolean;
+      data: {
+        edit_access_enabled: boolean;
+        updated_at: string | null;
+        updated_by: string | null;
+        can_manage_toggle: boolean;
+      };
+    }>(ApiEndpoints.ADMIN.EXAM_QUESTION_EDIT_ACCESS);
+    return (response as any)?.data || response;
+  }
+
+  public async setQuestionBankEditAccess(enabled: boolean): Promise<{
+    edit_access_enabled: boolean;
+    updated_at: string | null;
+    updated_by: string | null;
+    can_manage_toggle: boolean;
+  }> {
+    const response = await this.http.post<{
+      success: boolean;
+      data: {
+        edit_access_enabled: boolean;
+        updated_at: string | null;
+        updated_by: string | null;
+        can_manage_toggle: boolean;
+      };
+    }>(ApiEndpoints.ADMIN.EXAM_QUESTION_EDIT_ACCESS, {
+      edit_access_enabled: enabled,
+    });
+    return (response as any)?.data || response;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Official Examination Windows (Independent of Quizzes)
+  // ---------------------------------------------------------------------------
+  public async getOfficialExams(params?: {
+    search?: string;
+    cohort?: string;
+    status?: string;
+    exam_type?: string;
+  }): Promise<AdminExamItem[]> {
+    const query = new URLSearchParams();
+    if (params?.search) query.set('search', params.search);
+    if (params?.cohort && params.cohort !== 'ALL') query.set('cohort', params.cohort);
+    if (params?.status && params.status !== 'ALL') query.set('status', params.status);
+    if (params?.exam_type && params.exam_type !== 'ALL') query.set('exam_type', params.exam_type);
+
+    const url = `${ApiEndpoints.ADMIN.OFFICIAL_EXAMS}${query.toString() ? `?${query.toString()}` : ''}`;
+    const res = await this.http.get<any>(url);
+    if (res && Array.isArray(res.data)) return res.data;
+    if (Array.isArray(res)) return res;
+    return [];
+  }
+
+  public async createOfficialExam(payload: AdminExamPayload): Promise<AdminExamItem> {
+    const res = await this.http.post<any>(ApiEndpoints.ADMIN.OFFICIAL_EXAMS, payload);
+    return res?.data || res;
+  }
+
+  public async updateOfficialExam(id: string, payload: Partial<AdminExamPayload>): Promise<AdminExamItem> {
+    const res = await this.http.patch<any>(ApiEndpoints.ADMIN.OFFICIAL_EXAM_DETAIL(id), payload);
+    return res?.data || res;
+  }
+
+  public async deleteOfficialExam(id: string): Promise<void> {
+    await this.http.delete<void>(ApiEndpoints.ADMIN.OFFICIAL_EXAM_DETAIL(id));
+  }
+
+  public async togglePublishOfficialExam(id: string): Promise<AdminExamItem> {
+    const res = await this.http.post<any>(ApiEndpoints.ADMIN.OFFICIAL_EXAM_TOGGLE_PUBLISH(id), {});
+    return res?.data || res;
+  }
+
+  public async getOfficialExamAudit(idOrType: string): Promise<any> {
+    const res = await this.http.get<any>(ApiEndpoints.ADMIN.OFFICIAL_EXAM_AUDIT(idOrType));
+    return res?.data || res;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Candidate Examination Runner & Proctoring (Student, Guest & Public)
+  // ---------------------------------------------------------------------------
+  public async getStudentAvailableExams(): Promise<StudentAvailableExamItem[]> {
+    const res = await this.http.get<any>(ApiEndpoints.ADMIN.STUDENT_OFFICIAL_EXAMS);
+    if (res && Array.isArray(res.data)) return res.data;
+    if (Array.isArray(res)) return res;
+    return [];
+  }
+
+  public async startStudentExam(
+    examId: string,
+    payload?: { selfie_image?: string; preflight_checks?: any }
+  ): Promise<CandidateSessionItem> {
+    const res = await this.http.post<any>(ApiEndpoints.ADMIN.STUDENT_START_EXAM(examId), payload || {});
+    return res?.data || res;
+  }
+
+  public async getCandidateSession(sessionId: string): Promise<CandidateSessionItem> {
+    const res = await this.http.get<any>(ApiEndpoints.ADMIN.CANDIDATE_SESSION_DETAIL(sessionId));
+    return res?.data || res;
+  }
+
+  public async recordCandidateAnswer(
+    sessionId: string,
+    sequenceNumber: number,
+    selectedOption: string
+  ): Promise<{ sequence_number: number; selected_option: string; answered_at: string }> {
+    const res = await this.http.post<any>(ApiEndpoints.ADMIN.CANDIDATE_SESSION_ANSWER(sessionId), {
+      sequence_number: sequenceNumber,
+      selected_option: selectedOption,
+    });
+    return res?.data || res;
+  }
+
+  public async recordCandidateProctorEvent(
+    sessionId: string,
+    eventType: string,
+    snapshotImage?: string,
+    metadata?: any,
+    isViolation: boolean = true
+  ): Promise<any> {
+    const res = await this.http.post<any>(ApiEndpoints.ADMIN.CANDIDATE_SESSION_PROCTOR(sessionId), {
+      event_type: eventType,
+      snapshot_image: snapshotImage || '',
+      metadata: metadata || {},
+      is_violation: isViolation,
+    });
+    return res?.data || res;
+  }
+
+  public async submitCandidateExam(sessionId: string): Promise<CandidateSessionItem> {
+    const res = await this.http.post<any>(ApiEndpoints.ADMIN.CANDIDATE_SESSION_SUBMIT(sessionId), {});
+    return res?.data || res;
+  }
+
+  public async getCandidateExamResults(sessionId: string): Promise<CandidateSessionItem> {
+    const res = await this.http.get<any>(ApiEndpoints.ADMIN.CANDIDATE_SESSION_RESULTS(sessionId));
+    return res?.data || res;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Guest & Public Paid Examination
+  // ---------------------------------------------------------------------------
+  public async getPublicExamPackages(): Promise<ExamPackageItem[]> {
+    const res = await this.http.get<any>(ApiEndpoints.ADMIN.PUBLIC_EXAM_PACKAGES);
+    if (res && Array.isArray(res.data)) return res.data;
+    if (Array.isArray(res)) return res;
+    return [];
+  }
+
+  public async getPublicExamCredits(phone?: string): Promise<ExamCreditBalance> {
+    const query = phone ? `?phone_number=${encodeURIComponent(phone)}` : '';
+    const res = await this.http.get<any>(`${ApiEndpoints.ADMIN.PUBLIC_EXAM_CREDITS}${query}`);
+    return res?.data || res;
+  }
+
+  public async buyPublicExamCredits(payload: {
+    package_key: string;
+    paying_number: string;
+    phone_number?: string;
+  }): Promise<any> {
+    const res = await this.http.post<any>(ApiEndpoints.ADMIN.PUBLIC_EXAM_BUY, payload);
+    return res?.data || res;
+  }
+
+  public async startPublicPracticeExam(phone?: string): Promise<CandidateSessionItem> {
+    const res = await this.http.post<any>(ApiEndpoints.ADMIN.PUBLIC_EXAM_START, {
+      phone_number: phone || '',
+    });
+    return res?.data || res;
+  }
+
   public async verifyPublicCertificate(hashOrCode: string): Promise<any> {
     return this.http.get<any>(ApiEndpoints.ADMIN.EXAM_CERTIFICATE_VERIFY(hashOrCode));
   }
+
 
   public async getPlatformAnalytics(timeframe: string = '30d'): Promise<PlatformAnalyticsData> {
     return this.http.get<PlatformAnalyticsData>(ApiEndpoints.ADMIN.ANALYTICS(timeframe));
@@ -1748,9 +2108,9 @@ export interface AdminQuizQuestionItem {
   id: string;
   question_number: number;
   domain: string;
-  difficulty: 'EASY' | 'MEDIUM' | 'HARD';
   question_text: string;
   question_text_kinyarwanda: string;
+  question_text_french?: string;
   option_a: string;
   option_b: string;
   option_c: string;
@@ -1759,9 +2119,14 @@ export interface AdminQuizQuestionItem {
   option_b_kinyarwanda: string;
   option_c_kinyarwanda: string;
   option_d_kinyarwanda: string;
+  option_a_french?: string;
+  option_b_french?: string;
+  option_c_french?: string;
+  option_d_french?: string;
   correct_option: 'A' | 'B' | 'C' | 'D';
   explanation: string;
   explanation_kinyarwanda: string;
+  explanation_french?: string;
   image?: string | null;
   option_a_image?: string | null;
   option_b_image?: string | null;
@@ -1771,6 +2136,16 @@ export interface AdminQuizQuestionItem {
   road_sign_id?: string | null;
   created_at: string;
   updated_at: string;
+  last_edited_by_name?: string | null;
+  last_edited_by_role?: string | null;
+  last_edited_at?: string | null;
+  edit_reason?: string | null;
+  edit_history?: Array<{
+    edited_by_name: string;
+    edited_by_role: string;
+    edited_at: string;
+    edit_reason: string;
+  }>;
 }
 
 // ---------------------------------------------------------------------------
