@@ -1,6 +1,6 @@
 {
   "nav": {
-    "brandSub": "Rwanda Driving Academy",
+    "brandSub": "Driving Academy",
     "courses": "Theory LMS",
     "roadSigns": "Road Signs",
     "liveClasses": "Live Classes",
@@ -37,23 +37,26 @@
     "error": "Error"
   },
   "roles": {
-    "guest": "Guest Learner (Preview)",
-    "student": "Full Enrolled Student",
+    "guest": "Guest Learner",
+    "student": "Student",
     "tutor": "Driving Rules Instructor",
     "agent": "Irembo Agent",
     "admin": "System Administrator"
   },
   "landing": {
-    "badge": "Rwanda's Official Digital Driving Academy",
-    "heroTitle1": "Master Rwandan Road Safety &",
+    "badge": "Sifo Driving Rules Academy",
+    "heroTitle1": "Master Road Safety &",
     "heroHighlight": "Pass Your Provisional Test",
     "heroTitle2": "First Try",
     "heroSubtitle": "Interactive theory modules based on official Police regulations, live Google Meet sessions with expert instructors, and a concierge service that secures your Irembo driving test slot.",
-    "startFree": "Start Free Learning",
+    "buyExamTitle": "Do you want to buy exams?",
+    "buyExamSubtitle": "Test your readiness under real exam conditions before sitting for the official Police exam.",
+    "buyExam": "Buy Exam",
+    "startFree": "Buy Exam",
     "bookIrembo": "Book Irembo Driving Test",
-    "universalCurriculum": "Universal Rwanda Curriculum",
-    "lawCompliant": "Law N° 058/2021 Compliant",
-    "momoSupported": "MTN & Airtel MoMo Supported",
+    "universalCurriculum": "Exam Simulation",
+    "lawCompliant": "Fair Price",
+    "momoSupported": "MTN & MoMo Supported",
     "passRate": "Provisional Pass Rate",
     "activeLearners": "Active Learners in Rwanda",
     "liveSessions": "Live Google Meet Sessions/Mo",
@@ -1339,5 +1342,21 @@
     "guestRole": "Guest",
     "studentRole": "Student",
     "tutorRole": "Tutor"
+  },
+  "pricing": {
+    "badge": "OFFICIAL RWANDA DRIVING LICENSE SIMULATION",
+    "title": "Buy Exam Packages & Access Passes",
+    "subtitle": "Simulate the official Rwanda Traffic Police provisional exam before your test day. Instant access via MTN & Airtel Mobile Money.",
+    "tabExams": "Practice Exam Packages",
+    "tabSubscriptions": "Course Subscriptions",
+    "alreadyHaveCredits": "Already have exam credits?",
+    "checkCreditsSubtitle": "Enter your phone number to check remaining exam sittings",
+    "checkBalance": "Check Balance",
+    "checking": "Checking...",
+    "startExam": "Start Exam",
+    "buyWithMomo": "Buy",
+    "subscribeWithMomo": "Subscribe with MoMo",
+    "examSitting": "full mock exam sitting",
+    "examSittings": "full mock exam sittings"
   }
 }

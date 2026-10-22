@@ -44,6 +44,87 @@
   border-radius: var(--radius-xl);
 }
 
+/* Header & Nav Icon Safeguards (prevent compression / clipping on language change) */
+header svg,
+nav svg {
+  flex-shrink: 0;
+}
+
+/* Top Bar Navigation Container Track & Buttons */
+.nav-track {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  padding: 4px 6px;
+  border-radius: var(--radius-xl);
+  background: rgba(0, 0, 0, 0.035);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.nav-btn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  padding: 7px 14px;
+  border-radius: var(--radius-lg);
+  white-space: nowrap;
+  flex-shrink: 0;
+  text-decoration: none;
+  transition: all var(--transition-fast);
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(203, 213, 225, 0.95);
+  color: #334155;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  cursor: pointer;
+}
+
+.nav-btn:hover {
+  background: #ffffff;
+  border-color: #94a3b8;
+  color: #0f172a;
+}
+
+/* Selected Button Container Turns to Light Black */
+.nav-btn.active {
+  background: #18181b !important;
+  border-color: #27272a !important;
+  color: #ffffff !important;
+  font-weight: 600;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.28);
+}
+
+.nav-btn.active svg {
+  color: #38bdf8 !important;
+}
+
+[data-theme="dark"] .nav-track {
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+[data-theme="dark"] .nav-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #9ca3af;
+  box-shadow: none;
+}
+
+[data-theme="dark"] .nav-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: #f9fafb;
+}
+
+[data-theme="dark"] .nav-btn.active {
+  background: #18181b !important;
+  border-color: #3f3f46 !important;
+  color: #ffffff !important;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.45);
+}
+
 /* Cards */
 .card {
   background: var(--bg-surface-card);

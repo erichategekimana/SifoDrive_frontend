@@ -8,7 +8,6 @@ import {
   Power,
   ChevronRight,
   ArrowRight,
-  Sparkles,
 } from 'lucide-react';
 import { Spinner } from '../../../components/common/Spinner';
 import { useToast } from '../../../context/ToastContext';
@@ -60,6 +59,31 @@ export const ExamsDirectoryTab: React.FC<ExamsDirectoryTabProps> = ({
     try {
       const updated = await adminService.togglePublishOfficialExam(exam.id);
       success(`Exam "${updated.title}" is now ${updated.is_published ? 'published' : 'draft'}.`);
+      
+      const isPublicExam = exam.exam_type === 'PUBLIC_PRACTICE' || exam.id === 'e2222222-2222-4222-8222-222222222222';
+      if (isPublicExam) {
+        localStorage.setItem('sifo_public_exam_is_published', String(updated.is_published));
+        if (!updated.is_published) {
+          // Public Examination got unpublished -> automatically disable all plans
+          try {
+            const stored = localStorage.getItem('sifo_admin_exam_packages');
+            if (stored) {
+              const pkgs = JSON.parse(stored);
+              if (Array.isArray(pkgs)) {
+                const disabledPkgs = pkgs.map((p) => ({ ...p, isActive: false, is_active: false }));
+                localStorage.setItem('sifo_admin_exam_packages', JSON.stringify(disabledPkgs));
+                window.dispatchEvent(new Event('storage'));
+                window.dispatchEvent(new CustomEvent('sifo_exam_packages_updated', { detail: disabledPkgs }));
+                const channel = new BroadcastChannel('sifo_exam_packages_sync');
+                channel.postMessage({ type: 'PACKAGES_UPDATED', packages: disabledPkgs });
+                channel.close();
+              }
+            }
+          } catch {}
+        }
+        window.dispatchEvent(new CustomEvent('sifo_public_exam_publish_changed', { detail: { is_published: updated.is_published } }));
+      }
+
       fetchExams();
       if (onRefresh) onRefresh();
     } catch (err: any) {
@@ -83,58 +107,67 @@ export const ExamsDirectoryTab: React.FC<ExamsDirectoryTabProps> = ({
         fontFamily: "'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
       }}
     >
-      {/* Engine Invariant System Note */}
+      {/* Clean Unboxed Section Header */}
       <div
         style={{
-          padding: '14px 20px',
-          borderRadius: '16px',
-          background: 'linear-gradient(135deg, rgba(14, 165, 233, 0.1) 0%, rgba(30, 41, 59, 0.4) 100%)',
-          border: '1px solid rgba(56, 189, 248, 0.25)',
           display: 'flex',
-          alignItems: 'center',
+          alignItems: 'baseline',
           justifyContent: 'space-between',
           flexWrap: 'wrap',
-          gap: '12px',
+          gap: '8px 16px',
+          padding: '4px 2px 8px 2px',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div
-            style={{
-              width: '36px',
-              height: '36px',
-              borderRadius: '10px',
-              background: 'rgba(56, 189, 248, 0.2)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0,
-            }}
-          >
-            <ShieldCheck size={20} color="#38BDF8" />
+        <div style={{ maxWidth: '850px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <h2 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+              Examination Engine
+            </h2>
+            <span
+              style={{
+                fontSize: '0.72rem',
+                fontWeight: 600,
+                color: 'var(--text-muted)',
+                background: 'var(--bg-surface)',
+                border: '1px solid var(--border-subtle)',
+                padding: '2px 8px',
+                borderRadius: 'var(--radius-full)',
+              }}
+            >
+              System Governed
+            </span>
           </div>
-          <div>
-            <div style={{ fontSize: '0.88rem', fontWeight: 800, color: '#FFFFFF' }}>
-              Standard Driving Theory Examination Engine
-            </div>
-            <div style={{ fontSize: '0.78rem', color: 'rgba(255, 255, 255, 0.75)' }}>
-              No one creates exam questions. The engine dynamically pulls <strong>20 random questions</strong> from the central bank across official domains (1 pt each, 20-min timer, 12/20 pass score). Grades are auto-graded and uneditable.
-            </div>
-          </div>
+          <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: '4px 0 0 0', lineHeight: 1.45 }}>
+            No manual question creation required. The engine automatically draws <strong>20 randomized questions</strong> from the central bank across official police domains (20-min timer, 12/20 pass score, automated uneditable grading).
+          </p>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div style={{ alignSelf: 'flex-start' }}>
           <span
             style={{
-              padding: '4px 12px',
-              borderRadius: '9999px',
-              background: 'rgba(255, 255, 255, 0.08)',
-              border: '1px solid rgba(255, 255, 255, 0.15)',
-              color: 'rgba(255, 255, 255, 0.85)',
-              fontSize: '0.75rem',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 14px',
+              borderRadius: 'var(--radius-full)',
+              background: 'var(--bg-surface)',
+              border: '1px solid var(--border-medium, var(--border-subtle))',
+              color: 'var(--text-primary)',
+              fontSize: '0.8rem',
               fontWeight: 700,
+              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.08)',
+              letterSpacing: '0.01em',
             }}
           >
-            2 Standard System Exams
+            <span
+              style={{
+                width: '7px',
+                height: '7px',
+                borderRadius: '50%',
+                background: 'var(--primary)',
+              }}
+            />
+            <span>2 Standard Exams Available</span>
           </span>
         </div>
       </div>
@@ -156,29 +189,21 @@ export const ExamsDirectoryTab: React.FC<ExamsDirectoryTabProps> = ({
                 key={exam.id}
                 onClick={() => handleOpenAuditPage(exam)}
                 style={{
-                  padding: '24px 28px',
-                  borderRadius: '18px',
-                  background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.6) 0%, rgba(15, 23, 42, 0.85) 100%)',
-                  border: isPublished
-                    ? '1px solid rgba(56, 189, 248, 0.35)'
-                    : '1px solid rgba(255, 255, 255, 0.12)',
-                  backdropFilter: 'blur(12px)',
+                  padding: '20px 24px',
+                  borderRadius: 'var(--radius-xl)',
+                  background: 'var(--bg-surface)',
+                  border: '1px solid var(--border-subtle)',
                   display: 'flex',
                   flexDirection: 'column',
                   gap: '16px',
                   cursor: 'pointer',
-                  boxShadow: '0 6px 24px rgba(0, 0, 0, 0.25)',
-                  transition: 'all 0.2s ease',
+                  transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = 'translateY(-2px)';
-                  e.currentTarget.style.borderColor = '#38BDF8';
+                  e.currentTarget.style.borderColor = 'var(--text-muted)';
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = 'translateY(0)';
-                  e.currentTarget.style.borderColor = isPublished
-                    ? '1px solid rgba(56, 189, 248, 0.35)'
-                    : '1px solid rgba(255, 255, 255, 0.12)';
+                  e.currentTarget.style.borderColor = 'var(--border-subtle)';
                 }}
               >
                 {/* Header row: Badges, Title, Status, ONLY Publish Button */}
@@ -187,51 +212,31 @@ export const ExamsDirectoryTab: React.FC<ExamsDirectoryTabProps> = ({
                     <span
                       style={{
                         padding: '4px 12px',
-                        borderRadius: '9999px',
-                        fontSize: '0.74rem',
-                        fontWeight: 800,
+                        borderRadius: 'var(--radius-full)',
+                        fontSize: '0.75rem',
+                        fontWeight: 700,
                         letterSpacing: '0.02em',
-                        background: 'rgba(56, 189, 248, 0.18)',
-                        border: '1px solid rgba(56, 189, 248, 0.4)',
-                        color: '#38BDF8',
+                        background: 'var(--bg-surface-elevated)',
+                        border: '1px solid var(--border-subtle)',
+                        color: 'var(--text-primary)',
                       }}
                     >
-                      {isStudent ? '1. Student Official Exam' : '2. Public & Guest Practice Exam'}
+                      {isStudent ? '1. Student Official Exam' : '2. Public Examination'}
                     </span>
-
-                    {!isStudent && (
-                      <span
-                        style={{
-                          padding: '4px 10px',
-                          borderRadius: '9999px',
-                          fontSize: '0.72rem',
-                          fontWeight: 700,
-                          background: 'rgba(255, 255, 255, 0.08)',
-                          border: '1px solid rgba(255, 255, 255, 0.15)',
-                          color: 'rgba(255, 255, 255, 0.85)',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '5px',
-                        }}
-                      >
-                        <Sparkles size={12} color="#38BDF8" />
-                        <span>For Everyone • Buy via MoMo</span>
-                      </span>
-                    )}
 
                     {/* Status Badge */}
                     <div
                       style={{
                         display: 'inline-flex',
                         alignItems: 'center',
-                        gap: '5px',
+                        gap: '6px',
                         padding: '3px 10px',
-                        borderRadius: '9999px',
+                        borderRadius: 'var(--radius-full)',
                         fontSize: '0.72rem',
-                        fontWeight: 700,
-                        background: isPublished ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255, 255, 255, 0.1)',
-                        border: isPublished ? '1px solid rgba(16, 185, 129, 0.35)' : '1px solid rgba(255, 255, 255, 0.2)',
-                        color: isPublished ? '#34D399' : 'rgba(255, 255, 255, 0.75)',
+                        fontWeight: 600,
+                        background: isPublished ? 'rgba(16, 185, 129, 0.1)' : 'var(--bg-surface-elevated)',
+                        border: isPublished ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid var(--border-subtle)',
+                        color: isPublished ? '#10B981' : 'var(--text-muted)',
                       }}
                     >
                       <div
@@ -239,14 +244,14 @@ export const ExamsDirectoryTab: React.FC<ExamsDirectoryTabProps> = ({
                           width: '6px',
                           height: '6px',
                           borderRadius: '50%',
-                          background: isPublished ? '#34D399' : 'rgba(255, 255, 255, 0.5)',
+                          background: isPublished ? '#10B981' : 'var(--text-muted)',
                         }}
                       />
                       <span>{isPublished ? 'Published' : 'Draft'}</span>
                     </div>
                   </div>
 
-                  {/* ONLY 'Publish' Action Button */}
+                  {/* ONLY 'Publish' Action Button - UNTOUCHED COLORS */}
                   {canPublish && (
                     <button
                       type="button"
@@ -280,10 +285,10 @@ export const ExamsDirectoryTab: React.FC<ExamsDirectoryTabProps> = ({
 
                 {/* Main Title & Description */}
                 <div>
-                  <h3 style={{ margin: '0 0 6px', fontSize: '1.2rem', fontWeight: 800, color: '#FFFFFF' }}>
+                  <h3 style={{ margin: '0 0 6px', fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                     {exam.title}
                   </h3>
-                  <p style={{ margin: 0, fontSize: '0.84rem', color: 'rgba(255, 255, 255, 0.75)', lineHeight: 1.5 }}>
+                  <p style={{ margin: 0, fontSize: '0.84rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
                     {exam.instructions ||
                       (isStudent
                         ? 'Mandatory driving theory examination for students taking the driver training curriculum. Includes full hardware pre-flight checks, camera and microphone monitoring, identity verification, and tab-departure tracking. Exactly 1 attempt.'
@@ -298,44 +303,44 @@ export const ExamsDirectoryTab: React.FC<ExamsDirectoryTabProps> = ({
                     gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
                     gap: '10px',
                     padding: '12px 16px',
-                    borderRadius: '12px',
-                    background: 'rgba(255, 255, 255, 0.04)',
-                    border: '1px solid rgba(255, 255, 255, 0.08)',
+                    borderRadius: 'var(--radius-md)',
+                    background: 'var(--bg-surface-elevated)',
+                    border: '1px solid var(--border-subtle)',
                     fontSize: '0.78rem',
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <Clock size={14} color="#38BDF8" />
-                    <span style={{ color: 'rgba(255, 255, 255, 0.85)' }}>
-                      <strong>20-Min Timer:</strong> Auto-submits on expiry
+                    <Clock size={14} style={{ color: 'var(--text-muted)' }} />
+                    <span style={{ color: 'var(--text-secondary)' }}>
+                      <strong style={{ color: 'var(--text-primary)' }}>20-Min Timer:</strong> Auto-submits on expiry
                     </span>
                   </div>
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <Award size={14} color="#F59E0B" />
-                    <span style={{ color: 'rgba(255, 255, 255, 0.85)' }}>
-                      <strong>Score & Pass:</strong> 1 pt/Q • 12/20 to pass
+                    <Award size={14} style={{ color: '#F59E0B' }} />
+                    <span style={{ color: 'var(--text-secondary)' }}>
+                      <strong style={{ color: 'var(--text-primary)' }}>Score & Pass:</strong> 1 pt/Q • 12/20 to pass
                     </span>
                   </div>
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <ShieldCheck size={14} color="#38BDF8" />
-                    <span style={{ color: 'rgba(255, 255, 255, 0.85)' }}>
+                    <ShieldCheck size={14} style={{ color: 'var(--text-muted)' }} />
+                    <span style={{ color: 'var(--text-secondary)' }}>
                       {isStudent ? (
-                        <><strong>Proctoring:</strong> Webcam + Mic + Tab Departure</>
+                        <><strong style={{ color: 'var(--text-primary)' }}>Proctoring:</strong> Webcam + Mic + Tab Departure</>
                       ) : (
-                        <><strong>Public MoMo:</strong> Pay 1k, Bundles (4k, 7k, 15k)</>
+                        <><strong style={{ color: 'var(--text-primary)' }}>Public MoMo:</strong> Pay 1k, Bundles (4k, 7k, 15k)</>
                       )}
                     </span>
                   </div>
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <Users size={14} color="#38BDF8" />
-                    <span style={{ color: 'rgba(255, 255, 255, 0.85)' }}>
+                    <Users size={14} style={{ color: 'var(--text-muted)' }} />
+                    <span style={{ color: 'var(--text-secondary)' }}>
                       {isStudent ? (
-                        <><strong>Attempts:</strong> Exactly 1 attempt</>
+                        <><strong style={{ color: 'var(--text-primary)' }}>Attempts:</strong> Exactly 1 attempt</>
                       ) : (
-                        <><strong>Review:</strong> Instant Answers & Explanations</>
+                        <><strong style={{ color: 'var(--text-primary)' }}>Review:</strong> Instant Answers & Explanations</>
                       )}
                     </span>
                   </div>
@@ -348,19 +353,19 @@ export const ExamsDirectoryTab: React.FC<ExamsDirectoryTabProps> = ({
                     alignItems: 'center',
                     justifyContent: 'space-between',
                     paddingTop: '6px',
-                    borderTop: '1px solid rgba(255, 255, 255, 0.07)',
+                    borderTop: '1px solid var(--border-subtle)',
                     fontSize: '0.78rem',
-                    color: '#38BDF8',
-                    fontWeight: 700,
+                    color: 'var(--text-secondary)',
+                    fontWeight: 600,
                   }}
                 >
                   <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <ChevronRight size={14} />
+                    <ChevronRight size={14} style={{ color: 'var(--text-muted)' }} />
                     {isStudent
                       ? 'Click exam to open full student audit, attempts, proctoring violations & certificates'
                       : 'Click exam to open full sales audit, MoMo purchases, revenue ledger & practice attempts'}
                   </span>
-                  <ArrowRight size={14} />
+                  <ArrowRight size={14} style={{ color: 'var(--text-muted)' }} />
                 </div>
               </div>
             );

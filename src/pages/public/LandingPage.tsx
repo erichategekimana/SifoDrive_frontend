@@ -7,8 +7,7 @@ import {
   ShieldCheck,
   CheckCircle2,
   ArrowRight,
-  Sparkles,
-  Zap,
+  Wallet,
 } from 'lucide-react';
 import { Navbar } from '../../components/layout/Navbar';
 import { Footer } from '../../components/layout/Footer';
@@ -18,7 +17,14 @@ export const LandingPage: React.FC = () => {
   const { t } = useTranslation();
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        minHeight: '100vh',
+        background: 'radial-gradient(ellipse 100% 800px at 50% 0%, rgba(16, 185, 129, 0.22) 0%, rgba(14, 165, 233, 0.14) 45%, transparent 80%)',
+      }}
+    >
       <Navbar />
 
       {/* Hero Section */}
@@ -27,29 +33,10 @@ export const LandingPage: React.FC = () => {
           position: 'relative',
           padding: '80px 24px 100px 24px',
           overflow: 'hidden',
-          background: 'radial-gradient(ellipse at 50% 10%, rgba(16, 185, 129, 0.15), transparent 70%)',
+          background: 'transparent',
         }}
       >
         <div style={{ maxWidth: '1100px', margin: '0 auto', textAlign: 'center' }}>
-          {/* Badge */}
-          <div
-            className="glass-panel"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '8px 16px',
-              borderRadius: 'var(--radius-full)',
-              marginBottom: '24px',
-              border: '1px solid var(--border-medium)',
-            }}
-          >
-            <Sparkles size={16} color="var(--accent-400)" />
-            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-              {t('landing.badge')}
-            </span>
-          </div>
-
           <h1 style={{ fontSize: 'clamp(2.5rem, 5vw, 4rem)', marginBottom: '24px', fontWeight: 800 }}>
             {t('landing.heroTitle1')} <br />
             <span
@@ -76,16 +63,49 @@ export const LandingPage: React.FC = () => {
             {t('landing.heroSubtitle')}
           </p>
 
-          {/* Action Buttons */}
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', flexWrap: 'wrap' }}>
-            <Link to="/register" className="btn btn-primary btn-lg pulse-glow">
-              <span>{t('landing.startFree')}</span>
-              <ArrowRight size={20} />
-            </Link>
-            <Link to="/booking" className="btn btn-secondary btn-lg">
-              <Calendar size={20} color="var(--accent-400)" />
-              <span>{t('landing.bookIrembo')}</span>
-            </Link>
+          {/* Action Buttons & Callout */}
+          <div style={{ marginBottom: '20px', marginTop: '20px' }}>
+            <h2
+              style={{
+                fontSize: 'clamp(36px, 5vw, 56px)',
+                fontWeight: 800,
+                color: 'var(--text-primary)',
+                marginBottom: '12px',
+                letterSpacing: '-0.025em',
+                lineHeight: 1.15,
+              }}
+            >
+              {t('landing.buyExamTitle')}
+            </h2>
+            <p
+              style={{
+                fontSize: '1.15rem',
+                color: 'var(--text-secondary)',
+                maxWidth: '680px',
+                margin: '0 auto 24px auto',
+                lineHeight: 1.5,
+              }}
+            >
+              {t('landing.buyExamSubtitle')}
+            </p>
+
+            <div style={{ display: 'flex', justifyContent: 'center' }}>
+              <Link
+                to="/pricing"
+                className="btn btn-primary pulse-glow"
+                style={{
+                  padding: '18px 44px',
+                  fontSize: '1.35rem',
+                  fontWeight: 700,
+                  borderRadius: 'var(--radius-xl)',
+                  gap: '12px',
+                  boxShadow: '0 10px 25px -5px rgba(16, 185, 129, 0.45)',
+                }}
+              >
+                <span>{t('landing.buyExam')}</span>
+                <ArrowRight size={26} />
+              </Link>
+            </div>
           </div>
 
           {/* Trust badges */}
@@ -109,7 +129,7 @@ export const LandingPage: React.FC = () => {
               <span>{t('landing.lawCompliant')}</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Zap size={18} color="var(--accent-400)" />
+              <Wallet size={18} color="var(--accent-400)" />
               <span>{t('landing.momoSupported')}</span>
             </div>
           </div>

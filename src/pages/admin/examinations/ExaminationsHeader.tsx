@@ -1,11 +1,11 @@
 import React from 'react';
-import { Layers, Award, Settings } from 'lucide-react';
+import { Layers, Award, CreditCard, Settings } from 'lucide-react';
 
 interface ExaminationsHeaderProps {
   isBoardReviewer: boolean;
   isSystemAdmin: boolean;
-  activeTab: 'pipeline' | 'exams' | 'certificates' | 'settings';
-  onTabChange: (tab: 'pipeline' | 'exams' | 'certificates' | 'settings') => void;
+  activeTab: 'pipeline' | 'exams' | 'plans' | 'certificates' | 'settings';
+  onTabChange: (tab: 'pipeline' | 'exams' | 'plans' | 'certificates' | 'settings') => void;
 }
 
 export const ExaminationsHeader: React.FC<ExaminationsHeaderProps> = ({
@@ -19,24 +19,16 @@ export const ExaminationsHeader: React.FC<ExaminationsHeaderProps> = ({
       style={{
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'space-between',
+        justifyContent: 'flex-end',
         flexWrap: 'wrap',
-        gap: '14px',
+        gap: '8px',
         borderBottom: '1px solid var(--border-subtle)',
-        paddingBottom: '16px',
+        paddingBottom: '8px',
+        paddingTop: '2px',
       }}
     >
-      <div>
-        <h1 style={{ fontSize: '1.45rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0, letterSpacing: '-0.01em' }}>
-          Examinations
-        </h1>
-        <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '3px', marginBottom: 0 }}>
-          Candidate evaluation and certification pipeline.
-        </p>
-      </div>
-
       {!isBoardReviewer && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginLeft: 'auto' }}>
           <button
             onClick={() => onTabChange('pipeline')}
             className="btn btn-secondary btn-sm"
@@ -71,6 +63,25 @@ export const ExaminationsHeader: React.FC<ExaminationsHeaderProps> = ({
             <Award size={13} />
             <span>Exam</span>
           </button>
+          {isSystemAdmin && (
+            <button
+              onClick={() => onTabChange('plans')}
+              className="btn btn-secondary btn-sm"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontSize: '0.8rem',
+                padding: '6px 12px',
+                background: activeTab === 'plans' ? 'var(--bg-surface-elevated)' : 'var(--bg-surface)',
+                color: activeTab === 'plans' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                borderColor: activeTab === 'plans' ? 'var(--text-muted)' : 'var(--border-subtle)',
+              }}
+            >
+              <CreditCard size={13} />
+              <span>Plans</span>
+            </button>
+          )}
           <button
             onClick={() => onTabChange('certificates')}
             className="btn btn-secondary btn-sm"

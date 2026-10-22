@@ -213,32 +213,27 @@ export const ExamPipelineSection: React.FC<ExamPipelineSectionProps> = ({
           {
             key: 'ALL',
             label: 'Total Sessions',
-            sub: 'All submitted exams',
-            icon: <Layers size={16} style={{ color: 'var(--text-muted)' }} />,
+            icon: <Layers size={14} style={{ color: 'var(--text-muted)' }} />,
           },
           {
             key: 'BOARD_REVIEW',
             label: 'Stage 1: Board',
-            sub: 'Board reviewer queue',
-            icon: <ClipboardCheck size={16} style={{ color: 'var(--text-muted)' }} />,
+            icon: <ClipboardCheck size={14} style={{ color: 'var(--text-muted)' }} />,
           },
           {
             key: 'TRAINING_REVIEW',
             label: 'Stage 2: Training',
-            sub: 'Training admin audit',
-            icon: <ShieldCheck size={16} style={{ color: 'var(--text-muted)' }} />,
+            icon: <ShieldCheck size={14} style={{ color: 'var(--text-muted)' }} />,
           },
           {
             key: 'SYSTEM_REVIEW',
             label: 'Stage 3: System',
-            sub: 'System admin approval',
-            icon: <Award size={16} style={{ color: 'var(--text-muted)' }} />,
+            icon: <Award size={14} style={{ color: 'var(--text-muted)' }} />,
           },
           {
             key: 'PUBLISHED',
             label: 'Published',
-            sub: 'Completed & certified',
-            icon: <CheckCircle2 size={16} style={{ color: 'var(--text-muted)' }} />,
+            icon: <CheckCircle2 size={14} style={{ color: 'var(--text-muted)' }} />,
             filterFn: (s: any) => s.is_published || s.status === 'APPROVED',
           },
         ].map((stage) => {
@@ -256,23 +251,21 @@ export const ExamPipelineSection: React.FC<ExamPipelineSectionProps> = ({
               onClick={() => setStageFilter(isActive && stage.key !== 'ALL' ? 'ALL' : stage.key)}
               style={{
                 background: 'var(--bg-surface)',
-                padding: '18px 20px',
-                borderRadius: 'var(--radius-lg)',
+                padding: '10px 14px',
+                borderRadius: 'var(--radius-md)',
                 border: isActive ? '1px solid var(--text-muted)' : '1px solid var(--border-subtle)',
                 cursor: 'pointer',
+                transition: 'border-color 0.15s ease',
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                <span style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                <span style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                   {stage.label}
                 </span>
                 {stage.icon}
               </div>
-              <div style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
+              <div style={{ fontSize: '1.35rem', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '-0.02em', lineHeight: 1.2 }}>
                 {count}
-              </div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                {stage.sub}
               </div>
             </div>
           );

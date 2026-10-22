@@ -4,7 +4,6 @@ import {
   SettingsHeader,
   SettingsTabsNav,
   FinanceSettingsSection,
-  SubscriptionPlansSection,
   OperationalRulesSection,
   NotificationSettingsSection,
   AcademyConfigSection,
@@ -17,12 +16,6 @@ export const AdminSettingsPage: React.FC = () => {
     isSaving,
     pricing,
     setPricing,
-    guestTrialConfig,
-    setGuestTrialConfig,
-    bundleCount,
-    setBundleCount,
-    calculateBundlePrice,
-    plans,
     rules,
     setRules,
     notifications,
@@ -30,8 +23,6 @@ export const AdminSettingsPage: React.FC = () => {
     academy,
     setAcademy,
     handleSave,
-    handlePlanPriceChange,
-    handleTogglePlan,
     formatRwf,
   } = useAdminSettingsData();
 
@@ -54,21 +45,6 @@ export const AdminSettingsPage: React.FC = () => {
         <FinanceSettingsSection
           pricing={pricing}
           setPricing={setPricing}
-          formatRwf={formatRwf}
-        />
-      )}
-
-      {/* 2. Subscription Plans Tab */}
-      {activeTab === 'plans' && (
-        <SubscriptionPlansSection
-          plans={plans}
-          guestTrialConfig={guestTrialConfig}
-          setGuestTrialConfig={setGuestTrialConfig}
-          bundleCount={bundleCount}
-          setBundleCount={setBundleCount}
-          calculateBundlePrice={calculateBundlePrice}
-          handlePlanPriceChange={handlePlanPriceChange}
-          handleTogglePlan={handleTogglePlan}
           formatRwf={formatRwf}
         />
       )}

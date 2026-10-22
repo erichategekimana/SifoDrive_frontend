@@ -293,7 +293,10 @@ export const ApiEndpoints = {
     // Guest & Public Paid Examination
     PUBLIC_EXAM_PACKAGES: `${API_BASE_URL}/examinations/public/packages/`,
     PUBLIC_EXAM_CREDITS: `${API_BASE_URL}/examinations/public/credits/`,
+    PUBLIC_EXAM_OTP_REQUEST: `${API_BASE_URL}/examinations/public/otp/request/`,
+    PUBLIC_EXAM_OTP_VERIFY: `${API_BASE_URL}/examinations/public/otp/verify/`,
     PUBLIC_EXAM_BUY: `${API_BASE_URL}/examinations/public/buy/`,
+    PUBLIC_EXAM_PAYMENT_STATUS: (referenceId: string) => `${API_BASE_URL}/examinations/public/payment-status/${referenceId}/`,
     PUBLIC_EXAM_START: `${API_BASE_URL}/examinations/public/start/`,
 
 

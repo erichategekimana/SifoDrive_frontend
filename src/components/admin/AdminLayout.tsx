@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Outlet, Link, useNavigate } from 'react-router-dom';
-import { Compass, Sun, Moon, LogOut, Clock, Activity, Shield, GraduationCap, Globe } from 'lucide-react';
+import { Compass, Sun, Moon, LogOut, Clock, Activity, Shield, GraduationCap } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useTranslation } from '../../context/I18nContext';
@@ -100,7 +100,7 @@ export const AdminLayout: React.FC = () => {
                 </span>
               </div>
               <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Rwanda Digital Driving Academy
+                Driving Academy
               </div>
             </div>
           </Link>
@@ -155,6 +155,8 @@ export const AdminLayout: React.FC = () => {
                 border: '1px solid var(--border-subtle)',
                 borderRadius: 'var(--radius-md)',
                 padding: '6px 10px',
+                minWidth: '76px',
+                justifyContent: 'center',
                 cursor: 'pointer',
                 color: 'var(--text-primary)',
                 display: 'flex',
@@ -162,11 +164,12 @@ export const AdminLayout: React.FC = () => {
                 gap: '6px',
                 fontSize: '0.78rem',
                 fontWeight: 700,
+                flexShrink: 0,
+                whiteSpace: 'nowrap',
               }}
               title={language === 'rw' ? 'Hindura mu Cyongereza (Switch to English)' : 'Hindura mu Kinyarwanda (Switch to Kinyarwanda)'}
             >
-              <Globe size={14} color="#0284c7" />
-              <span>{language === 'rw' ? 'RW' : 'EN'}</span>
+              <span style={{ whiteSpace: 'nowrap' }}>{language === 'rw' ? '🇷🇼 RW' : '🇬🇧 ENG'}</span>
             </button>
           )}
 

@@ -50,6 +50,7 @@ import { AdminQuizBankPage } from '../pages/admin/AdminQuizBankPage';
 import { AdminQuizBuilderPage } from '../pages/admin/quiz-bank/AdminQuizBuilderPage';
 import { BroadcastStudioPage } from '../pages/admin/BroadcastStudioPage';
 import { CertificateVerificationPage } from '../pages/public/CertificateVerificationPage';
+import { PricingPage } from '../pages/public/PricingPage';
 import { CandidateExamPage } from '../pages/examinations/CandidateExamPage';
 import { ExamAuditDetailPage } from '../pages/admin/examinations/ExamAuditDetailPage';
 
@@ -60,9 +61,11 @@ export const AppRoutes: React.FC = () => {
       <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
+      <Route path="/pricing" element={<PricingPage />} />
+      <Route path="/buy-exams" element={<PricingPage />} />
+      <Route path="/practice-exams" element={<Navigate to="/pricing" replace />} />
       <Route path="/road-signs" element={<RoadSignsPage />} />
       <Route path="/verify/certificate/:hashOrCode" element={<CertificateVerificationPage />} />
-      <Route path="/practice-exams" element={<CandidateExamPage />} />
       <Route path="/examinations/session/:sessionId" element={<CandidateExamPage />} />
 
 

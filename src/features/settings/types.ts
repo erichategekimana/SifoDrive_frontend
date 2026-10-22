@@ -1,4 +1,4 @@
-export type SettingsTab = 'finance' | 'plans' | 'rules' | 'notifications' | 'academy';
+export type SettingsTab = 'finance' | 'rules' | 'notifications' | 'academy';
 
 export interface SubscriptionPlan {
   id: string;

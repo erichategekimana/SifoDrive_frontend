@@ -419,6 +419,12 @@ export interface ExamPackageItem {
   price_rwf: number;
   badge?: string;
   description: string;
+  min_exams?: number;
+  max_exams?: number;
+  default_exams?: number;
+  price_per_exam_rwf?: number;
+  is_active?: boolean;
+  isActive?: boolean;
 }
 
 export interface ExamCreditBalance {
@@ -1824,8 +1830,16 @@ export class AdminService {
   // ---------------------------------------------------------------------------
   // Guest & Public Paid Examination
   // ---------------------------------------------------------------------------
-  public async getPublicExamPackages(): Promise<ExamPackageItem[]> {
-    const res = await this.http.get<any>(ApiEndpoints.ADMIN.PUBLIC_EXAM_PACKAGES);
+  public async getPublicExamPackages(includeAll: boolean = false): Promise<ExamPackageItem[]> {
+    const query = includeAll ? '?include_all=true' : '';
+    const res = await this.http.get<any>(`${ApiEndpoints.ADMIN.PUBLIC_EXAM_PACKAGES}${query}`);
+    if (res && Array.isArray(res.data)) return res.data;
+    if (Array.isArray(res)) return res;
+    return [];
+  }
+
+  public async updateExamPackages(packages: (ExamPackageItem | any)[]): Promise<ExamPackageItem[]> {
+    const res = await this.http.post<any>(ApiEndpoints.ADMIN.PUBLIC_EXAM_PACKAGES, { packages });
     if (res && Array.isArray(res.data)) return res.data;
     if (Array.isArray(res)) return res;
     return [];
@@ -1837,12 +1851,41 @@ export class AdminService {
     return res?.data || res;
   }
 
+  public async requestPublicExamOTP(phone_number: string, full_name?: string): Promise<{
+    phone_number: string;
+    expires_in_seconds: number;
+  }> {
+    const res = await this.http.post<any>(ApiEndpoints.ADMIN.PUBLIC_EXAM_OTP_REQUEST, {
+      phone_number,
+      full_name: full_name || '',
+    });
+    return res?.data || res;
+  }
+
+  public async verifyPublicExamOTP(phone_number: string, otp_code: string): Promise<{
+    phone_number: string;
+    verified: boolean;
+  }> {
+    const res = await this.http.post<any>(ApiEndpoints.ADMIN.PUBLIC_EXAM_OTP_VERIFY, {
+      phone_number,
+      otp_code,
+    });
+    return res?.data || res;
+  }
+
   public async buyPublicExamCredits(payload: {
     package_key: string;
     paying_number: string;
     phone_number?: string;
+    full_name?: string;
+    exam_count?: number;
   }): Promise<any> {
     const res = await this.http.post<any>(ApiEndpoints.ADMIN.PUBLIC_EXAM_BUY, payload);
+    return res?.data || res;
+  }
+
+  public async getPublicExamPaymentStatus(referenceId: string): Promise<any> {
+    const res = await this.http.get<any>(ApiEndpoints.ADMIN.PUBLIC_EXAM_PAYMENT_STATUS(referenceId));
     return res?.data || res;
   }
 
