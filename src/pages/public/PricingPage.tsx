@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { Navbar } from '../../components/layout/Navbar';
 import { Footer } from '../../components/layout/Footer';
+import { PublicPageBackground } from '../../components/layout/PublicPageBackground';
 import {
   AdminService,
   type ExamPackageItem,
@@ -547,7 +548,7 @@ export const PricingPage: React.FC = () => {
 
     try {
       setIsVerifyingOtp(true);
-      await adminService.verifyPublicExamOTP(clean, otpCode.trim());
+      const otpRes = await adminService.verifyPublicExamOTP(clean, otpCode.trim());
       success(
         language === 'rw'
           ? 'Nimero yemerewe neza! Ugiye kwinjira mu cyumba cy\'ikizamini...'
@@ -555,7 +556,8 @@ export const PricingPage: React.FC = () => {
       );
       localStorage.setItem('sifo_last_candidate_phone', clean);
       setIsAccessModalOpen(false);
-      navigate(`/practice-exams?phone=${encodeURIComponent(clean)}&lang=${encodeURIComponent(language)}&theme=${encodeURIComponent(theme)}`);
+      const tokenParam = otpRes?.access_token ? `&token=${encodeURIComponent(otpRes.access_token)}` : '';
+      navigate(`/practice-exams?phone=${encodeURIComponent(clean)}${tokenParam}&lang=${encodeURIComponent(language)}&theme=${encodeURIComponent(theme)}`);
     } catch (err: any) {
       toastError(err?.message || (language === 'rw' ? 'Kode si yo cyangwa yarengeje igihe.' : 'Invalid or expired verification code.'));
     } finally {
@@ -566,18 +568,31 @@ export const PricingPage: React.FC = () => {
   return (
     <div
       style={{
+        position: 'relative',
         display: 'flex',
         flexDirection: 'column',
         minHeight: '100vh',
-        background: 'radial-gradient(ellipse 100% 800px at 50% 0%, rgba(16, 185, 129, 0.22) 0%, rgba(14, 165, 233, 0.14) 45%, transparent 80%)',
       }}
     >
+      <PublicPageBackground />
       <Navbar />
 
-      <main style={{ flex: 1, padding: '48px 24px 80px 24px' }}>
+      <main style={{ position: 'relative', flex: 1, padding: '48px 24px 80px 24px' }}>
         <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
           {/* Header Title Section */}
-          <div style={{ textAlign: 'center', marginBottom: '40px' }}>
+          <div
+            style={{
+              textAlign: 'center',
+              marginBottom: '40px',
+              padding: theme === 'light' ? '28px 24px' : '0',
+              borderRadius: '28px',
+              background: theme === 'light'
+                ? 'radial-gradient(ellipse 90% 80% at 50% 50%, rgba(255, 255, 255, 0.94) 0%, rgba(255, 255, 255, 0.75) 65%, transparent 100%)'
+                : 'transparent',
+              backdropFilter: theme === 'light' ? 'blur(8px)' : 'none',
+              WebkitBackdropFilter: theme === 'light' ? 'blur(8px)' : 'none',
+            }}
+          >
             <h1
               style={{
                 fontSize: 'clamp(2.2rem, 4.5vw, 3.4rem)',
@@ -585,18 +600,21 @@ export const PricingPage: React.FC = () => {
                 letterSpacing: '-0.02em',
                 marginBottom: '16px',
                 lineHeight: 1.15,
-                color: 'var(--text-primary)',
+                color: theme === 'light' ? '#0f172a' : 'var(--text-primary)',
+                textShadow: theme === 'light' ? '0 1px 4px #ffffff, 0 0 16px #ffffff' : '0 2px 8px rgba(0, 0, 0, 0.5)',
               }}
             >
               {t('pricing.title')}
             </h1>
             <p
               style={{
-                fontSize: '1.12rem',
-                color: 'var(--text-secondary)',
-                maxWidth: '700px',
+                fontSize: '1.18rem',
+                color: theme === 'light' ? '#0f172a' : 'var(--text-secondary)',
+                fontWeight: theme === 'light' ? 700 : 400,
+                maxWidth: '720px',
                 margin: '0 auto',
                 lineHeight: 1.6,
+                textShadow: theme === 'light' ? '0 1px 4px #ffffff, 0 0 12px #ffffff' : 'none',
               }}
             >
               {t('pricing.subtitle')}
@@ -610,12 +628,14 @@ export const PricingPage: React.FC = () => {
               borderRadius: '20px',
               padding: '24px 32px',
               marginBottom: '48px',
-              border: '1px solid var(--border-medium)',
-              background: 'var(--bg-surface-card)',
+              border: theme === 'light' ? '1px solid #e2e8f0' : '1px solid var(--border-medium)',
+              background: theme === 'light' ? '#ffffff' : 'var(--bg-surface-card)',
               display: 'flex',
               flexDirection: 'column',
               gap: '20px',
-              boxShadow: 'var(--shadow-md)',
+              boxShadow: theme === 'light' ? '0 10px 25px -5px rgba(0, 0, 0, 0.06), 0 8px 10px -6px rgba(0, 0, 0, 0.04)' : 'var(--shadow-md)',
+              backdropFilter: 'blur(16px)',
+              WebkitBackdropFilter: 'blur(16px)',
             }}
           >
             <div
@@ -645,10 +665,10 @@ export const PricingPage: React.FC = () => {
                   <Wallet size={26} />
                 </div>
                 <div>
-                  <div style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                  <div style={{ fontSize: '1.15rem', fontWeight: 800, color: theme === 'light' ? '#0f172a' : 'var(--text-primary)' }}>
                     {t('pricing.alreadyHaveCredits')}
                   </div>
-                  <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                  <div style={{ fontSize: '0.86rem', color: theme === 'light' ? '#334155' : 'var(--text-secondary)', marginTop: '2px', fontWeight: 600 }}>
                     {t('pricing.checkCreditsSubtitle')}
                   </div>
                 </div>
@@ -678,11 +698,11 @@ export const PricingPage: React.FC = () => {
                       }}
                       placeholder="e.g. 0788123456"
                       style={{
-                        background: 'var(--bg-surface-elevated)',
-                        border: `1px solid ${phoneError ? '#ef4444' : 'var(--border-medium)'}`,
+                        background: theme === 'light' ? '#f8fafc' : 'var(--bg-surface-elevated)',
+                        border: `1px solid ${phoneError ? '#ef4444' : (theme === 'light' ? '#cbd5e1' : 'var(--border-medium)')}`,
                         borderRadius: '12px',
                         padding: '10px 14px 10px 38px',
-                        color: 'var(--text-primary)',
+                        color: theme === 'light' ? '#0f172a' : 'var(--text-primary)',
                         fontSize: '0.9rem',
                         width: '100%',
                         outline: 'none',
@@ -816,11 +836,22 @@ export const PricingPage: React.FC = () => {
 
                   if (visible.length === 0) {
                     return (
-                      <div style={{ textAlign: 'center', gridColumn: '1 / -1', padding: '64px 20px', color: 'var(--text-secondary)' }}>
-                        <p style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '8px' }}>
+                      <div
+                        style={{
+                          textAlign: 'center',
+                          gridColumn: '1 / -1',
+                          padding: '64px 20px',
+                          color: theme === 'light' ? '#1e293b' : 'var(--text-secondary)',
+                          background: theme === 'light' ? '#ffffff' : 'var(--bg-surface-card)',
+                          borderRadius: '24px',
+                          border: theme === 'light' ? '1px solid #e2e8f0' : '1px solid var(--border-medium)',
+                          boxShadow: theme === 'light' ? '0 10px 25px -5px rgba(0,0,0,0.06)' : 'none',
+                        }}
+                      >
+                        <p style={{ fontSize: '1.1rem', fontWeight: 800, color: theme === 'light' ? '#0f172a' : 'var(--text-primary)', marginBottom: '8px' }}>
                           {language === 'rw' ? 'Nta mapaki y\'ibizamini aboneka ubu.' : 'No practice exam packages are currently available.'}
                         </p>
-                        <p style={{ fontSize: '0.88rem' }}>
+                        <p style={{ fontSize: '0.88rem', fontWeight: 600 }}>
                           {language === 'rw'
                             ? 'Nyamuneka ongera ugerageze mukanya cyangwa ubaze abashinzwe ubuyobozi.'
                             : 'Please check back shortly or contact administration.'}
@@ -836,6 +867,30 @@ export const PricingPage: React.FC = () => {
                         ? 1
                         : Math.max(config.min, Math.min(config.max, rawCount));
                       const totalPrice = config.isEnterprise ? config.rate : currentCount * config.rate;
+                      const badgeKey = (config.badge || '').toUpperCase();
+                      const badgeStyle = config.isEnterprise
+                        ? {
+                            bg: theme === 'light' ? '#fef3c7' : 'rgba(245, 158, 11, 0.25)',
+                            border: '1px solid #f59e0b',
+                            color: theme === 'light' ? '#92400e' : '#fbbf24',
+                          }
+                        : badgeKey === 'BASIC'
+                        ? {
+                            bg: theme === 'light' ? '#e0f2fe' : 'var(--bg-surface-elevated)',
+                            border: theme === 'light' ? '1px solid #7dd3fc' : '1px solid var(--border-medium)',
+                            color: theme === 'light' ? '#0369a1' : 'var(--text-primary)',
+                          }
+                        : badgeKey === 'REGULAR'
+                        ? {
+                            bg: theme === 'light' ? '#e0e7ff' : 'var(--bg-surface-elevated)',
+                            border: theme === 'light' ? '1px solid #a5b4fc' : '1px solid var(--border-medium)',
+                            color: theme === 'light' ? '#3730a3' : 'var(--text-primary)',
+                          }
+                        : {
+                            bg: theme === 'light' ? '#fae8ff' : 'var(--bg-surface-elevated)',
+                            border: theme === 'light' ? '1px solid #f0abfc' : '1px solid var(--border-medium)',
+                            color: theme === 'light' ? '#86198f' : 'var(--text-primary)',
+                          };
 
                       return (
                         <div
@@ -847,8 +902,17 @@ export const PricingPage: React.FC = () => {
                             display: 'flex',
                             flexDirection: 'column',
                             position: 'relative',
-                            border: config.isEnterprise ? '1px solid rgba(245, 158, 11, 0.4)' : '1px solid var(--border-medium)',
-                            background: config.isEnterprise ? 'rgba(245, 158, 11, 0.04)' : 'rgba(255, 255, 255, 0.03)',
+                            border: config.isEnterprise
+                              ? '1px solid #f59e0b'
+                              : (theme === 'light' ? '1px solid #e2e8f0' : '1px solid var(--border-medium)'),
+                            background: config.isEnterprise
+                              ? (theme === 'light' ? '#fffbeb' : 'rgba(245, 158, 11, 0.08)')
+                              : (theme === 'light' ? '#ffffff' : 'rgba(17, 24, 39, 0.82)'),
+                            boxShadow: theme === 'light'
+                              ? '0 10px 25px -5px rgba(0, 0, 0, 0.06), 0 8px 10px -6px rgba(0, 0, 0, 0.04)'
+                              : '0 12px 32px -4px rgba(0, 0, 0, 0.5)',
+                            backdropFilter: 'blur(16px)',
+                            WebkitBackdropFilter: 'blur(16px)',
                             transition: 'transform 0.2s ease, box-shadow 0.2s ease',
                           }}
                         >
@@ -859,16 +923,16 @@ export const PricingPage: React.FC = () => {
                               top: '-12px',
                               left: '50%',
                               transform: 'translateX(-50%)',
-                              background: config.isEnterprise ? 'rgba(245, 158, 11, 0.2)' : 'var(--bg-surface-elevated)',
-                              border: config.isEnterprise ? '1px solid rgba(245, 158, 11, 0.5)' : '1px solid var(--border-medium)',
-                              color: config.isEnterprise ? '#fbbf24' : 'var(--text-primary)',
+                              background: badgeStyle.bg,
+                              border: badgeStyle.border,
+                              color: badgeStyle.color,
                               padding: '4px 14px',
                               borderRadius: 'var(--radius-full)',
                               fontSize: '0.75rem',
                               fontWeight: 800,
                               textTransform: 'uppercase',
                               letterSpacing: '0.04em',
-                              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                              boxShadow: theme === 'light' ? '0 2px 8px rgba(0, 0, 0, 0.06)' : '0 4px 12px rgba(0, 0, 0, 0.2)',
                             }}
                           >
                             {config.badge}
@@ -878,9 +942,9 @@ export const PricingPage: React.FC = () => {
                           <div style={{ marginBottom: '8px', textAlign: 'center' }}>
                             <h3
                               style={{
-                                fontSize: '1.4rem',
+                                fontSize: '1.45rem',
                                 fontWeight: 800,
-                                color: 'var(--text-primary)',
+                                color: theme === 'light' ? '#0f172a' : 'var(--text-primary)',
                                 margin: 0,
                               }}
                             >
@@ -889,10 +953,10 @@ export const PricingPage: React.FC = () => {
                             {!config.isEnterprise && (
                               <div
                                 style={{
-                                  fontSize: '0.76rem',
-                                  color: 'var(--text-secondary)',
+                                  fontSize: '0.82rem',
+                                  color: theme === 'light' ? '#334155' : 'var(--text-secondary)',
                                   marginTop: '4px',
-                                  fontWeight: 600,
+                                  fontWeight: 700,
                                 }}
                               >
                                 {config.min}–{config.max} Exams Range
@@ -907,17 +971,17 @@ export const PricingPage: React.FC = () => {
                                 style={{
                                   fontSize: '2.4rem',
                                   fontWeight: 800,
-                                  color: 'var(--text-primary)',
+                                  color: theme === 'light' ? '#0f172a' : 'var(--text-primary)',
                                   letterSpacing: '-0.02em',
                                 }}
                               >
                                 {totalPrice.toLocaleString()}
                               </span>
-                              <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-muted)' }}>
+                              <span style={{ fontSize: '0.95rem', fontWeight: 800, color: theme === 'light' ? '#0284c7' : 'var(--text-muted)' }}>
                                 RWF
                               </span>
                             </div>
-                            <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', fontWeight: 600, marginTop: '4px' }}>
+                            <div style={{ fontSize: '0.84rem', color: theme === 'light' ? '#1e293b' : 'var(--text-secondary)', fontWeight: 700, marginTop: '4px' }}>
                               {config.isEnterprise ? 'Monthly Institutional Pass' : `${config.rate.toLocaleString()} RWF / Exam`}
                             </div>
                           </div>
@@ -927,39 +991,39 @@ export const PricingPage: React.FC = () => {
                             <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '12px' }}>
                               {config.isEnterprise ? (
                                 <>
-                                  <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.88rem', color: 'var(--text-secondary)' }}>
-                                    <CheckCircle2 size={16} color="var(--primary)" style={{ flexShrink: 0 }} />
+                                  <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.88rem', color: theme === 'light' ? '#0f172a' : 'var(--text-secondary)', fontWeight: theme === 'light' ? 600 : 400 }}>
+                                    <CheckCircle2 size={16} color={theme === 'light' ? '#059669' : 'var(--primary)'} style={{ flexShrink: 0 }} />
                                     <span>Unlimited practice exam attempts</span>
                                   </li>
-                                  <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.88rem', color: 'var(--text-secondary)' }}>
-                                    <CheckCircle2 size={16} color="var(--primary)" style={{ flexShrink: 0 }} />
+                                  <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.88rem', color: theme === 'light' ? '#0f172a' : 'var(--text-secondary)', fontWeight: theme === 'light' ? 600 : 400 }}>
+                                    <CheckCircle2 size={16} color={theme === 'light' ? '#059669' : 'var(--primary)'} style={{ flexShrink: 0 }} />
                                     <span>Driving schools &amp; academy cohorts</span>
                                   </li>
-                                  <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.88rem', color: 'var(--text-secondary)' }}>
-                                    <CheckCircle2 size={16} color="var(--primary)" style={{ flexShrink: 0 }} />
+                                  <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.88rem', color: theme === 'light' ? '#0f172a' : 'var(--text-secondary)', fontWeight: theme === 'light' ? 600 : 400 }}>
+                                    <CheckCircle2 size={16} color={theme === 'light' ? '#059669' : 'var(--primary)'} style={{ flexShrink: 0 }} />
                                     <span>Student certification tracking</span>
                                   </li>
-                                  <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.88rem', color: 'var(--text-secondary)' }}>
-                                    <CheckCircle2 size={16} color="var(--primary)" style={{ flexShrink: 0 }} />
+                                  <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.88rem', color: theme === 'light' ? '#0f172a' : 'var(--text-secondary)', fontWeight: theme === 'light' ? 600 : 400 }}>
+                                    <CheckCircle2 size={16} color={theme === 'light' ? '#059669' : 'var(--primary)'} style={{ flexShrink: 0 }} />
                                     <span>Dedicated institutional support</span>
                                   </li>
                                 </>
                               ) : (
                                 <>
-                                  <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.88rem', color: 'var(--text-secondary)' }}>
-                                    <CheckCircle2 size={16} color="var(--primary)" style={{ flexShrink: 0 }} />
+                                  <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.88rem', color: theme === 'light' ? '#0f172a' : 'var(--text-secondary)', fontWeight: theme === 'light' ? 600 : 400 }}>
+                                    <CheckCircle2 size={16} color={theme === 'light' ? '#059669' : 'var(--primary)'} style={{ flexShrink: 0 }} />
                                     <span>20 Questions timed (20 mins)</span>
                                   </li>
-                                  <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.88rem', color: 'var(--text-secondary)' }}>
-                                    <CheckCircle2 size={16} color="var(--primary)" style={{ flexShrink: 0 }} />
+                                  <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.88rem', color: theme === 'light' ? '#0f172a' : 'var(--text-secondary)', fontWeight: theme === 'light' ? 600 : 400 }}>
+                                    <CheckCircle2 size={16} color={theme === 'light' ? '#059669' : 'var(--primary)'} style={{ flexShrink: 0 }} />
                                     <span>Instant score &amp; legal rationale</span>
                                   </li>
-                                  <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.88rem', color: 'var(--text-secondary)' }}>
-                                    <CheckCircle2 size={16} color="var(--primary)" style={{ flexShrink: 0 }} />
+                                  <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.88rem', color: theme === 'light' ? '#0f172a' : 'var(--text-secondary)', fontWeight: theme === 'light' ? 600 : 400 }}>
+                                    <CheckCircle2 size={16} color={theme === 'light' ? '#059669' : 'var(--primary)'} style={{ flexShrink: 0 }} />
                                     <span>Kinyarwanda, English &amp; French</span>
                                   </li>
-                                  <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.88rem', color: 'var(--text-secondary)' }}>
-                                    <CheckCircle2 size={16} color="var(--primary)" style={{ flexShrink: 0 }} />
+                                  <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.88rem', color: theme === 'light' ? '#0f172a' : 'var(--text-secondary)', fontWeight: theme === 'light' ? 600 : 400 }}>
+                                    <CheckCircle2 size={16} color={theme === 'light' ? '#059669' : 'var(--primary)'} style={{ flexShrink: 0 }} />
                                     <span>{guestConfig.creditsNeverExpire !== false ? 'Credits never expire' : 'Credits valid for 30 days'}</span>
                                   </li>
                                 </>
@@ -975,13 +1039,13 @@ export const PricingPage: React.FC = () => {
                                   display: 'inline-flex',
                                   alignItems: 'center',
                                   gap: '8px',
-                                  background: 'rgba(245, 158, 11, 0.12)',
-                                  border: '1px solid rgba(245, 158, 11, 0.3)',
+                                  background: theme === 'light' ? '#fef3c7' : 'rgba(245, 158, 11, 0.12)',
+                                  border: theme === 'light' ? '1px solid #f59e0b' : '1px solid rgba(245, 158, 11, 0.3)',
                                   borderRadius: '999px',
                                   padding: '6px 16px',
                                   fontSize: '0.82rem',
                                   fontWeight: 800,
-                                  color: '#fbbf24',
+                                  color: theme === 'light' ? '#b45309' : '#fbbf24',
                                   letterSpacing: '0.02em',
                                   userSelect: 'none',
                                 }}
@@ -994,8 +1058,8 @@ export const PricingPage: React.FC = () => {
                                   display: 'inline-flex',
                                   alignItems: 'center',
                                   gap: '8px',
-                                  background: 'rgba(255, 255, 255, 0.05)',
-                                  border: '1px solid var(--border-medium)',
+                                  background: theme === 'light' ? '#f1f5f9' : 'rgba(255, 255, 255, 0.05)',
+                                  border: theme === 'light' ? '1px solid #cbd5e1' : '1px solid var(--border-medium)',
                                   borderRadius: '999px',
                                   padding: '4px 8px',
                                 }}
@@ -1009,9 +1073,13 @@ export const PricingPage: React.FC = () => {
                                     width: '26px',
                                     height: '26px',
                                     borderRadius: '50%',
-                                    border: '1px solid var(--border-medium)',
-                                    background: currentCount <= config.min ? 'transparent' : 'rgba(255, 255, 255, 0.08)',
-                                    color: currentCount <= config.min ? 'var(--text-muted)' : 'var(--text-primary)',
+                                    border: theme === 'light' ? '1px solid #cbd5e1' : '1px solid var(--border-medium)',
+                                    background: currentCount <= config.min
+                                      ? 'transparent'
+                                      : (theme === 'light' ? '#ffffff' : 'rgba(255, 255, 255, 0.08)'),
+                                    color: currentCount <= config.min
+                                      ? (theme === 'light' ? '#94a3b8' : 'var(--text-muted)')
+                                      : (theme === 'light' ? '#0f172a' : 'var(--text-primary)'),
                                     cursor: currentCount <= config.min ? 'not-allowed' : 'pointer',
                                     display: 'flex',
                                     alignItems: 'center',
@@ -1027,7 +1095,7 @@ export const PricingPage: React.FC = () => {
                                   style={{
                                     fontSize: '0.88rem',
                                     fontWeight: 800,
-                                    color: 'var(--text-primary)',
+                                    color: theme === 'light' ? '#0f172a' : 'var(--text-primary)',
                                     minWidth: '58px',
                                     textAlign: 'center',
                                     userSelect: 'none',
@@ -1045,9 +1113,13 @@ export const PricingPage: React.FC = () => {
                                     width: '26px',
                                     height: '26px',
                                     borderRadius: '50%',
-                                    border: '1px solid var(--border-medium)',
-                                    background: currentCount >= config.max ? 'transparent' : 'rgba(255, 255, 255, 0.08)',
-                                    color: currentCount >= config.max ? 'var(--text-muted)' : 'var(--text-primary)',
+                                    border: theme === 'light' ? '1px solid #cbd5e1' : '1px solid var(--border-medium)',
+                                    background: currentCount >= config.max
+                                      ? 'transparent'
+                                      : (theme === 'light' ? '#ffffff' : 'rgba(255, 255, 255, 0.08)'),
+                                    color: currentCount >= config.max
+                                      ? (theme === 'light' ? '#94a3b8' : 'var(--text-muted)')
+                                      : (theme === 'light' ? '#0f172a' : 'var(--text-primary)'),
                                     cursor: currentCount >= config.max ? 'not-allowed' : 'pointer',
                                     display: 'flex',
                                     alignItems: 'center',

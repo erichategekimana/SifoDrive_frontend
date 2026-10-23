@@ -44,6 +44,24 @@ export class HttpClient {
       }
     }
 
+    // Attach Candidate Access Token for Ready Room / Credits / History
+    try {
+      const candidateToken = sessionStorage.getItem('sifo_candidate_access_token');
+      if (candidateToken && !headers.has('X-Candidate-Token')) {
+        headers.set('X-Candidate-Token', candidateToken);
+      }
+    } catch {}
+
+    // Attach Examination Session Token for Active Runner / Results / Proctoring
+    try {
+      const examToken =
+        sessionStorage.getItem('sifo_active_exam_token') ||
+        sessionStorage.getItem('sifo_exam_session_token');
+      if (examToken && !headers.has('X-Exam-Token')) {
+        headers.set('X-Exam-Token', examToken);
+      }
+    } catch {}
+
     try {
       logger.debug(`[${options.method || 'GET'}] ${url}`);
       const response = await fetch(url, {
@@ -71,10 +89,13 @@ export class HttpClient {
           if (tokens?.access === 'demo-access-token') {
             throw new AuthError('Demo session active');
           }
-          this.storage.removeItem('sifo_tokens');
-          this.storage.removeItem('sifo_user');
-          window.dispatchEvent(new CustomEvent('sifo:auth-expired'));
-          throw new AuthError('Session expired. Please log in again.');
+          if (tokens?.refresh) {
+            this.storage.removeItem('sifo_tokens');
+            this.storage.removeItem('sifo_user');
+            window.dispatchEvent(new CustomEvent('sifo:auth-expired'));
+            throw new AuthError('Session expired. Please log in again.');
+          }
+          throw new AuthError('Authentication required.', 'authentication_failed', 401);
         }
       }
 

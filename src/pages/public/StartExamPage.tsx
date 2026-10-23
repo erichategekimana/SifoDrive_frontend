@@ -7,6 +7,7 @@ import {
   ChevronUp,
   ArrowLeft,
   ExternalLink,
+  RefreshCw,
 } from 'lucide-react';
 import {
   AdminService,
@@ -39,23 +40,56 @@ export const StartExamPage: React.FC = () => {
   const { success, error: toastError } = useToast();
   const adminService = AdminService.getInstance();
 
-  // Inherit language and theme from URL query params (passed from Pricing Page)
+  // Inherit language and theme from URL query params on initial mount
   useEffect(() => {
     const urlLang = searchParams.get('lang');
-    if (urlLang && ['rw', 'en', 'fr'].includes(urlLang) && urlLang !== language) {
+    if (urlLang && ['rw', 'en', 'fr'].includes(urlLang)) {
       setLanguage(urlLang as any);
     }
     const urlTheme = searchParams.get('theme');
-    if (urlTheme && ['light', 'dark'].includes(urlTheme) && urlTheme !== theme) {
+    if (urlTheme && ['light', 'dark'].includes(urlTheme)) {
       setTheme(urlTheme as any);
     }
-  }, [searchParams, language, theme, setLanguage, setTheme]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  // Read phone from search params, user context, or localStorage
+  const handleLanguageChange = (newLang: 'rw' | 'en') => {
+    setLanguage(newLang);
+    try {
+      const newParams = new URLSearchParams(window.location.search);
+      newParams.set('lang', newLang);
+      const cleanUrl = `${window.location.pathname}?${newParams.toString()}${window.location.hash}`;
+      window.history.replaceState({}, '', cleanUrl);
+    } catch {}
+  };
+
+  // Capture candidate token from URL search params synchronously on initialization
+  const urlToken = searchParams.get('token');
+  if (urlToken) {
+    try {
+      sessionStorage.setItem('sifo_candidate_access_token', urlToken);
+    } catch {}
+  }
+
+  // Clean token from URL query string if present
+  useEffect(() => {
+    try {
+      const token = searchParams.get('token');
+      if (token) {
+        sessionStorage.setItem('sifo_candidate_access_token', token);
+        const newParams = new URLSearchParams(window.location.search);
+        newParams.delete('token');
+        const cleanSearch = newParams.toString();
+        const cleanUrl = window.location.pathname + (cleanSearch ? `?${cleanSearch}` : '') + window.location.hash;
+        window.history.replaceState({}, '', cleanUrl);
+      }
+    } catch {}
+  }, [searchParams]);
+
+  // Read phone from search params or authenticated user context
   const initialPhone =
     searchParams.get('phone') ||
     user?.phoneNumber ||
-    localStorage.getItem('sifo_last_candidate_phone') ||
     '';
 
   const [activePhone] = useState<string>(initialPhone);
@@ -65,6 +99,11 @@ export const StartExamPage: React.FC = () => {
   const [isStarting, setIsStarting] = useState<boolean>(false);
   const [showHistory, setShowHistory] = useState<boolean>(false);
   const historySectionRef = useRef<HTMLDivElement>(null);
+
+  const isCandidateAuthorized = Boolean(
+    (user && (user.phoneNumber === activePhone || ['ADMIN', 'SUPER_ADMIN', 'STAFF'].includes(user.role || ''))) ||
+    balance?.is_authorized
+  );
 
   const handleGoToPricing = () => {
     const targetPhone = activePhone.trim() || user?.phoneNumber || '';
@@ -93,38 +132,58 @@ export const StartExamPage: React.FC = () => {
       setBalance(null);
       setHistoryList([]);
       setLoading(false);
+      navigate(`/pricing?lang=${encodeURIComponent(language)}&theme=${encodeURIComponent(theme)}`, { replace: true });
       return;
     }
 
     try {
       setLoading(true);
-      localStorage.setItem('sifo_last_candidate_phone', clean);
 
       const [creditsRes, historyRes] = await Promise.allSettled([
-        adminService.getPublicExamCredits(clean),
+        adminService.getPublicExamCredits(clean, urlToken || undefined),
         adminService.getPublicExamHistory(clean),
       ]);
 
+      let isAuth = false;
       if (creditsRes.status === 'fulfilled') {
-        setBalance(creditsRes.value);
+        const credData = creditsRes.value;
+        setBalance(credData);
+        isAuth = Boolean(
+          (user && (user.phoneNumber === clean || ['ADMIN', 'SUPER_ADMIN', 'STAFF'].includes(user.role || ''))) ||
+          credData?.is_authorized
+        );
       }
+
+      if (!isAuth) {
+        toastError(
+          language === 'rw'
+            ? 'Uyu murongo ntiwemerewe. Nyamuneka banza winjirire ku rupapuro rw\'ibiciro.'
+            : 'Unauthorized access link. Redirecting to pricing...'
+        );
+        navigate(`/pricing?lang=${encodeURIComponent(language)}&theme=${encodeURIComponent(theme)}`, { replace: true });
+        return;
+      }
+
+      localStorage.setItem('sifo_last_candidate_phone', clean);
       if (historyRes.status === 'fulfilled') {
         setHistoryList(Array.isArray(historyRes.value) ? historyRes.value : []);
       }
     } catch (err: any) {
       console.warn('Could not load candidate exam data:', err);
+      navigate(`/pricing?lang=${encodeURIComponent(language)}&theme=${encodeURIComponent(theme)}`, { replace: true });
     } finally {
       setLoading(false);
     }
-  }, [adminService]);
+  }, [adminService, language, theme, navigate, user, urlToken, toastError]);
 
   useEffect(() => {
     if (activePhone) {
       loadCandidateData(activePhone);
     } else {
       setLoading(false);
+      navigate(`/pricing?lang=${encodeURIComponent(language)}&theme=${encodeURIComponent(theme)}`, { replace: true });
     }
-  }, [activePhone, loadCandidateData]);
+  }, [activePhone, loadCandidateData, language, theme, navigate]);
 
   // Auto-refresh candidate data whenever user switches back to this tab (e.g. after finishing exam in the other tab)
   useEffect(() => {
@@ -166,8 +225,17 @@ export const StartExamPage: React.FC = () => {
           : 'Exam session initialized! Launched in a new tab...'
       );
 
-      // Launch exam on new tab in Kinyarwanda by default
-      const examUrl = `/examinations/session/${session.id}?lang=rw&theme=${encodeURIComponent(theme)}&phone=${encodeURIComponent(targetPhone)}`;
+      if (session?.session_token) {
+        try {
+          sessionStorage.setItem('sifo_active_exam_token', session.session_token);
+          sessionStorage.setItem('sifo_exam_session_token', session.session_token);
+          sessionStorage.setItem(`sifo_exam_token_${session.id}`, session.session_token);
+        } catch {}
+      }
+
+      // Launch exam on new tab with candidate language and session authorization token
+      const sessionTokenParam = session.session_token ? `&token=${encodeURIComponent(session.session_token)}` : '';
+      const examUrl = `/examinations/session/${session.id}?lang=${encodeURIComponent(language)}&theme=${encodeURIComponent(theme)}&phone=${encodeURIComponent(targetPhone)}${sessionTokenParam}`;
       window.open(examUrl, '_blank', 'noopener,noreferrer');
     } catch (err: any) {
       const msg = err?.response?.data?.message || err?.message || (language === 'rw' ? 'Gufungura ikizamini byanze.' : 'Could not start exam session.');
@@ -232,9 +300,32 @@ export const StartExamPage: React.FC = () => {
     snapshotBorder: isLight ? 'rgba(255, 255, 255, 0.18)' : 'rgba(255, 255, 255, 0.1)',
   };
 
+  // Guard unauthorized visitors or loading state: Never render candidate info or ready room if not authorized
+  if (loading || !isCandidateAuthorized) {
+    return (
+      <div
+        style={{
+          minHeight: '100vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: isLight ? '#f8fafc' : '#030712',
+        }}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+          <RefreshCw size={36} className="animate-spin" color={c.brandColor} />
+          <p style={{ color: c.textSecondary, fontSize: '0.95rem' }}>
+            {language === 'rw' ? 'Kugenzura uburenganzira bwo kwinjira...' : 'Verifying authorized access...'}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       style={{
+        position: 'relative',
         display: 'flex',
         flexDirection: 'column',
         minHeight: '100vh',
@@ -258,6 +349,8 @@ export const StartExamPage: React.FC = () => {
       {/* Minimal Top Header with Language Dropdown & Exit Button */}
       <header
         style={{
+          position: 'relative',
+          zIndex: 10,
           borderBottom: `1px solid ${c.borderHeader}`,
           backgroundColor: c.bgHeader,
           padding: '16px 24px',
@@ -289,7 +382,7 @@ export const StartExamPage: React.FC = () => {
             {/* Language Selector Dropdown */}
             <select
               value={language}
-              onChange={(e) => setLanguage(e.target.value as any)}
+              onChange={(e) => handleLanguageChange(e.target.value as any)}
               style={{
                 backgroundColor: c.bgBadge,
                 color: c.textPrimary,
@@ -330,7 +423,7 @@ export const StartExamPage: React.FC = () => {
       </header>
 
       {/* Main Examination Center: Split into 2 distinct parts */}
-      <main style={{ flex: 1, padding: '36px 0 60px 0' }}>
+      <main style={{ position: 'relative', zIndex: 1, flex: 1, padding: '36px 0 60px 0' }}>
         <div
           className="start-exam-layout-grid"
           style={{
@@ -384,75 +477,117 @@ export const StartExamPage: React.FC = () => {
 
             {/* Primary Action Card: Remaining Attempts & Start Exam */}
             <div
-              style={{
-                backgroundColor: c.bgCard,
-                border: `1px solid ${c.borderCard}`,
-                borderRadius: '16px',
-                padding: '32px 28px',
-                marginBottom: '20px',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'flex-start',
-                textAlign: 'left',
-                gap: '18px',
-                boxShadow: c.shadowCard,
-              }}
-            >
-              {/* Number of Remaining Attempts Badge */}
-              <div
                 style={{
-                  display: 'inline-block',
-                  padding: '8px 18px',
-                  borderRadius: '8px',
-                  backgroundColor: c.bgBadge,
-                  border: `1px solid ${c.borderBadge}`,
-                  color: c.textPrimary,
-                  fontSize: '1.15rem',
-                  fontWeight: 800,
-                  letterSpacing: '0.01em',
+                  backgroundColor: c.bgCard,
+                  border: `1px solid ${c.borderCard}`,
+                  borderRadius: '16px',
+                  padding: '32px 28px',
+                  marginBottom: '20px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'flex-start',
+                  textAlign: 'left',
+                  gap: '18px',
+                  boxShadow: c.shadowCard,
                 }}
               >
-                {loading
-                  ? t('examLifecycle.readyRoom.checkingAttempts')
-                  : (remainingCredits === 1
-                    ? (language === 'rw' ? 'Ikizamini 1 Gisigaye' : '1 Attempt Remaining')
-                    : (language === 'rw' ? `Ibizamini ${remainingCredits} Bisigaye` : `${remainingCredits} Attempts Remaining`))}
-              </div>
+                {/* Number of Remaining Attempts Badge */}
+                <div
+                  style={{
+                    display: 'inline-block',
+                    padding: '8px 18px',
+                    borderRadius: '8px',
+                    backgroundColor: c.bgBadge,
+                    border: `1px solid ${c.borderBadge}`,
+                    color: c.textPrimary,
+                    fontSize: '1.15rem',
+                    fontWeight: 800,
+                    letterSpacing: '0.01em',
+                  }}
+                >
+                  {loading
+                    ? t('examLifecycle.readyRoom.checkingAttempts')
+                    : (remainingCredits === 1
+                      ? (language === 'rw' ? 'Ikizamini 1 Gisigaye' : '1 Attempt Remaining')
+                      : (language === 'rw' ? `Ibizamini ${remainingCredits} Bisigaye` : `${remainingCredits} Attempts Remaining`))}
+                </div>
 
-              <div>
-                <p style={{ fontSize: '0.96rem', color: c.textSecondary, margin: 0, lineHeight: 1.6 }}>
-                  {remainingCredits > 0
-                    ? t('examLifecycle.readyRoom.activeInstructions')
-                    : t('examLifecycle.readyRoom.zeroCreditsInstructions')}
-                </p>
-              </div>
+                <div>
+                  <p style={{ fontSize: '0.96rem', color: c.textSecondary, margin: 0, lineHeight: 1.6 }}>
+                    {remainingCredits > 0
+                      ? t('examLifecycle.readyRoom.activeInstructions')
+                      : t('examLifecycle.readyRoom.zeroCreditsInstructions')}
+                  </p>
+                </div>
 
-              {/* ACTION BUTTONS */}
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
-                {remainingCredits > 0 ? (
+                {/* ACTION BUTTONS */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
+                  {remainingCredits > 0 ? (
+                    <button
+                      type="button"
+                      onClick={handleStartExam}
+                      disabled={isStarting}
+                      style={{
+                        backgroundColor: '#059669',
+                        color: '#ffffff',
+                        border: 'none',
+                        borderRadius: '10px',
+                        padding: '15px 36px',
+                        fontSize: '1.15rem',
+                        fontWeight: 800,
+                        cursor: isStarting ? 'not-allowed' : 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                        boxShadow: '0 4px 14px rgba(5, 150, 105, 0.35)',
+                      }}
+                    >
+                      <Play size={20} fill="#ffffff" />
+                      <span>{isStarting ? t('examLifecycle.readyRoom.launchingBtn') : t('examLifecycle.readyRoom.startExamBtn')}</span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleGoToPricing}
+                      style={{
+                        backgroundColor: c.bgBtnSecondary,
+                        color: c.textBtnSecondary,
+                        border: `1px solid ${c.borderBtnSecondary}`,
+                        borderRadius: '10px',
+                        padding: '15px 30px',
+                        fontSize: '1.05rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {t('examLifecycle.readyRoom.buyExamCreditsBtn')}
+                    </button>
+                  )}
+
+                  {/* History Button */}
                   <button
                     type="button"
-                    onClick={handleStartExam}
-                    disabled={isStarting}
+                    onClick={handleToggleHistory}
                     style={{
-                      backgroundColor: '#059669',
-                      color: '#ffffff',
-                      border: 'none',
+                      backgroundColor: showHistory ? (isLight ? '#e5e7eb' : '#374151') : c.bgBtnSecondary,
+                      color: c.textBtnSecondary,
+                      border: `1px solid ${c.borderBtnSecondary}`,
                       borderRadius: '10px',
-                      padding: '15px 36px',
-                      fontSize: '1.15rem',
-                      fontWeight: 800,
-                      cursor: isStarting ? 'not-allowed' : 'pointer',
+                      padding: '15px 22px',
+                      fontSize: '0.95rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '10px',
-                      boxShadow: '0 4px 14px rgba(5, 150, 105, 0.35)',
+                      gap: '8px',
                     }}
                   >
-                    <Play size={20} fill="#ffffff" />
-                    <span>{isStarting ? t('examLifecycle.readyRoom.launchingBtn') : t('examLifecycle.readyRoom.startExamBtn')}</span>
+                    <History size={18} />
+                    <span>{`${t('examLifecycle.readyRoom.historyBtn')} (${totalCompleted})`}</span>
+                    {showHistory ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                   </button>
-                ) : (
+
+                  {/* Buy More Attempts Button */}
                   <button
                     type="button"
                     onClick={handleGoToPricing}
@@ -461,58 +596,16 @@ export const StartExamPage: React.FC = () => {
                       color: c.textBtnSecondary,
                       border: `1px solid ${c.borderBtnSecondary}`,
                       borderRadius: '10px',
-                      padding: '15px 30px',
-                      fontSize: '1.05rem',
+                      padding: '15px 22px',
+                      fontSize: '0.95rem',
                       fontWeight: 700,
                       cursor: 'pointer',
                     }}
                   >
-                    {t('examLifecycle.readyRoom.buyExamCreditsBtn')}
+                    {t('examLifecycle.readyRoom.buyMoreAttemptsBtn')}
                   </button>
-                )}
-
-                {/* History Button */}
-                <button
-                  type="button"
-                  onClick={handleToggleHistory}
-                  style={{
-                    backgroundColor: showHistory ? (isLight ? '#e5e7eb' : '#374151') : c.bgBtnSecondary,
-                    color: c.textBtnSecondary,
-                    border: `1px solid ${c.borderBtnSecondary}`,
-                    borderRadius: '10px',
-                    padding: '15px 22px',
-                    fontSize: '0.95rem',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                  }}
-                >
-                  <History size={18} />
-                  <span>{`${t('examLifecycle.readyRoom.historyBtn')} (${totalCompleted})`}</span>
-                  {showHistory ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                </button>
-
-                {/* Buy More Attempts Button */}
-                <button
-                  type="button"
-                  onClick={handleGoToPricing}
-                  style={{
-                    backgroundColor: c.bgBtnSecondary,
-                    color: c.textBtnSecondary,
-                    border: `1px solid ${c.borderBtnSecondary}`,
-                    borderRadius: '10px',
-                    padding: '15px 22px',
-                    fontSize: '0.95rem',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                  }}
-                >
-                  {t('examLifecycle.readyRoom.buyMoreAttemptsBtn')}
-                </button>
+                </div>
               </div>
-            </div>
 
             {/* Other Details / Exam Specifications */}
             <div
@@ -599,189 +692,189 @@ export const StartExamPage: React.FC = () => {
                 </h2>
               </div>
 
-              {/* Legend Row */}
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '24px',
-                  padding: '4px 0',
-                }}
-              >
-                {/* Passed Legend */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  {/* Legend Row */}
                   <div
                     style={{
-                      width: '42px',
-                      height: '14px',
-                      borderRadius: '3px',
-                      backgroundColor: '#5eead4',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '24px',
+                      padding: '4px 0',
                     }}
-                  />
-                  <span style={{ fontSize: '0.85rem', color: '#e2e8f0', fontWeight: 500 }}>
-                    {t('examLifecycle.readyRoom.passed')}
-                  </span>
-                </div>
+                  >
+                    {/* Passed Legend */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <div
+                        style={{
+                          width: '42px',
+                          height: '14px',
+                          borderRadius: '3px',
+                          backgroundColor: '#5eead4',
+                        }}
+                      />
+                      <span style={{ fontSize: '0.85rem', color: '#e2e8f0', fontWeight: 500 }}>
+                        {t('examLifecycle.readyRoom.passed')}
+                      </span>
+                    </div>
 
-                {/* Failed Legend */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {/* Failed Legend */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <div
+                        style={{
+                          width: '42px',
+                          height: '14px',
+                          borderRadius: '3px',
+                          backgroundColor: '#f87171',
+                        }}
+                      />
+                      <span style={{ fontSize: '0.85rem', color: '#e2e8f0', fontWeight: 500 }}>
+                        {t('examLifecycle.readyRoom.failed')}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Donut Chart Visual */}
+                  <div style={{ position: 'relative', width: '220px', height: '220px', margin: '8px auto' }}>
+                    <svg
+                      viewBox="0 0 200 200"
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        transform: 'rotate(-90deg)',
+                      }}
+                    >
+                      {/* Passed Arc */}
+                      <circle
+                        cx="100"
+                        cy="100"
+                        r={radius}
+                        fill="none"
+                        stroke="#5eead4"
+                        strokeWidth="38"
+                        strokeDasharray={`${passedArcLength} ${circumference}`}
+                        strokeDashoffset="0"
+                      />
+
+                      {/* Failed Arc */}
+                      {totalCompleted > 0 && failedAttempts > 0 && (
+                        <circle
+                          cx="100"
+                          cy="100"
+                          r={radius}
+                          fill="none"
+                          stroke="#f87171"
+                          strokeWidth="38"
+                          strokeDasharray={`${failedArcLength} ${circumference}`}
+                          strokeDashoffset={`${-passedArcLength}`}
+                        />
+                      )}
+
+                      {/* Outer White Contour */}
+                      <circle
+                        cx="100"
+                        cy="100"
+                        r="84"
+                        fill="none"
+                        stroke="#ffffff"
+                        strokeWidth="2"
+                        opacity="0.9"
+                      />
+
+                      {/* Inner White Contour */}
+                      <circle
+                        cx="100"
+                        cy="100"
+                        r="46"
+                        fill="none"
+                        stroke="#ffffff"
+                        strokeWidth="2"
+                        opacity="0.9"
+                      />
+
+                      {/* 12 o'clock radial white divider line */}
+                      <line
+                        x1="100"
+                        y1="16"
+                        x2="100"
+                        y2="54"
+                        stroke="#ffffff"
+                        strokeWidth="2"
+                      />
+
+                      {/* Split angle radial divider line if both passed and failed exist */}
+                      {splitAngleDeg !== null && (
+                        <line
+                          x1={splitX1}
+                          y1={splitY1}
+                          x2={splitX2}
+                          y2={splitY2}
+                          stroke="#ffffff"
+                          strokeWidth="2"
+                        />
+                      )}
+                    </svg>
+                  </div>
+
+                  {/* Bottom Metrics Row */}
                   <div
                     style={{
-                      width: '42px',
-                      height: '14px',
-                      borderRadius: '3px',
-                      backgroundColor: '#f87171',
+                      display: 'flex',
+                      alignItems: 'flex-end',
+                      justifyContent: 'space-between',
+                      paddingTop: '6px',
                     }}
-                  />
-                  <span style={{ fontSize: '0.85rem', color: '#e2e8f0', fontWeight: 500 }}>
-                    {t('examLifecycle.readyRoom.failed')}
-                  </span>
-                </div>
-              </div>
+                  >
+                    <div>
+                      <div style={{ fontSize: '0.82rem', color: '#cbd5e1', marginBottom: '3px' }}>
+                        {t('examLifecycle.readyRoom.passRate')}
+                      </div>
+                      <div style={{ fontSize: '1.45rem', fontWeight: 800, color: '#ffffff' }}>
+                        {passRatePercent}%
+                      </div>
+                    </div>
 
-              {/* Donut Chart Visual */}
-              <div style={{ position: 'relative', width: '220px', height: '220px', margin: '8px auto' }}>
-                <svg
-                  viewBox="0 0 200 200"
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    transform: 'rotate(-90deg)',
-                  }}
-                >
-                  {/* Passed Arc */}
-                  <circle
-                    cx="100"
-                    cy="100"
-                    r={radius}
-                    fill="none"
-                    stroke="#5eead4"
-                    strokeWidth="38"
-                    strokeDasharray={`${passedArcLength} ${circumference}`}
-                    strokeDashoffset="0"
-                  />
-
-                  {/* Failed Arc */}
-                  {totalCompleted > 0 && failedAttempts > 0 && (
-                    <circle
-                      cx="100"
-                      cy="100"
-                      r={radius}
-                      fill="none"
-                      stroke="#f87171"
-                      strokeWidth="38"
-                      strokeDasharray={`${failedArcLength} ${circumference}`}
-                      strokeDashoffset={`${-passedArcLength}`}
-                    />
-                  )}
-
-                  {/* Outer White Contour */}
-                  <circle
-                    cx="100"
-                    cy="100"
-                    r="84"
-                    fill="none"
-                    stroke="#ffffff"
-                    strokeWidth="2"
-                    opacity="0.9"
-                  />
-
-                  {/* Inner White Contour */}
-                  <circle
-                    cx="100"
-                    cy="100"
-                    r="46"
-                    fill="none"
-                    stroke="#ffffff"
-                    strokeWidth="2"
-                    opacity="0.9"
-                  />
-
-                  {/* 12 o'clock radial white divider line */}
-                  <line
-                    x1="100"
-                    y1="16"
-                    x2="100"
-                    y2="54"
-                    stroke="#ffffff"
-                    strokeWidth="2"
-                  />
-
-                  {/* Split angle radial divider line if both passed and failed exist */}
-                  {splitAngleDeg !== null && (
-                    <line
-                      x1={splitX1}
-                      y1={splitY1}
-                      x2={splitX2}
-                      y2={splitY2}
-                      stroke="#ffffff"
-                      strokeWidth="2"
-                    />
-                  )}
-                </svg>
-              </div>
-
-              {/* Bottom Metrics Row */}
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'flex-end',
-                  justifyContent: 'space-between',
-                  paddingTop: '6px',
-                }}
-              >
-                <div>
-                  <div style={{ fontSize: '0.82rem', color: '#cbd5e1', marginBottom: '3px' }}>
-                    {t('examLifecycle.readyRoom.passRate')}
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: '0.82rem', color: '#cbd5e1', marginBottom: '3px' }}>
+                        {t('examLifecycle.readyRoom.passMark')}
+                      </div>
+                      <div style={{ fontSize: '1.45rem', fontWeight: 800, color: '#ffffff' }}>
+                        12/20
+                      </div>
+                    </div>
                   </div>
-                  <div style={{ fontSize: '1.45rem', fontWeight: 800, color: '#ffffff' }}>
-                    {passRatePercent}%
-                  </div>
-                </div>
-
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: '0.82rem', color: '#cbd5e1', marginBottom: '3px' }}>
-                    {t('examLifecycle.readyRoom.passMark')}
-                  </div>
-                  <div style={{ fontSize: '1.45rem', fontWeight: 800, color: '#ffffff' }}>
-                    12/20
-                  </div>
-                </div>
-              </div>
             </div>
 
             {/* Quick summary below card */}
-            <div
-              style={{
-                marginTop: '14px',
-                backgroundColor: c.bgCard,
-                border: `1px solid ${c.borderCard}`,
-                borderRadius: '12px',
-                padding: '14px 18px',
-                fontSize: '0.85rem',
-                color: c.textSecondary,
-                display: 'flex',
-                justifyContent: 'space-between',
-                boxShadow: c.shadowCard,
-              }}
-            >
-              <div>
-                <span>{`${t('examLifecycle.readyRoom.totalAttempts')}: `}</span>
-                <strong style={{ color: c.textPrimary }}>{totalCompleted}</strong>
-              </div>
-              <div>
-                <span style={{ color: '#10b981', fontWeight: 700 }}>
-                  {passedAttempts} {t('examLifecycle.readyRoom.passShort')}
-                </span>
-                <span> • </span>
-                <span style={{ color: '#ef4444', fontWeight: 700 }}>
-                  {failedAttempts} {t('examLifecycle.readyRoom.failShort')}
-                </span>
+              <div
+                style={{
+                  marginTop: '14px',
+                  backgroundColor: c.bgCard,
+                  border: `1px solid ${c.borderCard}`,
+                  borderRadius: '12px',
+                  padding: '14px 18px',
+                  fontSize: '0.85rem',
+                  color: c.textSecondary,
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  boxShadow: c.shadowCard,
+                }}
+              >
+                <div>
+                  <span>{`${t('examLifecycle.readyRoom.totalAttempts')}: `}</span>
+                  <strong style={{ color: c.textPrimary }}>{totalCompleted}</strong>
+                </div>
+                <div>
+                  <span style={{ color: '#10b981', fontWeight: 700 }}>
+                    {passedAttempts} {t('examLifecycle.readyRoom.passShort')}
+                  </span>
+                  <span> • </span>
+                  <span style={{ color: '#ef4444', fontWeight: 700 }}>
+                    {failedAttempts} {t('examLifecycle.readyRoom.failShort')}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
-        </div>
 
         {/* ── PART 2: Past Exam Attempts (Separated by a full-width line) ── */}
         {showHistory && (
@@ -897,7 +990,9 @@ export const StartExamPage: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => {
-                              const targetUrl = `/examinations/review/${attempt.id}?phone=${encodeURIComponent(activePhone)}`;
+                              const token = sessionStorage.getItem('sifo_candidate_access_token');
+                              const tokenParam = token ? `&token=${encodeURIComponent(token)}` : '';
+                              const targetUrl = `/examinations/review/${attempt.id}?phone=${encodeURIComponent(activePhone)}${tokenParam}`;
                               window.open(targetUrl, '_blank', 'noopener,noreferrer');
                             }}
                             style={{

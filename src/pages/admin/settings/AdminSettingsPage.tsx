@@ -3,6 +3,7 @@ import {
   useAdminSettingsData,
   SettingsHeader,
   SettingsTabsNav,
+  PlatformSettingsSection,
   FinanceSettingsSection,
   OperationalRulesSection,
   NotificationSettingsSection,
@@ -13,7 +14,11 @@ export const AdminSettingsPage: React.FC = () => {
   const {
     activeTab,
     setActiveTab,
-    isSaving,
+    platformConfig,
+    setPlatformConfig,
+    featureFlags,
+    setFeatureFlags,
+    handleResetPlatformDefaults,
     pricing,
     setPricing,
     rules,
@@ -22,23 +27,34 @@ export const AdminSettingsPage: React.FC = () => {
     setNotifications,
     academy,
     setAcademy,
-    handleSave,
     formatRwf,
+    handleSave,
+    isSaving,
   } = useAdminSettingsData();
 
   return (
     <div style={{ padding: '24px 32px', maxWidth: '1440px', margin: '0 auto' }}>
       {/* Top Header */}
-      <SettingsHeader
-        isSaving={isSaving}
-        onSave={handleSave}
-      />
+      <SettingsHeader onSave={handleSave} isSaving={isSaving} />
 
       {/* Tabs */}
       <SettingsTabsNav
         activeTab={activeTab}
         onTabChange={setActiveTab}
       />
+
+      {/* 0. Platform Settings Tab */}
+      {activeTab === 'platform' && (
+        <PlatformSettingsSection
+          platformConfig={platformConfig}
+          setPlatformConfig={setPlatformConfig}
+          featureFlags={featureFlags}
+          setFeatureFlags={setFeatureFlags}
+          onResetDefaults={handleResetPlatformDefaults}
+          onSave={handleSave}
+          isSaving={isSaving}
+        />
+      )}
 
       {/* 1. Finance Tab */}
       {activeTab === 'finance' && (
@@ -49,7 +65,7 @@ export const AdminSettingsPage: React.FC = () => {
         />
       )}
 
-      {/* 3. Operational Rules Tab */}
+      {/* 2. Operational Rules Tab */}
       {activeTab === 'rules' && (
         <OperationalRulesSection
           rules={rules}
@@ -57,7 +73,7 @@ export const AdminSettingsPage: React.FC = () => {
         />
       )}
 
-      {/* 4. Notifications Tab */}
+      {/* 3. Notifications Tab */}
       {activeTab === 'notifications' && (
         <NotificationSettingsSection
           notifications={notifications}
@@ -65,7 +81,7 @@ export const AdminSettingsPage: React.FC = () => {
         />
       )}
 
-      {/* 5. Academy Profile Tab */}
+      {/* 4. Academy Profile Tab */}
       {activeTab === 'academy' && (
         <AcademyConfigSection
           academy={academy}

@@ -1,5 +1,5 @@
 import React from 'react';
-import { DollarSign, CalendarClock, Bell, Building2 } from 'lucide-react';
+import { Sliders, DollarSign, CalendarClock, Bell, Building2 } from 'lucide-react';
 import type { SettingsTab } from '../types';
 
 interface SettingsTabsNavProps {
@@ -9,6 +9,7 @@ interface SettingsTabsNavProps {
 
 export const SettingsTabsNav: React.FC<SettingsTabsNavProps> = ({ activeTab, onTabChange }) => {
   const tabs = [
+    { key: 'platform' as const, label: 'Platform Settings', icon: <Sliders size={16} /> },
     { key: 'finance' as const, label: 'Finance', icon: <DollarSign size={16} /> },
     { key: 'rules' as const, label: 'Rules', icon: <CalendarClock size={16} /> },
     { key: 'notifications' as const, label: 'Notifications', icon: <Bell size={16} /> },

@@ -1,12 +1,12 @@
 import React from 'react';
-import { Settings, Save, CheckCircle2 } from 'lucide-react';
+import { Settings } from 'lucide-react';
 
 interface SettingsHeaderProps {
-  isSaving: boolean;
-  onSave: () => void;
+  onSave?: () => void;
+  isSaving?: boolean;
 }
 
-export const SettingsHeader: React.FC<SettingsHeaderProps> = ({ isSaving, onSave }) => {
+export const SettingsHeader: React.FC<SettingsHeaderProps> = ({ onSave, isSaving }) => {
   return (
     <div
       style={{
@@ -34,32 +34,31 @@ export const SettingsHeader: React.FC<SettingsHeaderProps> = ({ isSaving, onSave
           <Settings size={26} color="var(--primary)" />
           Settings
         </h1>
-        <p style={{ margin: '4px 0 0 0', fontSize: '0.86rem', color: '#94a3b8' }}>
-          Manage school tuition, practical lesson fees, subscription passes, booking rules, and academy policies.
-        </p>
       </div>
 
-      <button
-        onClick={onSave}
-        disabled={isSaving}
-        style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: '8px',
-          padding: '9px 20px',
-          borderRadius: '8px',
-          border: 'none',
-          background: 'var(--primary)',
-          color: '#ffffff',
-          fontWeight: 600,
-          fontSize: '0.86rem',
-          cursor: isSaving ? 'not-allowed' : 'pointer',
-          boxShadow: '0 2px 10px rgba(0,0,0,0.2)',
-        }}
-      >
-        {isSaving ? <CheckCircle2 size={16} /> : <Save size={16} />}
-        {isSaving ? 'Saving...' : 'Save Settings'}
-      </button>
+      {onSave && (
+        <button
+          type="button"
+          onClick={onSave}
+          disabled={isSaving}
+          style={{
+            padding: '10px 22px',
+            borderRadius: '10px',
+            backgroundColor: '#0284c7',
+            border: 'none',
+            color: '#ffffff',
+            fontSize: '0.86rem',
+            fontWeight: 700,
+            cursor: isSaving ? 'not-allowed' : 'pointer',
+            opacity: isSaving ? 0.7 : 1,
+            transition: 'background-color 0.15s ease',
+            boxShadow: '0 2px 8px rgba(2, 132, 199, 0.25)',
+          }}
+        >
+          {isSaving ? 'Saving...' : 'Save Changes'}
+        </button>
+      )}
     </div>
   );
 };
+

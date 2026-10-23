@@ -52,8 +52,8 @@ export const CertificateVerificationPage: React.FC = () => {
   return (
     <div
       style={{
+        position: 'relative',
         minHeight: '100vh',
-        background: 'radial-gradient(ellipse at top, #111827 0%, #030712 100%)',
         color: '#f9fafb',
         padding: '32px 16px',
         display: 'flex',
@@ -65,6 +65,8 @@ export const CertificateVerificationPage: React.FC = () => {
       <div
         className="no-print"
         style={{
+          position: 'relative',
+          zIndex: 1,
           width: '100%',
           maxWidth: '1040px',
           display: 'flex',

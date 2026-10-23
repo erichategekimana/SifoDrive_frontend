@@ -42,7 +42,7 @@ export const Navbar: React.FC = () => {
         display: 'flex',
         alignItems: 'center',
         padding: '0 24px',
-        background: theme === 'light' ? 'rgba(255, 255, 255, 0.38)' : 'rgba(11, 15, 23, 0.60)',
+        background: theme === 'light' ? 'rgba(255, 255, 255, 0.94)' : 'rgba(11, 15, 23, 0.60)',
         borderBottom: theme === 'light' ? '1px solid rgba(0, 0, 0, 0.08)' : '1px solid rgba(255, 255, 255, 0.08)',
         backdropFilter: 'blur(20px)',
         WebkitBackdropFilter: 'blur(20px)',

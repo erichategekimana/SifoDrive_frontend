@@ -5,3 +5,4 @@ export * from './SubscriptionPlansSection';
 export * from './OperationalRulesSection';
 export * from './NotificationSettingsSection';
 export * from './AcademyConfigSection';
+export * from './PlatformSettingsSection';

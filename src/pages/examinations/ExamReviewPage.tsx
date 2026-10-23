@@ -44,6 +44,20 @@ export const ExamReviewPage: React.FC = () => {
       return;
     }
 
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const urlToken = params.get('token');
+      if (urlToken && sessionId) {
+        sessionStorage.setItem(`sifo_exam_token_${sessionId}`, urlToken);
+        sessionStorage.setItem('sifo_active_exam_token', urlToken);
+        sessionStorage.setItem('sifo_candidate_access_token', urlToken);
+        params.delete('token');
+        const newSearch = params.toString();
+        const cleanUrl = `${window.location.pathname}${newSearch ? `?${newSearch}` : ''}`;
+        window.history.replaceState({}, '', cleanUrl);
+      }
+    } catch {}
+
     const loadSession = async () => {
       try {
         setLoading(true);

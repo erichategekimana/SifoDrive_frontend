@@ -377,6 +377,7 @@ export interface CandidateExamQuestionItem {
 
 export interface CandidateSessionItem {
   id: string;
+  session_token?: string;
   candidate_name?: string;
   candidate_phone?: string;
   exam_id?: string | null;
@@ -439,6 +440,7 @@ export interface ExamCreditBalance {
   transactions_count?: number;
   full_name?: string;
   candidate_name?: string;
+  is_authorized?: boolean;
 }
 
 
@@ -1789,8 +1791,18 @@ export class AdminService {
     return res?.data || res;
   }
 
-  public async getCandidateSession(sessionId: string): Promise<CandidateSessionItem> {
-    const res = await this.http.get<any>(ApiEndpoints.ADMIN.CANDIDATE_SESSION_DETAIL(sessionId));
+  public async getCandidateSession(sessionId: string, phone?: string): Promise<CandidateSessionItem> {
+    const sessionToken =
+      sessionStorage.getItem(`sifo_exam_token_${sessionId}`) ||
+      sessionStorage.getItem('sifo_active_exam_token') ||
+      sessionStorage.getItem('sifo_exam_session_token') ||
+      '';
+    const params = new URLSearchParams();
+    if (sessionToken) params.set('session_token', sessionToken);
+    const candidatePhone = phone || new URLSearchParams(window.location.search).get('phone') || '';
+    if (candidatePhone) params.set('phone', candidatePhone);
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    const res = await this.http.get<any>(`${ApiEndpoints.ADMIN.CANDIDATE_SESSION_DETAIL(sessionId)}${qs}`, false);
     return res?.data || res;
   }
 
@@ -1799,10 +1811,22 @@ export class AdminService {
     sequenceNumber: number,
     selectedOption: string
   ): Promise<{ sequence_number: number; selected_option: string; answered_at: string }> {
-    const res = await this.http.post<any>(ApiEndpoints.ADMIN.CANDIDATE_SESSION_ANSWER(sessionId), {
-      sequence_number: sequenceNumber,
-      selected_option: selectedOption,
-    });
+    const sessionToken =
+      sessionStorage.getItem(`sifo_exam_token_${sessionId}`) ||
+      sessionStorage.getItem('sifo_active_exam_token') ||
+      sessionStorage.getItem('sifo_exam_session_token') ||
+      '';
+    const candidatePhone = new URLSearchParams(window.location.search).get('phone') || '';
+    const res = await this.http.post<any>(
+      ApiEndpoints.ADMIN.CANDIDATE_SESSION_ANSWER(sessionId),
+      {
+        sequence_number: sequenceNumber,
+        selected_option: selectedOption,
+        session_token: sessionToken,
+        phone_number: candidatePhone,
+      },
+      false
+    );
     return res?.data || res;
   }
 
@@ -1813,22 +1837,55 @@ export class AdminService {
     metadata?: any,
     isViolation: boolean = true
   ): Promise<any> {
-    const res = await this.http.post<any>(ApiEndpoints.ADMIN.CANDIDATE_SESSION_PROCTOR(sessionId), {
-      event_type: eventType,
-      snapshot_image: snapshotImage || '',
-      metadata: metadata || {},
-      is_violation: isViolation,
-    });
+    const sessionToken =
+      sessionStorage.getItem(`sifo_exam_token_${sessionId}`) ||
+      sessionStorage.getItem('sifo_active_exam_token') ||
+      sessionStorage.getItem('sifo_exam_session_token') ||
+      '';
+    const res = await this.http.post<any>(
+      ApiEndpoints.ADMIN.CANDIDATE_SESSION_PROCTOR(sessionId),
+      {
+        event_type: eventType,
+        snapshot_image: snapshotImage || '',
+        metadata: metadata || {},
+        is_violation: isViolation,
+        session_token: sessionToken,
+      },
+      false
+    );
     return res?.data || res;
   }
 
   public async submitCandidateExam(sessionId: string): Promise<CandidateSessionItem> {
-    const res = await this.http.post<any>(ApiEndpoints.ADMIN.CANDIDATE_SESSION_SUBMIT(sessionId), {});
+    const sessionToken =
+      sessionStorage.getItem(`sifo_exam_token_${sessionId}`) ||
+      sessionStorage.getItem('sifo_active_exam_token') ||
+      sessionStorage.getItem('sifo_exam_session_token') ||
+      '';
+    const candidatePhone = new URLSearchParams(window.location.search).get('phone') || '';
+    const res = await this.http.post<any>(
+      ApiEndpoints.ADMIN.CANDIDATE_SESSION_SUBMIT(sessionId),
+      {
+        session_token: sessionToken,
+        phone_number: candidatePhone,
+      },
+      false
+    );
     return res?.data || res;
   }
 
   public async getCandidateExamResults(sessionId: string): Promise<CandidateSessionItem> {
-    const res = await this.http.get<any>(ApiEndpoints.ADMIN.CANDIDATE_SESSION_RESULTS(sessionId));
+    const sessionToken =
+      sessionStorage.getItem(`sifo_exam_token_${sessionId}`) ||
+      sessionStorage.getItem('sifo_active_exam_token') ||
+      sessionStorage.getItem('sifo_exam_session_token') ||
+      '';
+    const candidatePhone = new URLSearchParams(window.location.search).get('phone') || '';
+    const params = new URLSearchParams();
+    if (sessionToken) params.set('session_token', sessionToken);
+    if (candidatePhone) params.set('phone', candidatePhone);
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    const res = await this.http.get<any>(`${ApiEndpoints.ADMIN.CANDIDATE_SESSION_RESULTS(sessionId)}${qs}`, false);
     return res?.data || res;
   }
 
@@ -1850,8 +1907,12 @@ export class AdminService {
     return [];
   }
 
-  public async getPublicExamCredits(phone?: string): Promise<ExamCreditBalance> {
-    const query = phone ? `?phone_number=${encodeURIComponent(phone)}` : '';
+  public async getPublicExamCredits(phone?: string, token?: string): Promise<ExamCreditBalance> {
+    const candidateToken = token || sessionStorage.getItem('sifo_candidate_access_token') || '';
+    const queryParts: string[] = [];
+    if (phone) queryParts.push(`phone_number=${encodeURIComponent(phone)}`);
+    if (candidateToken) queryParts.push(`token=${encodeURIComponent(candidateToken)}`);
+    const query = queryParts.length ? `?${queryParts.join('&')}` : '';
     const res = await this.http.get<any>(`${ApiEndpoints.ADMIN.PUBLIC_EXAM_CREDITS}${query}`);
     return res?.data || res;
   }
@@ -1869,13 +1930,24 @@ export class AdminService {
 
   public async verifyPublicExamOTP(phone_number: string, otp_code: string): Promise<{
     phone_number: string;
+    access_token?: string;
     verified: boolean;
   }> {
     const res = await this.http.post<any>(ApiEndpoints.ADMIN.PUBLIC_EXAM_OTP_VERIFY, {
       phone_number,
       otp_code,
     });
-    return res?.data || res;
+    const data = res?.data || res;
+    if (data?.access_token) {
+      try {
+        sessionStorage.setItem('sifo_candidate_access_token', data.access_token);
+        const cleanPhone = (data.phone_number || phone_number || '').trim();
+        if (cleanPhone) {
+          sessionStorage.setItem(`sifo_candidate_token_${cleanPhone}`, data.access_token);
+        }
+      } catch {}
+    }
+    return data;
   }
 
   public async buyPublicExamCredits(payload: {
@@ -1891,14 +1963,38 @@ export class AdminService {
 
   public async getPublicExamPaymentStatus(referenceId: string): Promise<any> {
     const res = await this.http.get<any>(ApiEndpoints.ADMIN.PUBLIC_EXAM_PAYMENT_STATUS(referenceId));
-    return res?.data || res;
+    const data = res?.data || res;
+    if (data?.access_token) {
+      try {
+        sessionStorage.setItem('sifo_candidate_access_token', data.access_token);
+        if (data.phone_number) {
+          sessionStorage.setItem(`sifo_candidate_token_${data.phone_number}`, data.access_token);
+        }
+      } catch {}
+    }
+    return data;
   }
 
-  public async startPublicPracticeExam(phone?: string): Promise<CandidateSessionItem> {
+  public async startPublicPracticeExam(phone?: string, token?: string): Promise<CandidateSessionItem> {
+    const cleanPhone = (phone || '').trim();
+    const candidateToken =
+      token ||
+      (cleanPhone ? sessionStorage.getItem(`sifo_candidate_token_${cleanPhone}`) : null) ||
+      sessionStorage.getItem('sifo_candidate_access_token') ||
+      undefined;
+
     const res = await this.http.post<any>(ApiEndpoints.ADMIN.PUBLIC_EXAM_START, {
-      phone_number: phone || '',
+      phone_number: cleanPhone,
+      access_token: candidateToken,
     });
-    return res?.data || res;
+    const session: CandidateSessionItem = res?.data || res;
+    if (session?.session_token) {
+      try {
+        sessionStorage.setItem(`sifo_exam_token_${session.id}`, session.session_token);
+        sessionStorage.setItem('sifo_active_exam_token', session.session_token);
+      } catch {}
+    }
+    return session;
   }
 
   public async getPublicExamHistory(phone?: string): Promise<any[]> {

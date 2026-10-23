@@ -14,6 +14,7 @@ import {
   Award,
   ArrowRight,
   RefreshCw,
+  ShieldAlert,
 } from 'lucide-react';
 import {
   AdminService,
@@ -148,13 +149,40 @@ export const CandidateExamRunner: React.FC<CandidateExamRunnerProps> = ({
 }) => {
   const adminService = AdminService.getInstance();
   const { warning, success, error: toastError } = useToast();
-  const { t } = useTranslation();
+  const { setLanguage: setGlobalLanguage, t } = useTranslation();
 
   const [step, setStep] = useState<RunnerStep>(isStudentProctored ? 'PREFLIGHT' : 'RUNNING');
   const [session, setSession] = useState<CandidateSessionItem | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
-  // Exam runner must always start in Kinyarwanda as requested; candidate can change it via the dropdown
-  const [language, setLanguage] = useState<'EN' | 'RW' | 'FR'>('RW');
+  const [isUnauthorized, setIsUnauthorized] = useState<boolean>(false);
+  // Read initial language from URL or default to RW
+  const [language, setLanguage] = useState<'EN' | 'RW' | 'FR'>(() => {
+    try {
+      const p = new URLSearchParams(window.location.search).get('lang')?.toUpperCase();
+      return p === 'EN' || p === 'FR' || p === 'RW' ? p : 'RW';
+    } catch {
+      return 'RW';
+    }
+  });
+
+  // Synchronize exam session token from URL if opened from Ready Room
+  useEffect(() => {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlToken = urlParams.get('token');
+      if (urlToken) {
+        sessionStorage.setItem('sifo_active_exam_token', urlToken);
+        sessionStorage.setItem('sifo_exam_session_token', urlToken);
+        if (initialSessionId) {
+          sessionStorage.setItem(`sifo_exam_token_${initialSessionId}`, urlToken);
+        }
+        urlParams.delete('token');
+        const cleanSearch = urlParams.toString();
+        const cleanUrl = window.location.pathname + (cleanSearch ? `?${cleanSearch}` : '') + window.location.hash;
+        window.history.replaceState({}, '', cleanUrl);
+      }
+    } catch {}
+  }, [initialSessionId]);
 
   // Active runner state
   const [selectedAnswers, setSelectedAnswers] = useState<Record<number, string>>({});
@@ -321,6 +349,10 @@ export const CandidateExamRunner: React.FC<CandidateExamRunnerProps> = ({
         setStep('RUNNING');
       }
     } catch (err: any) {
+      if (err?.response?.status === 401 || err?.status === 401) {
+        setIsUnauthorized(true);
+        return;
+      }
       const msg = err?.response?.data?.message || err?.message || 'Failed to start examination session.';
       toastError(msg);
       setPreflightError(msg);
@@ -350,8 +382,12 @@ export const CandidateExamRunner: React.FC<CandidateExamRunnerProps> = ({
             setStep('RUNNING');
           }
         })
-        .catch((err) => {
-          toastError(err?.message || 'Could not load session.');
+        .catch((err: any) => {
+          if (err?.response?.status === 401 || err?.status === 401) {
+            setIsUnauthorized(true);
+          } else {
+            toastError(err?.message || 'Could not load session.');
+          }
         })
         .finally(() => setLoading(false));
     } else if (!isStudentProctored && step === 'RUNNING' && !session) {
@@ -544,6 +580,86 @@ export const CandidateExamRunner: React.FC<CandidateExamRunnerProps> = ({
     if (language === 'FR' && q.explanation_french) return q.explanation_french;
     return q.explanation || 'Official explanation for this traffic regulation.';
   };
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // RENDER 0: ACCESS DENIED / UNAUTHORIZED SESSION SCREEN
+  // ════════════════════════════════════════════════════════════════════════════
+  if (isUnauthorized) {
+    return (
+      <div
+        style={{
+          minHeight: '100vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: '#090d16',
+          color: '#ffffff',
+          padding: '24px',
+        }}
+      >
+        <div
+          style={{
+            maxWidth: '500px',
+            width: '100%',
+            backgroundColor: '#111827',
+            border: '1px solid #1f2937',
+            borderRadius: '20px',
+            padding: '40px 32px',
+            textAlign: 'center',
+            boxShadow: '0 20px 40px rgba(0, 0, 0, 0.4)',
+          }}
+        >
+          <div
+            style={{
+              width: '68px',
+              height: '68px',
+              margin: '0 auto 20px auto',
+              borderRadius: '50%',
+              backgroundColor: 'rgba(239, 68, 68, 0.15)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#ef4444',
+            }}
+          >
+            <ShieldAlert size={38} />
+          </div>
+
+          <h2 style={{ fontSize: '1.45rem', fontWeight: 800, margin: '0 0 12px 0' }}>
+            {t('examLifecycle.readyRoom.accessDeniedSessionTitle')}
+          </h2>
+
+          <p style={{ fontSize: '0.95rem', color: '#9ca3af', lineHeight: 1.6, margin: '0 0 28px 0' }}>
+            {t('examLifecycle.readyRoom.accessDeniedSessionDesc')}
+          </p>
+
+          <button
+            type="button"
+            onClick={() => {
+              if (onClose) {
+                onClose(session);
+              } else {
+                window.location.href = '/practice-exams';
+              }
+            }}
+            style={{
+              width: '100%',
+              backgroundColor: '#0284c7',
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: '10px',
+              padding: '14px 24px',
+              fontSize: '1rem',
+              fontWeight: 700,
+              cursor: 'pointer',
+            }}
+          >
+            {t('examLifecycle.readyRoom.returnToReadyRoomBtn')}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   // ════════════════════════════════════════════════════════════════════════════
   // RENDER 1: PREFLIGHT AUDIT SCREEN (Students)
@@ -990,7 +1106,11 @@ export const CandidateExamRunner: React.FC<CandidateExamRunnerProps> = ({
               <select
                 id="exam-runner-language-select"
                 value={language}
-                onChange={(e) => setLanguage(e.target.value as 'EN' | 'RW' | 'FR')}
+                onChange={(e) => {
+                  const newLang = e.target.value as 'EN' | 'RW' | 'FR';
+                  setLanguage(newLang);
+                  setGlobalLanguage(newLang.toLowerCase() as any);
+                }}
                 style={{
                   backgroundColor: '#ffffff',
                   border: '1px solid rgba(255, 255, 255, 0.4)',

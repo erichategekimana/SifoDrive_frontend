@@ -320,7 +320,9 @@ export const BuyPracticeExamsModal: React.FC<BuyPracticeExamsModalProps> = ({
             // Automatically close modal and navigate to starting exam page
             setTimeout(() => {
               onClose();
-              navigate(`/practice-exams?phone=${encodeURIComponent(phoneNumber.trim())}&lang=${encodeURIComponent(language)}`);
+              const token = (res as any)?.access_token || sessionStorage.getItem('sifo_candidate_access_token');
+              const tokenParam = token ? `&token=${encodeURIComponent(token)}` : '';
+              navigate(`/practice-exams?phone=${encodeURIComponent(phoneNumber.trim())}${tokenParam}&lang=${encodeURIComponent(language)}`);
             }, 1200);
           } else if (res?.status === 'FAILED') {
             clearInterval(interval);
@@ -503,7 +505,9 @@ export const BuyPracticeExamsModal: React.FC<BuyPracticeExamsModalProps> = ({
         const updatedBalance = await adminService.getPublicExamCredits(clean);
         onSuccess(updatedBalance);
         onClose();
-        navigate(`/practice-exams?phone=${encodeURIComponent(clean)}&lang=${encodeURIComponent(language)}`);
+        const token = (res as any)?.access_token || sessionStorage.getItem('sifo_candidate_access_token');
+        const tokenParam = token ? `&token=${encodeURIComponent(token)}` : '';
+        navigate(`/practice-exams?phone=${encodeURIComponent(clean)}${tokenParam}&lang=${encodeURIComponent(language)}`);
       }
     } catch (err: any) {
       toastError(
@@ -1178,7 +1182,10 @@ export const BuyPracticeExamsModal: React.FC<BuyPracticeExamsModalProps> = ({
               type="button"
               onClick={() => {
                 onClose();
-                navigate(`/practice-exams?phone=${encodeURIComponent(phoneNumber.trim())}&lang=${encodeURIComponent(language)}`);
+                const cleanPhone = phoneNumber.trim();
+                const token = sessionStorage.getItem(`sifo_candidate_token_${cleanPhone}`) || sessionStorage.getItem('sifo_candidate_access_token');
+                const tokenParam = token ? `&token=${encodeURIComponent(token)}` : '';
+                navigate(`/practice-exams?phone=${encodeURIComponent(cleanPhone)}${tokenParam}&lang=${encodeURIComponent(language)}`);
               }}
               className="btn btn-primary"
               style={{

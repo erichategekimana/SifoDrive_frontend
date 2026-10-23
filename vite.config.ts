@@ -1,9 +1,51 @@
+import fs from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import react from '@vitejs/plugin-react'
-import { defineConfig } from 'vite'
+import { defineConfig, type Plugin } from 'vite'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+
+function platformConfigPlugin(): Plugin {
+  const configPath = path.resolve(__dirname, 'public/platform-config.json')
+  return {
+    name: 'platform-config-plugin',
+    configureServer(server) {
+      server.middlewares.use('/platform-settings-sync', (req, res, next) => {
+        if (req.method === 'GET') {
+          res.setHeader('Content-Type', 'application/json')
+          if (fs.existsSync(configPath)) {
+            const data = fs.readFileSync(configPath, 'utf-8')
+            res.end(data)
+          } else {
+            res.end(JSON.stringify({}))
+          }
+          return
+        }
+        if (req.method === 'POST') {
+          let body = ''
+          req.on('data', chunk => { body += chunk })
+          req.on('end', () => {
+            try {
+              fs.writeFileSync(configPath, body, 'utf-8')
+              res.setHeader('Content-Type', 'application/json')
+              res.end(JSON.stringify({ success: true }))
+            } catch {
+              res.statusCode = 500
+              res.end(JSON.stringify({ error: 'Failed to write config' }))
+            }
+          })
+          return
+        }
+        next()
+      })
+    },
+  }
+}
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), platformConfigPlugin()],
   server: {
     port: 3000,
     proxy: {
@@ -35,3 +77,4 @@ export default defineConfig({
     },
   },
 })
+

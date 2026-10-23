@@ -11,20 +11,25 @@ import {
 } from 'lucide-react';
 import { Navbar } from '../../components/layout/Navbar';
 import { Footer } from '../../components/layout/Footer';
+import { PublicPageBackground } from '../../components/layout/PublicPageBackground';
 import { useTranslation } from '../../context/I18nContext';
+import { useTheme } from '../../context/ThemeContext';
 
 export const LandingPage: React.FC = () => {
   const { t } = useTranslation();
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
 
   return (
     <div
       style={{
+        position: 'relative',
         display: 'flex',
         flexDirection: 'column',
         minHeight: '100vh',
-        background: 'radial-gradient(ellipse 100% 800px at 50% 0%, rgba(16, 185, 129, 0.22) 0%, rgba(14, 165, 233, 0.14) 45%, transparent 80%)',
       }}
     >
+      <PublicPageBackground />
       <Navbar />
 
       {/* Hero Section */}
@@ -36,14 +41,40 @@ export const LandingPage: React.FC = () => {
           background: 'transparent',
         }}
       >
-        <div style={{ maxWidth: '1100px', margin: '0 auto', textAlign: 'center' }}>
-          <h1 style={{ fontSize: 'clamp(2.5rem, 5vw, 4rem)', marginBottom: '24px', fontWeight: 800 }}>
+        <div
+          style={{
+            maxWidth: '1100px',
+            margin: '0 auto',
+            textAlign: 'center',
+            padding: isDark ? '0' : '36px 24px',
+            borderRadius: '32px',
+            background: isDark
+              ? 'transparent'
+              : 'radial-gradient(ellipse 95% 85% at 50% 50%, rgba(255, 255, 255, 0.92) 0%, rgba(255, 255, 255, 0.75) 60%, transparent 100%)',
+            backdropFilter: isDark ? 'none' : 'blur(8px)',
+            WebkitBackdropFilter: isDark ? 'none' : 'blur(8px)',
+          }}
+        >
+          <h1
+            style={{
+              fontSize: 'clamp(2.5rem, 5vw, 4rem)',
+              marginBottom: '24px',
+              fontWeight: 800,
+              color: isDark ? '#ffffff' : '#0f172a',
+              textShadow: isDark
+                ? '0 2px 10px rgba(0, 0, 0, 0.4)'
+                : '0 1px 4px #ffffff, 0 0 16px #ffffff',
+            }}
+          >
             {t('landing.heroTitle1')} <br />
             <span
               style={{
-                background: 'linear-gradient(135deg, #10B981 0%, #F59E0B 100%)',
+                background: isDark
+                  ? 'linear-gradient(135deg, #10B981 0%, #F59E0B 100%)'
+                  : 'linear-gradient(135deg, #059669 0%, #b45309 100%)',
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
+                fontWeight: 900,
               }}
             >
               {t('landing.heroHighlight')}
@@ -53,11 +84,15 @@ export const LandingPage: React.FC = () => {
 
           <p
             style={{
-              fontSize: '1.2rem',
-              color: 'var(--text-secondary)',
+              fontSize: '1.24rem',
+              color: isDark ? '#e2e8f0' : '#0f172a',
+              fontWeight: isDark ? 400 : 700,
               maxWidth: '740px',
               margin: '0 auto 40px auto',
               lineHeight: 1.6,
+              textShadow: isDark
+                ? '0 2px 6px rgba(0, 0, 0, 0.6)'
+                : '0 1px 4px #ffffff, 0 0 14px #ffffff',
             }}
           >
             {t('landing.heroSubtitle')}
@@ -69,21 +104,28 @@ export const LandingPage: React.FC = () => {
               style={{
                 fontSize: 'clamp(36px, 5vw, 56px)',
                 fontWeight: 800,
-                color: 'var(--text-primary)',
+                color: isDark ? '#ffffff' : '#0f172a',
                 marginBottom: '12px',
                 letterSpacing: '-0.025em',
                 lineHeight: 1.15,
+                textShadow: isDark
+                  ? '0 2px 10px rgba(0, 0, 0, 0.4)'
+                  : '0 1px 3px #ffffff',
               }}
             >
               {t('landing.buyExamTitle')}
             </h2>
             <p
               style={{
-                fontSize: '1.15rem',
-                color: 'var(--text-secondary)',
+                fontSize: '1.18rem',
+                color: isDark ? '#e2e8f0' : '#0f172a',
+                fontWeight: isDark ? 400 : 700,
                 maxWidth: '680px',
                 margin: '0 auto 24px auto',
                 lineHeight: 1.5,
+                textShadow: isDark
+                  ? '0 2px 6px rgba(0, 0, 0, 0.6)'
+                  : '0 1px 4px #ffffff, 0 0 14px #ffffff',
               }}
             >
               {t('landing.buyExamSubtitle')}
@@ -113,23 +155,69 @@ export const LandingPage: React.FC = () => {
             style={{
               display: 'flex',
               justifyContent: 'center',
-              gap: '32px',
+              gap: '16px',
               marginTop: '48px',
               flexWrap: 'wrap',
-              color: 'var(--text-muted)',
-              fontSize: '0.9rem',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <CheckCircle2 size={18} color="var(--primary)" />
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '8px 18px',
+                borderRadius: '999px',
+                background: isDark ? 'rgba(17, 24, 39, 0.75)' : '#ffffff',
+                border: isDark ? '1px solid rgba(255, 255, 255, 0.12)' : '1px solid #cbd5e1',
+                backdropFilter: 'blur(10px)',
+                WebkitBackdropFilter: 'blur(10px)',
+                boxShadow: isDark ? '0 4px 12px rgba(0, 0, 0, 0.4)' : '0 2px 8px rgba(0, 0, 0, 0.08)',
+                color: isDark ? '#f8fafc' : '#0f172a',
+                fontSize: '0.88rem',
+                fontWeight: 700,
+              }}
+            >
+              <CheckCircle2 size={18} color="#059669" />
               <span>{t('landing.universalCurriculum')}</span>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <ShieldCheck size={18} color="var(--primary)" />
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '8px 18px',
+                borderRadius: '999px',
+                background: isDark ? 'rgba(17, 24, 39, 0.75)' : '#ffffff',
+                border: isDark ? '1px solid rgba(255, 255, 255, 0.12)' : '1px solid #cbd5e1',
+                backdropFilter: 'blur(10px)',
+                WebkitBackdropFilter: 'blur(10px)',
+                boxShadow: isDark ? '0 4px 12px rgba(0, 0, 0, 0.4)' : '0 2px 8px rgba(0, 0, 0, 0.08)',
+                color: isDark ? '#f8fafc' : '#0f172a',
+                fontSize: '0.88rem',
+                fontWeight: 700,
+              }}
+            >
+              <ShieldCheck size={18} color="#0284c7" />
               <span>{t('landing.lawCompliant')}</span>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Wallet size={18} color="var(--accent-400)" />
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '8px 18px',
+                borderRadius: '999px',
+                background: isDark ? 'rgba(17, 24, 39, 0.75)' : '#ffffff',
+                border: isDark ? '1px solid rgba(255, 255, 255, 0.12)' : '1px solid #cbd5e1',
+                backdropFilter: 'blur(10px)',
+                WebkitBackdropFilter: 'blur(10px)',
+                boxShadow: isDark ? '0 4px 12px rgba(0, 0, 0, 0.4)' : '0 2px 8px rgba(0, 0, 0, 0.08)',
+                color: isDark ? '#f8fafc' : '#0f172a',
+                fontSize: '0.88rem',
+                fontWeight: 700,
+              }}
+            >
+              <Wallet size={18} color="#d97706" />
               <span>{t('landing.momoSupported')}</span>
             </div>
           </div>
@@ -269,12 +357,17 @@ export const LandingPage: React.FC = () => {
           margin: '0 auto 80px auto',
           padding: '60px 32px',
           textAlign: 'center',
-          border: '1px solid var(--primary-glow)',
-          background: 'linear-gradient(135deg, rgba(17, 24, 39, 0.9) 0%, rgba(5, 150, 105, 0.15) 100%)',
+          border: isDark ? '1px solid var(--primary-glow)' : '1px solid #bbf7d0',
+          background: isDark
+            ? 'linear-gradient(135deg, rgba(17, 24, 39, 0.9) 0%, rgba(5, 150, 105, 0.15) 100%)'
+            : 'linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%)',
+          boxShadow: isDark ? 'var(--shadow-lg)' : '0 15px 35px -5px rgba(0, 0, 0, 0.06)',
         }}
       >
-        <h2 style={{ fontSize: '2.2rem', marginBottom: '16px' }}>{t('landing.ctaTitle')}</h2>
-        <p style={{ color: 'var(--text-secondary)', maxWidth: '600px', margin: '0 auto 32px auto', fontSize: '1.05rem' }}>
+        <h2 style={{ fontSize: '2.2rem', marginBottom: '16px', color: isDark ? '#ffffff' : '#0f172a', fontWeight: 800 }}>
+          {t('landing.ctaTitle')}
+        </h2>
+        <p style={{ color: isDark ? '#9ca3af' : '#1e293b', maxWidth: '600px', margin: '0 auto 32px auto', fontSize: '1.05rem', fontWeight: isDark ? 400 : 500 }}>
           {t('landing.ctaSubtitle')}
         </p>
         <Link to="/register" className="btn btn-primary btn-lg">
