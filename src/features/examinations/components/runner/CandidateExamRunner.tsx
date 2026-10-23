@@ -5,14 +5,11 @@ import {
   AlertTriangle,
   CheckCircle2,
   XCircle,
-  ChevronLeft,
-  ChevronRight,
   Maximize2,
   Minimize2,
   Camera,
   Mic,
   Wifi,
-  Flag,
   FileCheck,
   Award,
   ArrowRight,
@@ -24,12 +21,119 @@ import {
   type CandidateExamQuestionItem,
 } from '../../../../core/services/AdminService';
 import { useToast } from '../../../../context/ToastContext';
+import { useTranslation } from '../../../../context/I18nContext';
+
+// ────────────────────────────────────────────────────────────────────────────
+// Flying Celebration Confetti Canvas
+// ────────────────────────────────────────────────────────────────────────────
+const ConfettiCanvas: React.FC = () => {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    let width = (canvas.width = window.innerWidth);
+    let height = (canvas.height = window.innerHeight);
+
+    const handleResize = () => {
+      if (!canvas) return;
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+    };
+    window.addEventListener('resize', handleResize);
+
+    const colors = [
+      '#f59e0b', // Gold / Amber
+      '#10b981', // Emerald
+      '#0284c7', // Brand Sky Blue
+      '#ec4899', // Pink
+      '#8b5cf6', // Violet
+      '#ef4444', // Coral / Red
+      '#06b6d4', // Cyan
+      '#eab308', // Warm Yellow
+    ];
+
+    const particleCount = 160;
+    const particles = Array.from({ length: particleCount }).map(() => ({
+      x: width * 0.5 + (Math.random() - 0.5) * (width * 0.4),
+      y: height * 0.4 + (Math.random() - 0.5) * 120,
+      vx: (Math.random() - 0.5) * 22,
+      vy: -Math.random() * 16 - 7,
+      size: Math.random() * 9 + 6,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      rotation: Math.random() * 360,
+      rotationSpeed: (Math.random() - 0.5) * 14,
+      gravity: 0.38,
+      friction: 0.985,
+      wobble: Math.random() * 10,
+      wobbleSpeed: 0.12,
+      opacity: 1,
+    }));
+
+    let animationFrameId: number;
+    const startTime = Date.now();
+
+    const render = () => {
+      const elapsed = Date.now() - startTime;
+      ctx.clearRect(0, 0, width, height);
+
+      particles.forEach((p) => {
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vy += p.gravity;
+        p.vx *= p.friction;
+        p.rotation += p.rotationSpeed;
+        p.wobble += p.wobbleSpeed;
+
+        if (elapsed > 4500) {
+          p.opacity = Math.max(0, p.opacity - 0.015);
+        }
+
+        ctx.save();
+        ctx.translate(p.x + Math.sin(p.wobble) * 5, p.y);
+        ctx.rotate((p.rotation * Math.PI) / 180);
+        ctx.fillStyle = p.color;
+        ctx.globalAlpha = p.opacity;
+        ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.6);
+        ctx.restore();
+      });
+
+      if (elapsed < 8000) {
+        animationFrameId = requestAnimationFrame(render);
+      }
+    };
+
+    animationFrameId = requestAnimationFrame(render);
+
+    return () => {
+      cancelAnimationFrame(animationFrameId);
+      window.removeEventListener('resize', handleResize);
+    };
+  }, []);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        width: '100vw',
+        height: '100vh',
+        pointerEvents: 'none',
+        zIndex: 9999,
+      }}
+    />
+  );
+};
 
 interface CandidateExamRunnerProps {
   sessionId?: string;
   examId?: string;
   isStudentProctored?: boolean;
-  onClose: () => void;
+  onClose?: (session?: CandidateSessionItem | null) => void;
   onCompleted?: (session: CandidateSessionItem) => void;
 }
 
@@ -44,20 +148,27 @@ export const CandidateExamRunner: React.FC<CandidateExamRunnerProps> = ({
 }) => {
   const adminService = AdminService.getInstance();
   const { warning, success, error: toastError } = useToast();
+  const { t } = useTranslation();
 
   const [step, setStep] = useState<RunnerStep>(isStudentProctored ? 'PREFLIGHT' : 'RUNNING');
   const [session, setSession] = useState<CandidateSessionItem | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
-  const [language, setLanguage] = useState<'EN' | 'RW' | 'FR'>('EN');
+  // Exam runner must always start in Kinyarwanda as requested; candidate can change it via the dropdown
+  const [language, setLanguage] = useState<'EN' | 'RW' | 'FR'>('RW');
 
   // Active runner state
-  const [currentIndex, setCurrentIndex] = useState<number>(0);
   const [selectedAnswers, setSelectedAnswers] = useState<Record<number, string>>({});
-  const [flaggedIndices, setFlaggedIndices] = useState<Set<number>>(new Set());
   const [timeRemaining, setTimeRemaining] = useState<number>(1200);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [showSubmitConfirm, setShowSubmitConfirm] = useState<boolean>(false);
+  const [showScoreModal, setShowScoreModal] = useState<boolean>(false);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+
+  // Synchronized refs to avoid stale closure issues during countdown expiry
+  const sessionRef = useRef<CandidateSessionItem | null>(session);
+  sessionRef.current = session;
+  const isSubmittingRef = useRef<boolean>(isSubmitting);
+  isSubmittingRef.current = isSubmitting;
 
   // Pre-flight checks
   const [netStatus, setNetStatus] = useState<'PENDING' | 'PASS' | 'FAIL'>('PENDING');
@@ -260,7 +371,6 @@ export const CandidateExamRunner: React.FC<CandidateExamRunnerProps> = ({
       setTimeRemaining((prev) => {
         if (prev <= 1) {
           clearInterval(timerIntervalRef.current);
-          handleTimeExpiredAutoSubmit();
           return 0;
         }
         return prev - 1;
@@ -272,10 +382,23 @@ export const CandidateExamRunner: React.FC<CandidateExamRunnerProps> = ({
     };
   }, [step]);
 
+  // Automatically submit exam immediately when countdown reaches zero
+  useEffect(() => {
+    if (step === 'RUNNING' && timeRemaining === 0 && !isSubmittingRef.current && sessionRef.current) {
+      handleTimeExpiredAutoSubmit();
+    }
+  }, [timeRemaining, step]);
+
   // Auto-submit on countdown expiry
   const handleTimeExpiredAutoSubmit = async () => {
-    if (isSubmitting || !session) return;
-    warning('Examination time limit (20 minutes) has expired. Submitting your answers automatically...');
+    if (isSubmittingRef.current || !sessionRef.current) return;
+    warning(
+      language === 'RW'
+        ? 'Igihe cyatanzwe kirarangiye (Iminota 20). Ikizamini cyanyu kigiye gutangwa mu buryo bwikora...'
+        : language === 'FR'
+        ? 'Le temps imparti (20 minutes) est écoulé. Vos réponses sont soumises automatiquement...'
+        : 'Examination time limit (20 minutes) has expired. Submitting your answers automatically...'
+    );
     await performSubmit();
   };
 
@@ -345,12 +468,9 @@ export const CandidateExamRunner: React.FC<CandidateExamRunnerProps> = ({
   // ────────────────────────────────────────────────────────────────────────────
   // Answer Selection & Auto-Save
   // ────────────────────────────────────────────────────────────────────────────
-  const handleSelectOption = async (optionKey: 'A' | 'B' | 'C' | 'D') => {
+  const handleSelectOption = async (seq: number, optionKey: 'A' | 'B' | 'C' | 'D') => {
     if (!session || step !== 'RUNNING') return;
-    const currentQ = session.questions[currentIndex];
-    if (!currentQ) return;
 
-    const seq = currentQ.sequence_number;
     setSelectedAnswers((prev) => ({ ...prev, [seq]: optionKey }));
 
     try {
@@ -360,27 +480,22 @@ export const CandidateExamRunner: React.FC<CandidateExamRunnerProps> = ({
     }
   };
 
-  const toggleFlagQuestion = (index: number) => {
-    setFlaggedIndices((prev) => {
-      const next = new Set(prev);
-      if (next.has(index)) next.delete(index);
-      else next.add(index);
-      return next;
-    });
-  };
-
   // ────────────────────────────────────────────────────────────────────────────
   // Submit Final Examination
   // ────────────────────────────────────────────────────────────────────────────
   const performSubmit = async () => {
-    if (!session || isSubmitting) return;
+    const activeSession = sessionRef.current || session;
+    if (!activeSession || isSubmittingRef.current) return;
     setIsSubmitting(true);
+    isSubmittingRef.current = true;
     setShowSubmitConfirm(false);
 
     try {
-      const graded = await adminService.submitCandidateExam(session.id);
+      const graded = await adminService.submitCandidateExam(activeSession.id);
       setSession(graded);
+      sessionRef.current = graded;
       setStep('RESULTS');
+      setShowScoreModal(true); // Pop out the score modal immediately with celebration or failure
       success('Examination successfully submitted and graded!');
       if (onCompleted) onCompleted(graded);
 
@@ -392,6 +507,7 @@ export const CandidateExamRunner: React.FC<CandidateExamRunnerProps> = ({
       toastError(err?.message || 'Submission error. Please check your network and retry.');
     } finally {
       setIsSubmitting(false);
+      isSubmittingRef.current = false;
     }
   };
 
@@ -403,7 +519,6 @@ export const CandidateExamRunner: React.FC<CandidateExamRunnerProps> = ({
   };
 
   const answeredCount = Object.keys(selectedAnswers).length;
-  const currentQuestion = session?.questions?.[currentIndex];
 
   const getQuestionText = (q?: CandidateExamQuestionItem) => {
     if (!q) return '';
@@ -492,7 +607,7 @@ export const CandidateExamRunner: React.FC<CandidateExamRunnerProps> = ({
               </p>
             </div>
             <button
-              onClick={onClose}
+              onClick={() => onClose && onClose(session)}
               className="btn btn-ghost"
               style={{ color: '#94a3b8', padding: '8px 14px', borderRadius: '12px' }}
             >
@@ -793,550 +908,348 @@ export const CandidateExamRunner: React.FC<CandidateExamRunnerProps> = ({
       <div
         style={{
           minHeight: '100vh',
-          background: '#090d16',
-          color: '#f8fafc',
+          backgroundColor: '#ffffff',
+          color: '#111827',
           display: 'flex',
           flexDirection: 'column',
           fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
         }}
       >
-        {/* Top Floating App Bar */}
+        {/* Top Sticky App Bar: Blue Header */}
         <header
           style={{
             height: '64px',
-            background: 'rgba(15, 23, 42, 0.85)',
-            backdropFilter: 'blur(12px)',
-            borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: '0 24px',
+            backgroundColor: '#0284c7',
+            borderBottom: '1px solid #0369a1',
             position: 'sticky',
             top: 0,
             zIndex: 40,
+            display: 'flex',
+            alignItems: 'center',
+            padding: '0 24px',
+            color: '#ffffff',
+            boxShadow: '0 2px 4px rgba(0, 0, 0, 0.08)',
           }}
         >
-          {/* Left Title & Domain Badge */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-            <div
-              style={{
-                width: '32px',
-                height: '32px',
-                borderRadius: '8px',
-                background: 'linear-gradient(135deg, #0374b5 0%, #003366 100%)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontWeight: 800,
-                fontSize: '0.9rem',
-              }}
-            >
-              SD
-            </div>
-            <div>
-              <div style={{ fontSize: '0.95rem', fontWeight: 800, color: '#ffffff' }}>
-                {session?.exam_title || 'Official Driving Theory Examination'}
-              </div>
-              <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
-                Candidate Attempt • 20 Points Total • 1 Pt / Question
-              </div>
-            </div>
-          </div>
-
-          {/* Middle Countdown Timer */}
           <div
             style={{
+              maxWidth: '960px',
+              width: '100%',
+              margin: '0 auto',
               display: 'flex',
               alignItems: 'center',
-              gap: '8px',
-              background: isWarningTime ? 'rgba(239, 68, 68, 0.2)' : 'rgba(255, 255, 255, 0.05)',
-              border: isWarningTime ? '1px solid #ef4444' : '1px solid rgba(255, 255, 255, 0.1)',
-              padding: '6px 16px',
-              borderRadius: '999px',
-              color: isWarningTime ? '#f87171' : '#f8fafc',
-              animation: isWarningTime ? 'pulse 1.5s infinite' : 'none',
+              justifyContent: 'space-between',
+              gap: '12px',
             }}
           >
-            <Clock size={18} />
-            <span style={{ fontSize: '1.1rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}>
-              {formatTime(timeRemaining)}
-            </span>
-          </div>
-
-          {/* Right Controls: Language Selector, Fullscreen, Finish */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            {/* Multilingual Switcher */}
-            <div
-              style={{
-                display: 'flex',
-                background: 'rgba(255, 255, 255, 0.05)',
-                border: '1px solid rgba(255, 255, 255, 0.08)',
-                borderRadius: '8px',
-                overflow: 'hidden',
-              }}
-            >
-              {(['EN', 'RW', 'FR'] as const).map((lang) => (
-                <button
-                  key={lang}
-                  onClick={() => setLanguage(lang)}
-                  style={{
-                    border: 'none',
-                    background: language === lang ? '#0374b5' : 'transparent',
-                    color: language === lang ? '#ffffff' : '#94a3b8',
-                    padding: '5px 10px',
-                    fontSize: '0.75rem',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                  }}
-                >
-                  {lang}
-                </button>
-              ))}
+            {/* Left: Brand & Exam Title */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '1.1rem', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.02em' }}>
+                SIFO DRIVE
+              </span>
+              <span style={{ color: 'rgba(255, 255, 255, 0.6)' }}>/</span>
+              <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'rgba(255, 255, 255, 0.95)' }}>
+                {session?.exam_title &&
+                session.exam_title !== 'Official Rwanda Traffic Theory Examination' &&
+                session.exam_title !== 'Official Driving Theory Examination' &&
+                session.exam_title !== 'Sifo Drive Traffic Examination' &&
+                session.exam_title !== 'Traffic Examination'
+                  ? session.exam_title
+                  : (language === 'RW' ? "Ikizamini Cy'Ubumenyi bw'Umuhanda" : language === 'FR' ? 'Examen Théorique du Code' : 'Traffic Examination')}
+              </span>
             </div>
 
-            {/* Fullscreen Button */}
-            <button
-              onClick={() => {
-                if (!document.fullscreenElement) {
-                  document.documentElement.requestFullscreen().catch(() => {});
-                  setIsFullscreen(true);
-                } else {
-                  document.exitFullscreen().catch(() => {});
-                  setIsFullscreen(false);
-                }
-              }}
-              className="btn btn-ghost btn-sm"
-              style={{ color: '#94a3b8', padding: '6px' }}
-              title="Toggle Fullscreen"
-            >
-              {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
-            </button>
-
-            {/* Submit Button */}
-            <button
-              onClick={() => setShowSubmitConfirm(true)}
-              className="btn btn-primary btn-sm"
-              style={{
-                background: '#10b981',
-                borderColor: '#10b981',
-                color: '#ffffff',
-                fontWeight: 700,
-                borderRadius: '8px',
-              }}
-            >
-              Submit Exam
-            </button>
-          </div>
-        </header>
-
-        {/* Runner Body: Question left, Palette & Proctoring right */}
-        <main
-          style={{
-            flex: 1,
-            maxWidth: '1360px',
-            width: '100%',
-            margin: '0 auto',
-            padding: '24px',
-            display: 'grid',
-            gridTemplateColumns: '1fr 340px',
-            gap: '24px',
-          }}
-        >
-          {/* Left: Active Question Card */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            {currentQuestion ? (
-              <div
-                style={{
-                  background: 'rgba(15, 23, 42, 0.65)',
-                  border: '1px solid rgba(255, 255, 255, 0.08)',
-                  borderRadius: '20px',
-                  padding: '28px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '20px',
-                }}
-              >
-                {/* Question Metadata Header */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <span
-                      style={{
-                        background: 'rgba(3, 116, 181, 0.15)',
-                        color: '#38bdf8',
-                        padding: '4px 10px',
-                        borderRadius: '6px',
-                        fontSize: '0.8rem',
-                        fontWeight: 700,
-                      }}
-                    >
-                      Question {currentIndex + 1} of {session?.total_questions || 20}
-                    </span>
-                    <span
-                      style={{
-                        background: 'rgba(255, 255, 255, 0.06)',
-                        color: '#cbd5e1',
-                        padding: '4px 10px',
-                        borderRadius: '6px',
-                        fontSize: '0.75rem',
-                        fontWeight: 600,
-                      }}
-                    >
-                      Domain: {currentQuestion.domain}
-                    </span>
-                  </div>
-
-                  <button
-                    onClick={() => toggleFlagQuestion(currentIndex)}
-                    style={{
-                      border: 'none',
-                      background: flaggedIndices.has(currentIndex)
-                        ? 'rgba(234, 179, 8, 0.2)'
-                        : 'rgba(255, 255, 255, 0.05)',
-                      color: flaggedIndices.has(currentIndex) ? '#facc15' : '#94a3b8',
-                      padding: '6px 12px',
-                      borderRadius: '8px',
-                      fontSize: '0.8rem',
-                      fontWeight: 600,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    <Flag size={14} />
-                    <span>{flaggedIndices.has(currentIndex) ? 'Flagged' : 'Flag for Review'}</span>
-                  </button>
-                </div>
-
-                {/* Optional Question Image */}
-                {currentQuestion.image && (
-                  <div
-                    style={{
-                      maxHeight: '260px',
-                      overflow: 'hidden',
-                      borderRadius: '12px',
-                      border: '1px solid rgba(255, 255, 255, 0.08)',
-                      background: '#020617',
-                      display: 'flex',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    <img
-                      src={currentQuestion.image}
-                      alt="Question scenario"
-                      style={{ maxHeight: '260px', objectFit: 'contain' }}
-                    />
-                  </div>
-                )}
-
-                {/* Question Prompt */}
-                <h2
-                  style={{
-                    fontSize: '1.25rem',
-                    fontWeight: 700,
-                    lineHeight: '1.5',
-                    color: '#ffffff',
-                    margin: 0,
-                  }}
-                >
-                  {getQuestionText(currentQuestion)}
-                </h2>
-
-                {/* 4 Answer Options */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  {(['A', 'B', 'C', 'D'] as const).map((optKey) => {
-                    const optLower = optKey.toLowerCase() as 'a' | 'b' | 'c' | 'd';
-                    const optText = getOptionText(currentQuestion, optLower);
-                    if (!optText) return null;
-
-                    const seq = currentQuestion.sequence_number;
-                    const isSelected = selectedAnswers[seq] === optKey;
-
-                    return (
-                      <div
-                        key={optKey}
-                        onClick={() => handleSelectOption(optKey)}
-                        style={{
-                          background: isSelected
-                            ? 'linear-gradient(135deg, rgba(3, 116, 181, 0.25) 0%, rgba(3, 116, 181, 0.1) 100%)'
-                            : 'rgba(255, 255, 255, 0.03)',
-                          border: isSelected
-                            ? '2px solid #0374b5'
-                            : '1px solid rgba(255, 255, 255, 0.08)',
-                          borderRadius: '12px',
-                          padding: '14px 18px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '14px',
-                          cursor: 'pointer',
-                          transition: 'all 0.15s ease-in-out',
-                        }}
-                      >
-                        <div
-                          style={{
-                            width: '32px',
-                            height: '32px',
-                            borderRadius: '50%',
-                            background: isSelected ? '#0374b5' : 'rgba(255, 255, 255, 0.08)',
-                            color: isSelected ? '#ffffff' : '#cbd5e1',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontWeight: 700,
-                            fontSize: '0.85rem',
-                            flexShrink: 0,
-                          }}
-                        >
-                          {optKey}
-                        </div>
-                        <div style={{ fontSize: '0.95rem', color: isSelected ? '#ffffff' : '#cbd5e1', lineHeight: '1.4' }}>
-                          {optText}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* Bottom Navigation Buttons */}
-                <div
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    paddingTop: '16px',
-                    borderTop: '1px solid rgba(255, 255, 255, 0.06)',
-                  }}
-                >
-                  <button
-                    onClick={() => setCurrentIndex((prev) => Math.max(0, prev - 1))}
-                    disabled={currentIndex === 0}
-                    className="btn btn-secondary btn-md"
-                    style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
-                  >
-                    <ChevronLeft size={16} /> Previous
-                  </button>
-
-                  <div style={{ fontSize: '0.82rem', color: '#94a3b8' }}>
-                    {answeredCount} of {session?.total_questions || 20} answered
-                  </div>
-
-                  <button
-                    onClick={() =>
-                      setCurrentIndex((prev) =>
-                        Math.min((session?.questions?.length || 20) - 1, prev + 1)
-                      )
-                    }
-                    disabled={currentIndex === (session?.questions?.length || 20) - 1}
-                    className="btn btn-secondary btn-md"
-                    style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
-                  >
-                    Next <ChevronRight size={16} />
-                  </button>
-                </div>
-              </div>
-            ) : null}
-          </div>
-
-          {/* Right Sidebar: Proctoring Feed & Question Palette */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            {/* Live Proctoring PIP Feed (for student exams) */}
-            {isStudentProctored && (
-              <div
-                style={{
-                  background: 'rgba(15, 23, 42, 0.65)',
-                  border: '1px solid rgba(255, 255, 255, 0.08)',
-                  borderRadius: '16px',
-                  padding: '16px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '10px',
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span
-                      style={{
-                        width: '8px',
-                        height: '8px',
-                        borderRadius: '50%',
-                        background: '#10b981',
-                        boxShadow: '0 0 8px #10b981',
-                      }}
-                    />
-                    <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#f1f5f9' }}>
-                      Proctoring Active
-                    </span>
-                  </div>
-                  <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>Camera & Mic Audited</span>
-                </div>
-
-                <div
-                  style={{
-                    width: '100%',
-                    aspectRatio: '4/3',
-                    background: '#020617',
-                    borderRadius: '10px',
-                    overflow: 'hidden',
-                  }}
-                >
-                  <video
-                    ref={videoRef}
-                    autoPlay
-                    playsInline
-                    muted
-                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* 20 Questions Grid Palette */}
+            {/* Center: Live Countdown Timer */}
             <div
               style={{
-                background: 'rgba(15, 23, 42, 0.65)',
-                border: '1px solid rgba(255, 255, 255, 0.08)',
-                borderRadius: '16px',
-                padding: '20px',
                 display: 'flex',
-                flexDirection: 'column',
-                gap: '16px',
+                alignItems: 'center',
+                gap: '8px',
+                backgroundColor: isWarningTime ? '#fee2e2' : 'rgba(255, 255, 255, 0.2)',
+                border: isWarningTime ? '1px solid #f87171' : '1px solid rgba(255, 255, 255, 0.3)',
+                padding: '6px 16px',
+                borderRadius: '999px',
+                color: isWarningTime ? '#dc2626' : '#ffffff',
+                fontWeight: 700,
+                animation: isWarningTime ? 'pulse 1.5s infinite' : 'none',
               }}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h3 style={{ fontSize: '0.9rem', fontWeight: 700, margin: 0, color: '#f8fafc' }}>
-                  Question Palette
-                </h3>
-                <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
-                  {answeredCount}/20 Completed
-                </span>
-              </div>
+              <Clock size={16} />
+              <span style={{ fontSize: '1rem', fontVariantNumeric: 'tabular-nums' }}>
+                {formatTime(timeRemaining)}
+              </span>
+            </div>
 
-              {/* Progress Bar */}
-              <div
+            {/* Right: Answered Progress, Language Dropdown & Fullscreen Toggle */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+              <span style={{ fontSize: '0.85rem', color: 'rgba(255, 255, 255, 0.9)', fontWeight: 600 }}>
+                {answeredCount}/20 {language === 'RW' ? 'byasubijwe' : language === 'FR' ? 'répondues' : 'answered'}
+              </span>
+
+              {/* Language Dropdown (RW / EN / FR) */}
+              <select
+                id="exam-runner-language-select"
+                value={language}
+                onChange={(e) => setLanguage(e.target.value as 'EN' | 'RW' | 'FR')}
                 style={{
-                  height: '6px',
-                  background: 'rgba(255, 255, 255, 0.06)',
-                  borderRadius: '999px',
-                  overflow: 'hidden',
+                  backgroundColor: '#ffffff',
+                  border: '1px solid rgba(255, 255, 255, 0.4)',
+                  borderRadius: '6px',
+                  padding: '6px 10px',
+                  fontSize: '0.82rem',
+                  fontWeight: 600,
+                  color: '#1e293b',
+                  cursor: 'pointer',
+                  outline: 'none',
                 }}
               >
-                <div
-                  style={{
-                    height: '100%',
-                    width: `${(answeredCount / (session?.total_questions || 20)) * 100}%`,
-                    background: '#10b981',
-                    transition: 'width 0.2s ease',
-                  }}
-                />
-              </div>
+                <option value="RW">Kinyarwanda</option>
+                <option value="EN">English</option>
+                <option value="FR">Français</option>
+              </select>
 
-              {/* 20 Question Pills */}
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(5, 1fr)',
-                  gap: '8px',
-                }}
-              >
-                {(session?.questions || []).map((q, idx) => {
-                  const seq = q.sequence_number;
-                  const isCurrent = currentIndex === idx;
-                  const isAnswered = Boolean(selectedAnswers[seq]);
-                  const isFlagged = flaggedIndices.has(idx);
-
-                  let bg = 'rgba(255, 255, 255, 0.04)';
-                  let color = '#94a3b8';
-                  let border = '1px solid rgba(255, 255, 255, 0.08)';
-
-                  if (isAnswered) {
-                    bg = 'rgba(16, 185, 129, 0.2)';
-                    color = '#10b981';
-                    border = '1px solid rgba(16, 185, 129, 0.4)';
-                  }
-                  if (isFlagged) {
-                    bg = 'rgba(234, 179, 8, 0.2)';
-                    color = '#facc15';
-                    border = '1px solid rgba(234, 179, 8, 0.4)';
-                  }
-                  if (isCurrent) {
-                    border = '2px solid #38bdf8';
-                  }
-
-                  return (
-                    <button
-                      key={seq}
-                      onClick={() => setCurrentIndex(idx)}
-                      style={{
-                        background: bg,
-                        color: color,
-                        border: border,
-                        borderRadius: '8px',
-                        padding: '10px 0',
-                        fontWeight: 700,
-                        fontSize: '0.85rem',
-                        cursor: 'pointer',
-                        transition: 'all 0.15s ease',
-                      }}
-                    >
-                      {seq}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Legend */}
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  fontSize: '0.72rem',
-                  color: '#94a3b8',
-                  paddingTop: '8px',
-                  borderTop: '1px solid rgba(255, 255, 255, 0.06)',
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981' }} />
-                  Answered
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#facc15' }} />
-                  Flagged
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#38bdf8' }} />
-                  Current
-                </div>
-              </div>
-
-              {/* Submit CTA */}
+              {/* Fullscreen Toggle */}
               <button
-                onClick={() => setShowSubmitConfirm(true)}
-                className="btn btn-primary btn-md"
-                style={{
-                  width: '100%',
-                  justifyContent: 'center',
-                  background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                  borderColor: '#10b981',
-                  color: '#ffffff',
-                  fontWeight: 700,
-                  marginTop: '8px',
+                type="button"
+                onClick={() => {
+                  if (!document.fullscreenElement) {
+                    document.documentElement.requestFullscreen().catch(() => {});
+                    setIsFullscreen(true);
+                  } else {
+                    document.exitFullscreen().catch(() => {});
+                    setIsFullscreen(false);
+                  }
                 }}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.15)',
+                  border: '1px solid rgba(255, 255, 255, 0.3)',
+                  borderRadius: '6px',
+                  padding: '6px',
+                  color: '#ffffff',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+                title="Toggle Fullscreen"
               >
-                Finish & Submit Exam
+                {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
               </button>
             </div>
           </div>
+        </header>
+
+        {/* Exam Document Body: All 20 Questions Listed (No Containers, White Mode) */}
+        <main
+          style={{
+            flex: 1,
+            maxWidth: '960px',
+            width: '100%',
+            margin: '0 auto',
+            padding: '36px 24px 80px 24px',
+          }}
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+            {(session?.questions || []).map((q, idx) => {
+              const seq = q.sequence_number || idx + 1;
+              const selectedOpt = selectedAnswers[seq];
+
+              return (
+                <div
+                  key={seq}
+                  id={`question-${seq}`}
+                  style={{
+                    paddingBottom: '28px',
+                    borderBottom: '1px solid #f3f4f6',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '12px',
+                  }}
+                >
+                  {/* QUESTION HEADER (Bolded) */}
+                  <div
+                    style={{
+                      fontSize: '1.05rem',
+                      fontWeight: 800,
+                      color: '#111827',
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    <span style={{ marginRight: '8px' }}>{seq}.</span>
+                    <span>{getQuestionText(q)}</span>
+                  </div>
+
+                  {/* Question Image (Traffic diagram / sign if present) */}
+                  {q.image && (
+                    <div style={{ marginLeft: '24px', marginTop: '4px', marginBottom: '4px' }}>
+                      <img
+                        src={q.image}
+                        alt={`Question ${seq} diagram`}
+                        style={{
+                          maxHeight: '190px',
+                          maxWidth: '100%',
+                          objectFit: 'contain',
+                          borderRadius: '6px',
+                          border: '1px solid #e5e7eb',
+                          backgroundColor: '#ffffff',
+                        }}
+                      />
+                    </div>
+                  )}
+
+                  {/* ANSWERS (Indented under the question, unbolded, user chooses an option) */}
+                  <div
+                    style={{
+                      marginLeft: '24px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '8px',
+                    }}
+                  >
+                    {(['A', 'B', 'C', 'D'] as const).map((optKey) => {
+                      const optLower = optKey.toLowerCase() as 'a' | 'b' | 'c' | 'd';
+                      const optText = getOptionText(q, optLower);
+                      if (!optText) return null;
+
+                      const isSelected = selectedOpt === optKey;
+
+                      return (
+                        <label
+                          key={optKey}
+                          onClick={() => handleSelectOption(seq, optKey)}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'baseline',
+                            gap: '10px',
+                            fontSize: '0.95rem',
+                            fontWeight: 400,
+                            color: isSelected ? '#0369a1' : '#374151',
+                            lineHeight: 1.45,
+                            cursor: 'pointer',
+                            padding: '6px 8px',
+                            borderRadius: '6px',
+                            backgroundColor: isSelected ? '#f0f9ff' : 'transparent',
+                            transition: 'background-color 0.15s ease',
+                            userSelect: 'none',
+                          }}
+                        >
+                          <input
+                            type="radio"
+                            name={`q-${seq}`}
+                            checked={isSelected}
+                            onChange={() => handleSelectOption(seq, optKey)}
+                            style={{
+                              accentColor: '#0284c7',
+                              width: '16px',
+                              height: '16px',
+                              cursor: 'pointer',
+                              flexShrink: 0,
+                              alignSelf: 'center',
+                            }}
+                          />
+                          <span style={{ fontWeight: 600, minWidth: '18px' }}>{optKey}.</span>
+                          <span style={{ flex: 1 }}>{optText}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Bottom Final Submit CTA after Question 20 */}
+          <div
+            style={{
+              marginTop: '40px',
+              paddingTop: '28px',
+              borderTop: '2px solid #e5e7eb',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '14px',
+              textAlign: 'center',
+            }}
+          >
+            <div style={{ fontSize: '0.92rem', color: '#6b7280' }}>
+              {language === 'RW'
+                ? `Wamaze gusubiza ibibazo ${answeredCount} kuri ${session?.total_questions || 20}.`
+                : language === 'FR'
+                ? `Vous avez répondu à ${answeredCount} questions sur ${session?.total_questions || 20}.`
+                : `You have answered ${answeredCount} of ${session?.total_questions || 20} questions.`}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowSubmitConfirm(true)}
+              style={{
+                backgroundColor: '#10b981',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '12px 32px',
+                fontSize: '1rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                boxShadow: '0 2px 8px rgba(16, 185, 129, 0.25)',
+              }}
+            >
+              <CheckCircle2 size={18} />
+              <span>
+                {language === 'RW'
+                  ? 'Tanga Ikizamini'
+                  : language === 'FR'
+                  ? 'Soumettre l\'examen'
+                  : 'Submit Exam'}
+              </span>
+            </button>
+          </div>
         </main>
 
-        {/* Submit Confirmation Modal */}
+        {/* Proctoring PIP Feed (for student exams only) */}
+        {isStudentProctored && (
+          <div
+            style={{
+              position: 'fixed',
+              bottom: '20px',
+              right: '20px',
+              width: '180px',
+              backgroundColor: '#ffffff',
+              border: '1px solid #e5e7eb',
+              borderRadius: '12px',
+              boxShadow: '0 4px 14px rgba(0,0,0,0.1)',
+              overflow: 'hidden',
+              zIndex: 50,
+              padding: '8px',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+              <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#10b981' }} />
+              <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#374151' }}>
+                {language === 'RW' ? 'Ubugenzuzi burakora' : language === 'FR' ? 'Surveillance active' : 'Proctoring Active'}
+              </span>
+            </div>
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              muted
+              style={{ width: '100%', height: '110px', objectFit: 'cover', borderRadius: '6px' }}
+            />
+          </div>
+        )}
+
+        {/* Submit Confirmation Modal (White Mode) */}
         {showSubmitConfirm && (
           <div
             style={{
               position: 'fixed',
               inset: 0,
-              background: 'rgba(0, 0, 0, 0.75)',
-              backdropFilter: 'blur(8px)',
+              backgroundColor: 'rgba(0, 0, 0, 0.45)',
+              backdropFilter: 'blur(4px)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -1348,13 +1261,15 @@ export const CandidateExamRunner: React.FC<CandidateExamRunnerProps> = ({
               style={{
                 maxWidth: '480px',
                 width: '100%',
-                background: '#0f172a',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
-                borderRadius: '20px',
-                padding: '28px',
+                backgroundColor: '#ffffff',
+                border: '1px solid #e5e7eb',
+                borderRadius: '16px',
+                padding: '24px',
                 display: 'flex',
                 flexDirection: 'column',
                 gap: '16px',
+                boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
+                color: '#111827',
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -1363,8 +1278,8 @@ export const CandidateExamRunner: React.FC<CandidateExamRunnerProps> = ({
                     width: '40px',
                     height: '40px',
                     borderRadius: '10px',
-                    background: 'rgba(16, 185, 129, 0.2)',
-                    color: '#10b981',
+                    backgroundColor: '#dcfce7',
+                    color: '#15803d',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -1373,21 +1288,23 @@ export const CandidateExamRunner: React.FC<CandidateExamRunnerProps> = ({
                   <FileCheck size={22} />
                 </div>
                 <div>
-                  <h3 style={{ fontSize: '1.15rem', fontWeight: 800, margin: 0, color: '#ffffff' }}>
-                    Confirm Exam Submission
+                  <h3 style={{ fontSize: '1.15rem', fontWeight: 800, margin: 0, color: '#111827' }}>
+                    {language === 'RW' ? 'Kwemeza Gutanga Ikizamini' : 'Confirm Exam Submission'}
                   </h3>
-                  <div style={{ fontSize: '0.82rem', color: '#94a3b8' }}>
-                    {timeRemaining > 0 ? `${formatTime(timeRemaining)} remaining on timer` : 'Time expired'}
+                  <div style={{ fontSize: '0.82rem', color: '#6b7280' }}>
+                    {timeRemaining > 0
+                      ? (language === 'RW' ? `Igihe gisigaye: ${formatTime(timeRemaining)}` : `${formatTime(timeRemaining)} remaining on timer`)
+                      : (language === 'RW' ? 'Igihe cyarangiye' : 'Time expired')}
                   </div>
                 </div>
               </div>
 
               <div
                 style={{
-                  background: 'rgba(255, 255, 255, 0.03)',
-                  border: '1px solid rgba(255, 255, 255, 0.06)',
-                  borderRadius: '12px',
-                  padding: '16px',
+                  backgroundColor: '#f9fafb',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '8px',
+                  padding: '14px',
                   display: 'flex',
                   flexDirection: 'column',
                   gap: '8px',
@@ -1395,51 +1312,279 @@ export const CandidateExamRunner: React.FC<CandidateExamRunnerProps> = ({
                 }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#94a3b8' }}>Total Questions:</span>
-                  <span style={{ fontWeight: 700 }}>{session?.total_questions || 20}</span>
+                  <span style={{ color: '#6b7280' }}>{language === 'RW' ? 'Ibibazo Byose:' : 'Total Questions:'}</span>
+                  <span style={{ fontWeight: 700, color: '#111827' }}>{session?.total_questions || 20}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#94a3b8' }}>Answered:</span>
-                  <span style={{ fontWeight: 700, color: '#10b981' }}>{answeredCount}</span>
+                  <span style={{ color: '#6b7280' }}>{language === 'RW' ? 'Ibyasubijwe:' : 'Answered:'}</span>
+                  <span style={{ fontWeight: 700, color: '#15803d' }}>{answeredCount}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#94a3b8' }}>Unanswered:</span>
-                  <span style={{ fontWeight: 700, color: answeredCount < 20 ? '#ef4444' : '#10b981' }}>
+                  <span style={{ color: '#6b7280' }}>{language === 'RW' ? 'Ibitarasubizwa:' : 'Unanswered:'}</span>
+                  <span style={{ fontWeight: 700, color: answeredCount < (session?.total_questions || 20) ? '#dc2626' : '#15803d' }}>
                     {(session?.total_questions || 20) - answeredCount}
                   </span>
                 </div>
-                {flaggedIndices.size > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: '#94a3b8' }}>Flagged for Review:</span>
-                    <span style={{ fontWeight: 700, color: '#facc15' }}>{flaggedIndices.size}</span>
-                  </div>
-                )}
               </div>
 
-              <p style={{ fontSize: '0.82rem', color: '#94a3b8', margin: 0 }}>
-                Once submitted, your answers will be automatically graded and cannot be modified.
+              <p style={{ fontSize: '0.82rem', color: '#6b7280', margin: 0 }}>
+                {language === 'RW'
+                  ? 'Iyo umaze gutanga ikizamini, amanota ahita abara ako kanya kandi ntiwabihindura.'
+                  : 'Once submitted, your answers will be automatically graded and cannot be modified.'}
               </p>
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '8px' }}>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '6px' }}>
                 <button
+                  type="button"
                   onClick={() => setShowSubmitConfirm(false)}
                   disabled={isSubmitting}
-                  className="btn btn-secondary btn-md"
+                  style={{
+                    backgroundColor: '#f3f4f6',
+                    color: '#374151',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '6px',
+                    padding: '8px 16px',
+                    fontSize: '0.88rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
                 >
-                  Continue Test
+                  {language === 'RW' ? 'Komeza Ikizamini' : 'Continue Test'}
                 </button>
                 <button
+                  type="button"
                   onClick={performSubmit}
                   disabled={isSubmitting}
-                  className="btn btn-primary btn-md"
-                  style={{ background: '#10b981', borderColor: '#10b981' }}
+                  style={{
+                    backgroundColor: '#10b981',
+                    color: '#ffffff',
+                    border: 'none',
+                    borderRadius: '6px',
+                    padding: '8px 18px',
+                    fontSize: '0.88rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
                 >
-                  {isSubmitting ? 'Grading Answers...' : 'Submit Now'}
+                  {isSubmitting
+                    ? (language === 'RW' ? 'Gukosora...' : 'Grading Answers...')
+                    : (language === 'RW' ? 'Tanga Ikizamini Ubu' : 'Submit Now')}
                 </button>
               </div>
             </div>
           </div>
         )}
+
+        {/* Graded Exam Score Popup Modal */}
+        {renderScoreModal()}
+      </div>
+    );
+  }
+
+  // ────────────────────────────────────────────────────────────────────────────
+  // Graded Result Modal with Celebration Confetti
+  // ────────────────────────────────────────────────────────────────────────────
+  function renderScoreModal() {
+    if (!showScoreModal || !session) return null;
+
+    const score = session.score ?? 0;
+    const totalQuestions = session.total_questions || session.questions?.length || 20;
+    const isPassed = session.passed ?? (score >= (session.passing_score ?? 12));
+    const percentage = Math.round((score / totalQuestions) * 100);
+
+    return (
+      <div
+        style={{
+          position: 'fixed',
+          inset: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.65)',
+          backdropFilter: 'blur(6px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9990,
+          padding: '20px',
+        }}
+      >
+        {isPassed && <ConfettiCanvas />}
+
+        <div
+          style={{
+            backgroundColor: '#ffffff',
+            borderRadius: '20px',
+            maxWidth: '460px',
+            width: '100%',
+            padding: '36px 28px',
+            textAlign: 'center',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+            position: 'relative',
+            zIndex: 10000,
+            border: isPassed ? '2px solid #10b981' : '2px solid #ef4444',
+            color: '#111827',
+          }}
+        >
+          {/* Header Icon Badge */}
+          <div
+            style={{
+              width: '80px',
+              height: '80px',
+              borderRadius: '50%',
+              margin: '0 auto 18px auto',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: isPassed ? '#d1fae5' : '#fee2e2',
+              color: isPassed ? '#059669' : '#dc2626',
+              boxShadow: isPassed
+                ? '0 10px 25px -5px rgba(16, 185, 129, 0.35)'
+                : '0 10px 25px -5px rgba(239, 68, 68, 0.35)',
+            }}
+          >
+            {isPassed ? <Award size={44} /> : <XCircle size={44} />}
+          </div>
+
+          {/* Title: 'Congratulations!' / 'Urakoze Cyane!' if passed, or 'Failed' / 'Ntabwo Watsinze' */}
+          <h2
+            style={{
+              fontSize: '2rem',
+              fontWeight: 900,
+              margin: isPassed ? '0 0 8px 0' : '0 0 24px 0',
+              color: isPassed ? '#059669' : '#dc2626',
+              letterSpacing: '-0.02em',
+            }}
+          >
+            {isPassed
+              ? (language === 'FR' ? 'Félicitations !' : t('examLifecycle.scoreModal.congratulationsTitle'))
+              : (language === 'FR' ? 'Échoué' : t('examLifecycle.scoreModal.failedTitle'))}
+          </h2>
+
+          {isPassed && (
+            <p
+              style={{
+                margin: '0 0 24px 0',
+                fontSize: '0.95rem',
+                color: '#4b5563',
+                lineHeight: 1.5,
+              }}
+            >
+              {language === 'FR'
+                ? "Vous avez réussi l'examen du code de la route !"
+                : t('examLifecycle.scoreModal.passedSubtitle')}
+            </p>
+          )}
+
+          {/* Score breakdown card */}
+          <div
+            style={{
+              backgroundColor: '#f9fafb',
+              border: '1px solid #e5e7eb',
+              borderRadius: '14px',
+              padding: isPassed ? '20px' : '28px 20px',
+              marginBottom: '26px',
+            }}
+          >
+            {isPassed && (
+              <div
+                style={{
+                  fontSize: '0.8rem',
+                  fontWeight: 700,
+                  color: '#6b7280',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.06em',
+                  marginBottom: '8px',
+                }}
+              >
+                {language === 'FR' ? 'Votre Score' : t('examLifecycle.scoreModal.yourExamScore')}
+              </div>
+            )}
+
+            <div
+              style={{
+                fontSize: '2.8rem',
+                fontWeight: 900,
+                color: '#111827',
+                lineHeight: 1,
+                marginBottom: isPassed ? '8px' : 0,
+                fontVariantNumeric: 'tabular-nums',
+              }}
+            >
+              {score}{' '}
+              <span style={{ fontSize: '1.25rem', fontWeight: 600, color: '#6b7280' }}>
+                / {totalQuestions}
+              </span>
+            </div>
+
+            {isPassed && (
+              <>
+                <div
+                  style={{
+                    fontSize: '1.1rem',
+                    fontWeight: 800,
+                    color: '#059669',
+                    marginBottom: '14px',
+                  }}
+                >
+                  {percentage}%
+                </div>
+
+                {/* Status pill */}
+                <div
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '6px 16px',
+                    borderRadius: '999px',
+                    fontSize: '0.85rem',
+                    fontWeight: 800,
+                    letterSpacing: '0.04em',
+                    backgroundColor: '#d1fae5',
+                    color: '#065f46',
+                    border: '1px solid #a7f3d0',
+                  }}
+                >
+                  <CheckCircle2 size={16} />
+                  <span>{language === 'FR' ? 'RÉUSSI' : t('examLifecycle.scoreModal.passedStatus')}</span>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Action Buttons */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <button
+              type="button"
+              onClick={() => {
+                setShowScoreModal(false);
+                if (onClose) {
+                  onClose(session);
+                } else {
+                  const candidatePhone =
+                    session?.candidate_phone ||
+                    localStorage.getItem('sifo_last_candidate_phone') ||
+                    '';
+                  window.location.href = candidatePhone
+                    ? `/practice-exams?phone=${encodeURIComponent(candidatePhone)}`
+                    : '/practice-exams';
+                }
+              }}
+              style={{
+                backgroundColor: '#0284c7',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '10px',
+                padding: '13px 20px',
+                fontSize: '0.95rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                width: '100%',
+                boxShadow: '0 4px 12px rgba(2, 132, 199, 0.25)',
+              }}
+            >
+              {language === 'FR' ? 'Retourner à la page' : t('examLifecycle.scoreModal.returnToDashboard')}
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
@@ -1461,6 +1606,8 @@ export const CandidateExamRunner: React.FC<CandidateExamRunnerProps> = ({
           padding: '40px 20px',
         }}
       >
+        {/* Graded Exam Score Popup Modal */}
+        {renderScoreModal()}
         <div style={{ maxWidth: '960px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '28px' }}>
           {/* Top Banner */}
           <div
@@ -1505,13 +1652,17 @@ export const CandidateExamRunner: React.FC<CandidateExamRunnerProps> = ({
                   marginBottom: '10px',
                 }}
               >
-                {passed ? 'EXAMINATION PASSED' : 'EXAMINATION NOT CLEARED'}
+                {passed
+                  ? (language === 'FR' ? 'EXAMEN RÉUSSI' : t('examLifecycle.results.examPassedBadge'))
+                  : (language === 'FR' ? 'EXAMEN ÉCHOUÉ' : t('examLifecycle.results.examNotClearedBadge'))}
               </div>
               <h1 style={{ fontSize: '2rem', fontWeight: 800, margin: '0 0 8px 0', color: '#ffffff' }}>
-                Your Score: {score} / {totalQ} ({Math.round((score / totalQ) * 100)}%)
+                {language === 'FR' ? 'Votre Note :' : `${t('examLifecycle.results.yourScore')}:`} {score} / {totalQ} ({Math.round((score / totalQ) * 100)}%)
               </h1>
               <p style={{ color: '#94a3b8', fontSize: '0.92rem', margin: 0, maxWidth: '600px' }}>
-                Passing threshold: {session?.passing_score || 12} / 20 points. Auto-graded with immutable score record.
+                {language === 'FR'
+                  ? `Note de passage : ${session?.passing_score || 12} / 20 points. Noté automatiquement.`
+                  : t('examLifecycle.results.passingThreshold', { threshold: session?.passing_score || 12 })}
               </p>
             </div>
 
@@ -1532,8 +1683,7 @@ export const CandidateExamRunner: React.FC<CandidateExamRunnerProps> = ({
               >
                 <ShieldCheck size={20} />
                 <span>
-                  Official Review Status: <strong>Awaiting Stage 1 (Board Review)</strong>. Proctored evidence
-                  (snapshots, telemetry, identity) submitted for accreditation.
+                  {t('examLifecycle.results.studentReviewNotice')}
                 </span>
               </div>
             ) : (
@@ -1551,13 +1701,32 @@ export const CandidateExamRunner: React.FC<CandidateExamRunnerProps> = ({
                 }}
               >
                 <CheckCircle2 size={20} />
-                <span>Practice exam completed! Official answer rationales and explanations released below.</span>
+                <span>
+                  {language === 'FR'
+                    ? 'Examen de pratique terminé ! Les explications officielles sont publiées ci-dessous.'
+                    : t('examLifecycle.results.practiceCompletedNotice')}
+                </span>
               </div>
             )}
 
             <div style={{ display: 'flex', gap: '14px', marginTop: '8px' }}>
-              <button onClick={onClose} className="btn btn-primary btn-md">
-                Return to Dashboard
+              <button
+                onClick={() => {
+                  if (onClose) {
+                    onClose(session);
+                  } else {
+                    const candidatePhone =
+                      session?.candidate_phone ||
+                      localStorage.getItem('sifo_last_candidate_phone') ||
+                      '';
+                    window.location.href = candidatePhone
+                      ? `/practice-exams?phone=${encodeURIComponent(candidatePhone)}`
+                      : '/practice-exams';
+                  }
+                }}
+                className="btn btn-primary btn-md"
+              >
+                {language === 'FR' ? 'Retourner à la page' : t('examLifecycle.results.returnToDashboardBtn')}
               </button>
             </div>
           </div>
@@ -1566,10 +1735,12 @@ export const CandidateExamRunner: React.FC<CandidateExamRunnerProps> = ({
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <h2 style={{ fontSize: '1.3rem', fontWeight: 800, margin: '0 0 4px 0', color: '#ffffff' }}>
-                Official Question Review & Explanations
+                {language === 'FR' ? 'Révision des Questions et Explications' : t('examLifecycle.results.questionReviewTitle')}
               </h2>
               <div style={{ fontSize: '0.85rem', color: '#94a3b8' }}>
-                Examine your selected choices against official police theory keys and rationale.
+                {language === 'FR'
+                  ? 'Examinez vos choix par rapport aux clés officielles de la police.'
+                  : t('examLifecycle.results.questionReviewSubtitle')}
               </div>
             </div>
 
@@ -1638,7 +1809,9 @@ export const CandidateExamRunner: React.FC<CandidateExamRunnerProps> = ({
                           fontWeight: 700,
                         }}
                       >
-                        Q#{q.sequence_number} • {isCorrect ? 'Correct (+1 pt)' : 'Incorrect (0 pt)'}
+                        {isCorrect
+                          ? t('examLifecycle.results.questionBadgeCorrect', { num: q.sequence_number })
+                          : t('examLifecycle.results.questionBadgeIncorrect', { num: q.sequence_number })}
                       </span>
                       <span
                         style={{
@@ -1649,12 +1822,17 @@ export const CandidateExamRunner: React.FC<CandidateExamRunnerProps> = ({
                           fontSize: '0.75rem',
                         }}
                       >
-                        Domain: {q.domain}
+                        {`${t('examLifecycle.results.domainLabel')}: ${q.domain}`}
                       </span>
                     </div>
 
                     <div style={{ fontSize: '0.82rem', color: '#cbd5e1' }}>
-                      Your Answer: <strong style={{ color: isCorrect ? '#10b981' : '#ef4444' }}>{selected || 'None'}</strong> | Correct: <strong style={{ color: '#10b981' }}>{correct}</strong>
+                      {`${t('examLifecycle.results.yourAnswerLabel')}: `}
+                      <strong style={{ color: isCorrect ? '#10b981' : '#ef4444' }}>
+                        {selected || t('examLifecycle.results.noneSelected')}
+                      </strong>{' '}
+                      | {`${t('examLifecycle.results.correctLabel')}: `}
+                      <strong style={{ color: '#10b981' }}>{correct}</strong>
                     </div>
                   </div>
 
@@ -1738,7 +1916,7 @@ export const CandidateExamRunner: React.FC<CandidateExamRunnerProps> = ({
                     }}
                   >
                     <div style={{ fontWeight: 700, color: '#38bdf8', marginBottom: '4px', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                      Explanation
+                      {t('examLifecycle.results.explanationTitle')}
                     </div>
                     {getExplanationText(q)}
                   </div>

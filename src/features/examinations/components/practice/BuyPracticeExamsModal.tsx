@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   X,
   Phone,
@@ -8,6 +9,7 @@ import {
   RotateCcw,
   CheckCircle2,
   Loader2,
+  AlertCircle,
 } from 'lucide-react';
 import {
   AdminService,
@@ -16,6 +18,7 @@ import {
 } from '../../../../core/services/AdminService';
 import { useToast } from '../../../../context/ToastContext';
 import { useAuth } from '../../../../context/AuthContext';
+import { useTranslation } from '../../../../context/I18nContext';
 import momoLogo from '../../../../assets/momo-logo.png';
 
 type ModalStep = 'INFO' | 'OTP' | 'PAYMENT' | 'PROCESSING' | 'CONFIRMED';
@@ -37,7 +40,10 @@ export const BuyPracticeExamsModal: React.FC<BuyPracticeExamsModalProps> = ({
   initialPackageKey = 'BASIC',
   initialExamCount,
 }) => {
+  const navigate = useNavigate();
   const { user } = useAuth();
+  const { language } = useTranslation();
+  const isRw = language === 'rw';
   const { success, error: toastError } = useToast();
   const adminService = AdminService.getInstance();
 
@@ -77,6 +83,8 @@ export const BuyPracticeExamsModal: React.FC<BuyPracticeExamsModalProps> = ({
   });
 
   // OTP State (Valid for 5 min = 300s)
+  const [isNewUser, setIsNewUser] = useState<boolean>(false);
+  const [inlineError, setInlineError] = useState<string | null>(null);
   const [otpCode, setOtpCode] = useState<string>('');
   const [timeLeft, setTimeLeft] = useState<number>(300);
   const [isTimerRunning, setIsTimerRunning] = useState<boolean>(false);
@@ -158,6 +166,8 @@ export const BuyPracticeExamsModal: React.FC<BuyPracticeExamsModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       setStep('INFO');
+      setIsNewUser(false);
+      setInlineError(null);
       setOtpCode('');
       setTimeLeft(300);
       setIsTimerRunning(false);
@@ -292,7 +302,40 @@ export const BuyPracticeExamsModal: React.FC<BuyPracticeExamsModalProps> = ({
     };
   }, [step, isTimerRunning, timeLeft]);
 
-  if (!isOpen) return null;
+  // Polling loop for MoMo payment authorization (must be called at top-level before any return)
+  useEffect(() => {
+    let interval: any = null;
+    if (isOpen && step === 'PROCESSING' && paymentRefId) {
+      interval = setInterval(async () => {
+        try {
+          const res = await adminService.getPublicExamPaymentStatus(paymentRefId);
+          if (res?.status === 'SUCCESSFUL') {
+            clearInterval(interval);
+            setConfirmedResult(res);
+            setStep('CONFIRMED');
+            success(isRw ? 'Kwishyura byemejwe neza! Ibizamini byo kwitoza byongerewe.' : 'Payment confirmed! Practice exam credits added.');
+            const updated = await adminService.getPublicExamCredits(phoneNumber.trim());
+            onSuccess(updated);
+
+            // Automatically close modal and navigate to starting exam page
+            setTimeout(() => {
+              onClose();
+              navigate(`/practice-exams?phone=${encodeURIComponent(phoneNumber.trim())}&lang=${encodeURIComponent(language)}`);
+            }, 1200);
+          } else if (res?.status === 'FAILED') {
+            clearInterval(interval);
+            toastError(res?.message || (isRw ? 'Kwishyura byahagaritswe cyangwa byanze kuri terefone yawe.' : 'Payment was cancelled or failed on your phone.'));
+            setStep('PAYMENT');
+          }
+        } catch {
+          // Ignore transient polling network errors
+        }
+      }, 2500);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isOpen, step, paymentRefId, phoneNumber]);
 
   const selectedPkg = packages.find((p) => p.key === selectedKey);
   const activeLimits = getTierLimits(selectedKey, selectedPkg?.badge, selectedPkg);
@@ -308,24 +351,68 @@ export const BuyPracticeExamsModal: React.FC<BuyPracticeExamsModalProps> = ({
   // STEP 1: Request OTP and proceed to verification
   const handleRequestOTP = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!fullName.trim()) {
-      toastError('Please enter your full name.');
+    setInlineError(null);
+
+    const clean = phoneNumber.trim().replace(/\D/g, '');
+    if (!clean) {
+      setInlineError(isRw ? 'Nyamuneka andika nimero yawe ya terefone.' : 'Please enter your phone number.');
       return;
     }
-    if (!phoneNumber.trim()) {
-      toastError('Please enter your Rwanda phone number.');
+    if (clean.length !== 10) {
+      setInlineError(
+        isRw
+          ? 'Nimero ya terefone igomba kuba igizwe n\'imibare 10 (urugero: 0788123456).'
+          : 'Phone number must be exactly 10 digits (e.g. 0788123456).'
+      );
       return;
     }
 
     try {
       setIsProcessing(true);
-      const res = await adminService.requestPublicExamOTP(phoneNumber.trim(), fullName.trim());
+      let targetName = fullName.trim();
+
+      if (!isNewUser) {
+        // Existing user mode: verify phone number is registered
+        const creditInfo = await adminService.getPublicExamCredits(clean);
+        if (!creditInfo || (!creditInfo.is_registered && !creditInfo.full_name)) {
+          setIsNewUser(true);
+          setInlineError(
+            isRw
+              ? 'Iyi nimero ntabwo irandikwa muri sisitemu. Nyamuneka andika amazina yawe kugira ngo wiyandikishe.'
+              : 'This phone number is not registered yet. Please enter your full name to register.'
+          );
+          setIsProcessing(false);
+          return;
+        }
+        if (creditInfo.full_name) {
+          targetName = creditInfo.full_name;
+          setFullName(creditInfo.full_name);
+        }
+      } else {
+        // New user registration mode: full name is required
+        if (!targetName) {
+          setInlineError(isRw ? 'Nyamuneka andika amazina yawe yose.' : 'Please enter your full name.');
+          setIsProcessing(false);
+          return;
+        }
+      }
+
+      const res = await adminService.requestPublicExamOTP(clean, targetName);
       setTimeLeft(res.expires_in_seconds || 300);
       setIsTimerRunning(true);
       setStep('OTP');
-      success(`Verification code sent to ${phoneNumber.trim()}. Valid for 5 minutes.`);
+      success(
+        isRw
+          ? `Kode y'umutekano yoherejwe kuri ${clean}. Imara iminota 5.`
+          : `Verification code sent to ${clean}. Valid for 5 minutes.`
+      );
     } catch (err: any) {
-      toastError(err?.message || 'Failed to send OTP verification code. Please check phone number and retry.');
+      setInlineError(
+        err?.message ||
+          (isRw
+            ? 'Gusaba kode byanze. Nyamuneka genzura nimero yawe maze wongere ugerageze.'
+            : 'Failed to send OTP verification code. Please check phone number and retry.')
+      );
     } finally {
       setIsProcessing(false);
     }
@@ -335,13 +422,18 @@ export const BuyPracticeExamsModal: React.FC<BuyPracticeExamsModalProps> = ({
   const handleResendOTP = async () => {
     try {
       setIsResending(true);
-      const res = await adminService.requestPublicExamOTP(phoneNumber.trim(), fullName.trim());
+      const clean = phoneNumber.trim().replace(/\D/g, '');
+      const res = await adminService.requestPublicExamOTP(clean, fullName.trim());
       setTimeLeft(res.expires_in_seconds || 300);
       setIsTimerRunning(true);
       setOtpCode('');
-      success(`New verification code sent to ${phoneNumber.trim()}. Valid for 5 minutes.`);
+      success(
+        isRw
+          ? `Kode nshya yoherejwe kuri ${clean}. Imara iminota 5.`
+          : `New verification code sent to ${clean}. Valid for 5 minutes.`
+      );
     } catch (err: any) {
-      toastError(err?.message || 'Failed to resend code. Please retry.');
+      toastError(err?.message || (isRw ? 'Gusubiramo kode byanze. Ongera ugerageze.' : 'Failed to resend code. Please retry.'));
     } finally {
       setIsResending(false);
     }
@@ -350,64 +442,46 @@ export const BuyPracticeExamsModal: React.FC<BuyPracticeExamsModalProps> = ({
   // STEP 2: Verify OTP code
   const handleVerifyOTP = async (e: React.FormEvent) => {
     e.preventDefault();
+    const clean = phoneNumber.trim().replace(/\D/g, '');
     if (!otpCode.trim() || otpCode.trim().length < 4) {
-      toastError('Please enter the 6-digit verification code.');
+      toastError(isRw ? 'Nyamuneka andika kode y\'imibare 6.' : 'Please enter the 6-digit verification code.');
       return;
     }
     if (timeLeft <= 0) {
-      toastError('Verification code has expired (valid for 5 minutes). Please click Resend Code.');
+      toastError(
+        isRw
+          ? 'Kode yarengeje igihe (imara iminota 5). Kanda \'Ongera wohereze\'.'
+          : 'Verification code has expired (valid for 5 minutes). Please click Resend Code.'
+      );
       return;
     }
 
     try {
       setIsProcessing(true);
-      await adminService.verifyPublicExamOTP(phoneNumber.trim(), otpCode.trim());
-      success('Phone number verified successfully!');
-      setPayingNumber(phoneNumber.trim());
+      await adminService.verifyPublicExamOTP(clean, otpCode.trim());
+      success(isRw ? 'Nimero yawe yemerewe neza!' : 'Phone number verified successfully!');
+      setPayingNumber(clean);
       setStep('PAYMENT');
     } catch (err: any) {
-      toastError(err?.message || 'Invalid or expired verification code. Please check and retry.');
+      toastError(
+        err?.message ||
+          (isRw
+            ? 'Kode ntabwo ari yo cyangwa yarangiye. Genzura neza maze wongere ugerageze.'
+            : 'Invalid or expired verification code. Please check and retry.')
+      );
     } finally {
       setIsProcessing(false);
     }
   };
 
-  // Polling loop for MoMo payment authorization
-  useEffect(() => {
-    let interval: any = null;
-    if (step === 'PROCESSING' && paymentRefId) {
-      interval = setInterval(async () => {
-        try {
-          const res = await adminService.getPublicExamPaymentStatus(paymentRefId);
-          if (res?.status === 'SUCCESSFUL') {
-            clearInterval(interval);
-            setConfirmedResult(res);
-            setStep('CONFIRMED');
-            success('Payment confirmed! Practice exam credits added.');
-            const updated = await adminService.getPublicExamCredits(phoneNumber.trim());
-            onSuccess(updated);
-          } else if (res?.status === 'FAILED') {
-            clearInterval(interval);
-            toastError(res?.message || 'Payment was cancelled or failed on your phone.');
-            setStep('PAYMENT');
-          }
-        } catch {
-          // Ignore transient polling network errors
-        }
-      }, 2500);
-    }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [step, paymentRefId, phoneNumber]);
-
   // STEP 3: Complete MoMo Payment
   const handlePayWithMoMo = async (e: React.FormEvent) => {
     e.preventDefault();
-    const finalPayingNumber = (payingNumber || phoneNumber).trim();
+    const clean = phoneNumber.trim().replace(/\D/g, '');
+    const finalPayingNumber = (payingNumber || clean).trim().replace(/\D/g, '');
 
     if (!finalPayingNumber) {
-      toastError('Please enter a paying MoMo phone number.');
+      toastError(isRw ? 'Nyamuneka andika nimero ya MoMo yo kwishyuriraho.' : 'Please enter a paying MoMo phone number.');
       return;
     }
 
@@ -416,7 +490,7 @@ export const BuyPracticeExamsModal: React.FC<BuyPracticeExamsModalProps> = ({
       const res = await adminService.buyPublicExamCredits({
         package_key: selectedKey,
         exam_count: safeCount,
-        phone_number: phoneNumber.trim(),
+        phone_number: clean,
         paying_number: finalPayingNumber,
         full_name: fullName.trim(),
       });
@@ -425,17 +499,25 @@ export const BuyPracticeExamsModal: React.FC<BuyPracticeExamsModalProps> = ({
         setPaymentRefId(res.reference_id);
         setStep('PROCESSING');
       } else {
-        success(res?.message || 'Exams purchased successfully via MoMo!');
-        const updatedBalance = await adminService.getPublicExamCredits(phoneNumber.trim());
+        success(res?.message || (isRw ? 'Ibizamini bishyuwe neza binyuze kuri MoMo!' : 'Exams purchased successfully via MoMo!'));
+        const updatedBalance = await adminService.getPublicExamCredits(clean);
         onSuccess(updatedBalance);
         onClose();
+        navigate(`/practice-exams?phone=${encodeURIComponent(clean)}&lang=${encodeURIComponent(language)}`);
       }
     } catch (err: any) {
-      toastError(err?.message || 'Payment processing failed. Please verify MoMo balance and retry.');
+      toastError(
+        err?.message ||
+          (isRw
+            ? 'Kwishyura byanze. Nyamuneka genzura amafaranga ari kuri MoMo maze wongere ugerageze.'
+            : 'Payment processing failed. Please verify MoMo balance and retry.')
+      );
     } finally {
       setIsProcessing(false);
     }
   };
+
+  if (!isOpen) return null;
 
   return (
     <div
@@ -482,9 +564,11 @@ export const BuyPracticeExamsModal: React.FC<BuyPracticeExamsModalProps> = ({
               }}
             >
               {step === 'PROCESSING'
-                ? 'CHECK YOUR PHONE'
+                ? (isRw ? 'REBA KURI TEREFONE YAWE' : 'CHECK YOUR PHONE')
                 : step === 'CONFIRMED'
-                ? 'PAYMENT SUCCESSFUL'
+                ? (isRw ? 'KWISHYURA BYAKUNZE' : 'PAYMENT SUCCESSFUL')
+                : isRw
+                ? `UGIYE KWISHYURA ${calculatedTotal.toLocaleString()} RWF KU ${safeCount === 1 ? 'KIZAMINI 1' : `BIZAMINI ${safeCount}`}`
                 : `YOU ARE PAYING ${calculatedTotal.toLocaleString()} RWF FOR ${safeCount} ${safeCount === 1 ? 'EXAM' : 'EXAMS'}`}
             </h2>
           </div>
@@ -510,72 +594,167 @@ export const BuyPracticeExamsModal: React.FC<BuyPracticeExamsModalProps> = ({
           </button>
         </div>
 
-        {/* ── STEP 1: Candidate Names & Rwanda Phone Number ── */}
+        {/* ── STEP 1: Candidate Phone Number & Optional Full Name for New Users ── */}
         {step === 'INFO' && (
-          <form onSubmit={handleRequestOTP} style={{ display: 'flex', flexDirection: 'column', gap: '22px' }}>
-            {/* Names field */}
-            <div>
-              <label style={{ display: 'block', fontSize: '1.05rem', fontWeight: 700, color: '#f1f5f9', marginBottom: '10px' }}>
-                Full Name:
-              </label>
-              <div style={{ position: 'relative' }}>
-                <input
-                  type="text"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  placeholder="e.g. Mugisha Jean"
-                  required
-                  style={{
-                    width: '100%',
-                    background: 'rgba(255, 255, 255, 0.05)',
-                    border: '1px solid rgba(255, 255, 255, 0.15)',
-                    borderRadius: '16px',
-                    padding: '16px 20px 16px 54px',
-                    color: '#ffffff',
-                    fontSize: '1.12rem',
-                    outline: 'none',
-                    boxSizing: 'border-box',
-                  }}
-                />
-                <User
-                  size={22}
-                  style={{ position: 'absolute', left: '18px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }}
-                />
+          <form onSubmit={handleRequestOTP} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            {/* Full Name field - Only requested for new user registration */}
+            {isNewUser && (
+              <div>
+                <label style={{ display: 'block', fontSize: '1.05rem', fontWeight: 700, color: '#f1f5f9', marginBottom: '10px' }}>
+                  {isRw ? 'Amazina Yose:' : 'Full Name:'}
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type="text"
+                    value={fullName}
+                    onChange={(e) => {
+                      setFullName(e.target.value);
+                      if (inlineError) setInlineError(null);
+                    }}
+                    placeholder={isRw ? 'Urugero: Mugisha Jean' : 'e.g. Mugisha Jean'}
+                    required={isNewUser}
+                    autoFocus
+                    style={{
+                      width: '100%',
+                      background: 'rgba(255, 255, 255, 0.05)',
+                      border: '1px solid rgba(255, 255, 255, 0.15)',
+                      borderRadius: '16px',
+                      padding: '16px 20px 16px 54px',
+                      color: '#ffffff',
+                      fontSize: '1.12rem',
+                      outline: 'none',
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                  <User
+                    size={22}
+                    style={{ position: 'absolute', left: '18px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }}
+                  />
+                </div>
               </div>
-            </div>
+            )}
 
-            {/* Phone number field (Rwanda) */}
+            {/* Phone number field */}
             <div>
               <label style={{ display: 'block', fontSize: '1.05rem', fontWeight: 700, color: '#f1f5f9', marginBottom: '10px' }}>
-                Phone Number (Rwanda):
+                {isRw ? 'Nimero ya Terefone:' : 'Phone Number:'}
               </label>
               <div style={{ position: 'relative' }}>
                 <input
                   type="tel"
+                  inputMode="numeric"
+                  maxLength={10}
                   value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
-                  placeholder="e.g. 0788123456"
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                    setPhoneNumber(val);
+                    if (inlineError) setInlineError(null);
+                  }}
+                  placeholder={isRw ? 'Urugero: 0788123456' : 'e.g. 0788123456'}
                   required
                   style={{
                     width: '100%',
                     background: 'rgba(255, 255, 255, 0.05)',
-                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                    border: `1px solid ${inlineError ? '#ef4444' : 'rgba(255, 255, 255, 0.15)'}`,
                     borderRadius: '16px',
                     padding: '16px 20px 16px 54px',
                     color: '#ffffff',
                     fontSize: '1.12rem',
                     outline: 'none',
                     boxSizing: 'border-box',
+                    boxShadow: inlineError ? '0 0 0 3px rgba(239, 68, 68, 0.2)' : 'none',
+                    transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
                   }}
                 />
                 <Phone
                   size={22}
-                  style={{ position: 'absolute', left: '18px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }}
+                  style={{
+                    position: 'absolute',
+                    left: '18px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    color: inlineError ? '#ef4444' : '#94a3b8',
+                  }}
                 />
               </div>
-              <p style={{ margin: '8px 0 0', fontSize: '0.9rem', color: '#94a3b8' }}>
-                We will send a 6-digit OTP verification code valid for 5 minutes to this number.
-              </p>
+
+              {/* Inline error display */}
+              {inlineError && (
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    color: '#ef4444',
+                    fontSize: '0.86rem',
+                    fontWeight: 600,
+                    marginTop: '8px',
+                    lineHeight: 1.4,
+                  }}
+                >
+                  <AlertCircle size={15} style={{ flexShrink: 0 }} />
+                  <span>{inlineError}</span>
+                </div>
+              )}
+
+              {/* 'New User?' with 'Register' button */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  marginTop: '12px',
+                  padding: '2px 2px',
+                  fontSize: '0.92rem',
+                }}
+              >
+                {!isNewUser ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#94a3b8' }}>
+                    <span>{isRw ? 'Uri Umushya?' : 'New User?'}</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsNewUser(true);
+                        setInlineError(null);
+                      }}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: '#38bdf8',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        padding: '0',
+                        fontSize: '0.92rem',
+                        textDecoration: 'underline',
+                      }}
+                    >
+                      {isRw ? 'Iyandikishe' : 'Register'}
+                    </button>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#94a3b8' }}>
+                    <span>{isRw ? 'Wariyandikishije?' : 'Already registered?'}</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsNewUser(false);
+                        setInlineError(null);
+                      }}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: '#38bdf8',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        padding: '0',
+                        fontSize: '0.92rem',
+                        textDecoration: 'underline',
+                      }}
+                    >
+                      {isRw ? 'Koresha Nimero Gusa' : 'Use Phone Only'}
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Action Button: Full width Buy button */}
@@ -597,7 +776,7 @@ export const BuyPracticeExamsModal: React.FC<BuyPracticeExamsModalProps> = ({
                   boxSizing: 'border-box',
                 }}
               >
-                <span>{isProcessing ? 'Sending Verification Code...' : 'Buy'}</span>
+                <span>{isProcessing ? (isRw ? 'Kohereza Kode...' : 'Sending Verification Code...') : (isRw ? 'Gura' : 'Buy')}</span>
               </button>
             </div>
           </form>
@@ -619,7 +798,8 @@ export const BuyPracticeExamsModal: React.FC<BuyPracticeExamsModalProps> = ({
             >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <span style={{ fontSize: '0.98rem', color: '#e2e8f0', fontWeight: 600 }}>
-                  Enter code sent to <strong style={{ color: '#38bdf8' }}>{phoneNumber}</strong>
+                  {isRw ? 'Andika kode yoherejwe kuri ' : 'Enter code sent to '}
+                  <strong style={{ color: '#38bdf8' }}>{phoneNumber}</strong>
                 </span>
                 <div
                   style={{
@@ -632,7 +812,7 @@ export const BuyPracticeExamsModal: React.FC<BuyPracticeExamsModalProps> = ({
                   }}
                 >
                   <Clock size={16} />
-                  <span>{timeLeft > 0 ? formatTimer(timeLeft) : 'Expired'}</span>
+                  <span>{timeLeft > 0 ? formatTimer(timeLeft) : (isRw ? 'Yarengeje igihe' : 'Expired')}</span>
                 </div>
               </div>
             </div>
@@ -640,7 +820,7 @@ export const BuyPracticeExamsModal: React.FC<BuyPracticeExamsModalProps> = ({
             {/* OTP Code Input */}
             <div>
               <label style={{ display: 'block', fontSize: '1.05rem', fontWeight: 700, color: '#f1f5f9', marginBottom: '10px' }}>
-                Enter 6-Digit Verification Code:
+                {isRw ? 'Andika Kode y\'Imibare 6:' : 'Enter 6-Digit Verification Code:'}
               </label>
               <input
                 type="text"
@@ -689,7 +869,7 @@ export const BuyPracticeExamsModal: React.FC<BuyPracticeExamsModalProps> = ({
                 }}
               >
                 <RotateCcw size={15} />
-                <span>{isResending ? 'Resending Code...' : "Didn't receive code? Resend"}</span>
+                <span>{isResending ? (isRw ? 'Kohereza indi kode...' : 'Resending Code...') : (isRw ? 'Ntabwo wakiriye kode? Ongera wohereze' : "Didn't receive code? Resend")}</span>
               </button>
             </div>
 
@@ -712,7 +892,7 @@ export const BuyPracticeExamsModal: React.FC<BuyPracticeExamsModalProps> = ({
                   boxSizing: 'border-box',
                 }}
               >
-                <span>{isProcessing ? 'Verifying OTP...' : 'Verify Code'}</span>
+                <span>{isProcessing ? (isRw ? 'Kwemeza Kode...' : 'Verifying OTP...') : (isRw ? 'Emeza Kode' : 'Verify Code')}</span>
               </button>
               <button
                 type="button"
@@ -734,7 +914,7 @@ export const BuyPracticeExamsModal: React.FC<BuyPracticeExamsModalProps> = ({
                 }}
               >
                 <ArrowLeft size={18} />
-                <span>Change Phone Number</span>
+                <span>{isRw ? 'Guhindura Nimero ya Terefone' : 'Change Phone Number'}</span>
               </button>
             </div>
           </form>
@@ -754,42 +934,42 @@ export const BuyPracticeExamsModal: React.FC<BuyPracticeExamsModalProps> = ({
               }}
             >
               <div style={{ fontSize: '1.15rem', color: '#94a3b8' }}>
-                Names:
+                {isRw ? 'Amazina:' : 'Names:'}
               </div>
               <div style={{ fontSize: '1.15rem', color: '#ffffff', fontWeight: 700 }}>
                 {fullName}
               </div>
 
               <div style={{ fontSize: '1.15rem', color: '#94a3b8' }}>
-                Phone number:
+                {isRw ? 'Nimero ya terefone:' : 'Phone number:'}
               </div>
               <div style={{ fontSize: '1.15rem', color: '#ffffff', fontWeight: 700 }}>
                 {phoneNumber}
               </div>
 
               <div style={{ fontSize: '1.15rem', color: '#94a3b8' }}>
-                Number of exams:
+                {isRw ? 'Umubare w\'ibizamini:' : 'Number of exams:'}
               </div>
               <div style={{ fontSize: '1.15rem', color: '#ffffff', fontWeight: 700 }}>
                 {safeCount}
               </div>
 
               <div style={{ fontSize: '1.15rem', color: '#94a3b8' }}>
-                Amount:
+                {isRw ? 'Amafaranga:' : 'Amount:'}
               </div>
               <div style={{ fontSize: '1.15rem', color: '#ffffff', fontWeight: 700 }}>
                 {calculatedTotal.toLocaleString()} RWF
               </div>
 
               <div style={{ fontSize: '1.15rem', color: '#94a3b8' }}>
-                Number being used to pay:
+                {isRw ? 'Nimero yo kwishyuriraho:' : 'Number being used to pay:'}
               </div>
               <div>
                 <input
                   type="tel"
                   value={payingNumber}
                   onChange={(e) => setPayingNumber(e.target.value)}
-                  placeholder="e.g. 0780842458"
+                  placeholder={isRw ? 'Urugero: 0780842458' : 'e.g. 0780842458'}
                   required
                   style={{
                     width: '100%',
@@ -851,8 +1031,8 @@ export const BuyPracticeExamsModal: React.FC<BuyPracticeExamsModalProps> = ({
               >
                 <span>
                   {isProcessing
-                    ? 'Processing Payment...'
-                    : `Pay ${calculatedTotal.toLocaleString()} RWF`}
+                    ? (isRw ? 'Gutunganya Kwishyura...' : 'Processing Payment...')
+                    : (isRw ? `Ishyura ${calculatedTotal.toLocaleString()} RWF` : `Pay ${calculatedTotal.toLocaleString()} RWF`)}
                 </span>
               </button>
             </div>
@@ -879,10 +1059,18 @@ export const BuyPracticeExamsModal: React.FC<BuyPracticeExamsModalProps> = ({
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <h3 style={{ fontSize: '1.35rem', fontWeight: 800, color: '#ffffff', margin: 0 }}>
-                Approve Payment of {calculatedTotal.toLocaleString()} RWF
+                {isRw ? `Emeza Kwishyura ${calculatedTotal.toLocaleString()} RWF` : `Approve Payment of ${calculatedTotal.toLocaleString()} RWF`}
               </h3>
               <p style={{ fontSize: '1.05rem', color: '#94a3b8', margin: 0, lineHeight: 1.5, maxWidth: '460px' }}>
-                We have sent an MTN MoMo prompt to <strong style={{ color: '#ffffff' }}>{payingNumber || phoneNumber}</strong>. Please check your phone and enter your MoMo PIN to complete the purchase.
+                {isRw ? (
+                  <>
+                    Twohereje ubutumwa bwa MTN MoMo kuri <strong style={{ color: '#ffffff' }}>{payingNumber || phoneNumber}</strong>. Nyamuneka reba kuri terefone yawe maze winjize umubare w'ibanga (PIN) wa MoMo kugira ngo urangize kwishyura.
+                  </>
+                ) : (
+                  <>
+                    We have sent an MTN MoMo prompt to <strong style={{ color: '#ffffff' }}>{payingNumber || phoneNumber}</strong>. Please check your phone and enter your MoMo PIN to complete the purchase.
+                  </>
+                )}
               </p>
             </div>
 
@@ -901,7 +1089,7 @@ export const BuyPracticeExamsModal: React.FC<BuyPracticeExamsModalProps> = ({
               }}
             >
               <Loader2 size={18} className="animate-spin" />
-              <span>Waiting for approval on your phone...</span>
+              <span>{isRw ? 'Dutegereje ko wemeza kuri terefone yawe...' : 'Waiting for approval on your phone...'}</span>
             </div>
 
             <button
@@ -921,7 +1109,7 @@ export const BuyPracticeExamsModal: React.FC<BuyPracticeExamsModalProps> = ({
                 cursor: 'pointer',
               }}
             >
-              Change Phone Number or Retry
+              {isRw ? 'Hindura Nimero cyangwa Ongera Ugerageze' : 'Change Phone Number or Retry'}
             </button>
           </div>
         )}
@@ -948,10 +1136,20 @@ export const BuyPracticeExamsModal: React.FC<BuyPracticeExamsModalProps> = ({
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <h3 style={{ fontSize: '1.45rem', fontWeight: 800, color: '#ffffff', margin: 0 }}>
-                {confirmedResult?.credits_added || safeCount} Exam {safeCount === 1 ? 'Credit' : 'Credits'} Added!
+                {isRw
+                  ? `${confirmedResult?.credits_added || safeCount} ${safeCount === 1 ? 'Ikizamini cyo' : 'Ibizamini byo'} Kwitoza Byongerewe!`
+                  : `${confirmedResult?.credits_added || safeCount} Exam ${safeCount === 1 ? 'Credit' : 'Credits'} Added!`}
               </h3>
               <p style={{ fontSize: '1.05rem', color: '#94a3b8', margin: 0, lineHeight: 1.5, maxWidth: '440px' }}>
-                Your payment of <strong style={{ color: '#ffffff' }}>{calculatedTotal.toLocaleString()} RWF</strong> was successfully received. You are ready to start practicing immediately.
+                {isRw ? (
+                  <>
+                    Kwishyura kwawe kw'amafaranga angana na <strong style={{ color: '#ffffff' }}>{calculatedTotal.toLocaleString()} RWF</strong> kwakiriwe neza. Ubu witeguye guhita utangira kwitoza ibizamini.
+                  </>
+                ) : (
+                  <>
+                    Your payment of <strong style={{ color: '#ffffff' }}>{calculatedTotal.toLocaleString()} RWF</strong> was successfully received. You are ready to start practicing immediately.
+                  </>
+                )}
               </p>
             </div>
 
@@ -970,13 +1168,18 @@ export const BuyPracticeExamsModal: React.FC<BuyPracticeExamsModalProps> = ({
                 fontWeight: 700,
               }}
             >
-              <span>Current Available Balance:</span>
-              <strong style={{ color: '#22c55e' }}>{confirmedResult?.current_balance ?? safeCount} Exams</strong>
+              <span>{isRw ? 'Ibizamini Bisigaye Byose:' : 'Current Available Balance:'}</span>
+              <strong style={{ color: '#22c55e' }}>
+                {confirmedResult?.current_balance ?? safeCount} {isRw ? ((confirmedResult?.current_balance ?? safeCount) === 1 ? 'Ikizamini' : 'Ibizamini') : 'Exams'}
+              </strong>
             </div>
 
             <button
               type="button"
-              onClick={onClose}
+              onClick={() => {
+                onClose();
+                navigate(`/practice-exams?phone=${encodeURIComponent(phoneNumber.trim())}&lang=${encodeURIComponent(language)}`);
+              }}
               className="btn btn-primary"
               style={{
                 width: '100%',
@@ -991,7 +1194,7 @@ export const BuyPracticeExamsModal: React.FC<BuyPracticeExamsModalProps> = ({
                 marginTop: '10px',
               }}
             >
-              Done & Start Practice Exam
+              {isRw ? 'Komeza Utangire Ikizamini' : 'Done & Start Practice Exam'}
             </button>
           </div>
         )}

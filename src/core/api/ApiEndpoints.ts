@@ -298,6 +298,7 @@ export const ApiEndpoints = {
     PUBLIC_EXAM_BUY: `${API_BASE_URL}/examinations/public/buy/`,
     PUBLIC_EXAM_PAYMENT_STATUS: (referenceId: string) => `${API_BASE_URL}/examinations/public/payment-status/${referenceId}/`,
     PUBLIC_EXAM_START: `${API_BASE_URL}/examinations/public/start/`,
+    PUBLIC_EXAM_HISTORY: (phone?: string) => `${API_BASE_URL}/examinations/public/history/${phone ? `?phone_number=${encodeURIComponent(phone)}` : ''}`,
 
 
     // Security & Cryptographic Audit

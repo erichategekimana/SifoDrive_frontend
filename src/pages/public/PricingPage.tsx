@@ -3,10 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import {
   CheckCircle2,
   Phone,
-  Play,
   Wallet,
   Minus,
   Plus,
+  ShieldCheck,
+  AlertCircle,
+  X,
+  ArrowRight,
 } from 'lucide-react';
 import { Navbar } from '../../components/layout/Navbar';
 import { Footer } from '../../components/layout/Footer';
@@ -18,6 +21,7 @@ import {
 import { useToast } from '../../context/ToastContext';
 import { useAuth } from '../../context/AuthContext';
 import { useTranslation } from '../../context/I18nContext';
+import { useTheme } from '../../context/ThemeContext';
 import { BuyPracticeExamsModal } from '../../features/examinations/components/practice/BuyPracticeExamsModal';
 
 const DEFAULT_VARIABLE_PLANS: ExamPackageItem[] = [
@@ -74,6 +78,7 @@ const DEFAULT_VARIABLE_PLANS: ExamPackageItem[] = [
 export const PricingPage: React.FC = () => {
   const { user } = useAuth();
   const { t, language } = useTranslation();
+  const { theme } = useTheme();
   const { error: toastError, success } = useToast();
   const navigate = useNavigate();
   const adminService = AdminService.getInstance();
@@ -144,11 +149,48 @@ export const PricingPage: React.FC = () => {
   const [selectedPackageKey, setSelectedPackageKey] = useState<string>('BASIC');
   const [selectedExamCount, setSelectedExamCount] = useState<number>(1);
 
-  // Balance Lookup state
-  const [lookupPhone, setLookupPhone] = useState<string>(user?.phoneNumber || '');
+  // Balance Lookup state & response
+  const [lookupPhone, setLookupPhone] = useState<string>(() => {
+    try {
+      const sp = new URLSearchParams(window.location.search);
+      const p = sp.get('phone');
+      if (p) return p.trim().replace(/\D/g, '');
+    } catch {}
+    return user?.phoneNumber || '';
+  });
   const [balance, setBalance] = useState<ExamCreditBalance | null>(null);
+  const [balanceStatus, setBalanceStatus] = useState<'IDLE' | 'NOT_REGISTERED'>('IDLE');
   const [isCheckingBalance, setIsCheckingBalance] = useState<boolean>(false);
-  const [isStartingExam, setIsStartingExam] = useState<boolean>(false);
+  const [phoneError, setPhoneError] = useState<string | null>(null);
+
+  // White Mode Modal Dialog state for when remaining exams are found
+  const [isAccessModalOpen, setIsAccessModalOpen] = useState<boolean>(false);
+  const [accessModalStep, setAccessModalStep] = useState<'DETAILS' | 'OTP'>('DETAILS');
+  const [otpCode, setOtpCode] = useState<string>('');
+  const [otpTimeLeft, setOtpTimeLeft] = useState<number>(300);
+  const [isOtpTimerRunning, setIsOtpTimerRunning] = useState<boolean>(false);
+  const [isSendingOtp, setIsSendingOtp] = useState<boolean>(false);
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState<boolean>(false);
+  const [isResendingOtp, setIsResendingOtp] = useState<boolean>(false);
+
+  // Countdown timer for 5-minute OTP validity
+  useEffect(() => {
+    let timer: any = null;
+    if (isAccessModalOpen && accessModalStep === 'OTP' && isOtpTimerRunning && otpTimeLeft > 0) {
+      timer = setInterval(() => {
+        setOtpTimeLeft((prev) => {
+          if (prev <= 1) {
+            setIsOtpTimerRunning(false);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [isAccessModalOpen, accessModalStep, isOtpTimerRunning, otpTimeLeft]);
 
   // Load packages on mount and sync with admin plans toggle
   useEffect(() => {
@@ -283,23 +325,45 @@ export const PricingPage: React.FC = () => {
     };
   }, []);
 
-  // Pre-fetch balance if user is logged in with a phone number
+  // Pre-fetch balance if user is logged in with a phone number or arrived with ?phone=
   useEffect(() => {
-    if (user?.phoneNumber) {
-      setLookupPhone(user.phoneNumber);
-      adminService
-        .getPublicExamCredits(user.phoneNumber)
-        .then((res) => setBalance(res))
-        .catch(() => {});
+    let targetPhone = user?.phoneNumber || '';
+    try {
+      const sp = new URLSearchParams(window.location.search);
+      const p = sp.get('phone');
+      if (p) targetPhone = p;
+    } catch {}
+
+    if (targetPhone) {
+      const clean = targetPhone.trim().replace(/\D/g, '');
+      if (clean) {
+        setLookupPhone(clean);
+        adminService
+          .getPublicExamCredits(clean)
+          .then((res) => {
+            setBalance(res);
+          })
+          .catch(() => {});
+      }
     }
   }, [user]);
 
-  // Handle checking balance
+  // Handle checking balance with three-situation answers
   const handleCheckBalance = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    const clean = lookupPhone.trim();
+    setPhoneError(null);
+    const clean = lookupPhone.trim().replace(/\D/g, '');
     if (!clean) {
-      toastError(language === 'rw' ? 'Nyamuneka andika numero ya terefone.' : 'Please enter a Rwandan phone number to check credits.');
+      setPhoneError(language === 'rw' ? 'Nyamuneka andika numero ya terefone.' : 'Please enter a phone number to check credits.');
+      return;
+    }
+
+    if (clean.length !== 10) {
+      setPhoneError(
+        language === 'rw'
+          ? 'Numero ya terefone igomba kuba igizwe n\'imibare 10 neza (urugero: 0788123456).'
+          : 'Phone number must be exactly 10 digits (e.g. 0788123456).'
+      );
       return;
     }
 
@@ -307,13 +371,28 @@ export const PricingPage: React.FC = () => {
       setIsCheckingBalance(true);
       const res = await adminService.getPublicExamCredits(clean);
       setBalance(res);
-      if (res.credits > 0) {
-        success(language === 'rw' ? `Ufite ibizamini by'imyitozo ${res.credits} bishobora gukorwa.` : `Found ${res.credits} practice exam credit(s) available.`);
+
+      if (!res.is_registered) {
+        // Situation 1: Number is not registered at all
+        setBalanceStatus('NOT_REGISTERED');
+        setIsAccessModalOpen(false);
+      } else if (res.credits <= 0) {
+        // Number has no remaining exams
+        setBalanceStatus('IDLE');
+        setIsAccessModalOpen(false);
+        setPhoneError(
+          language === 'rw'
+            ? 'Kuri ubu nta bizamini byo kwitoza usigaranye kuri iyi nimero (0).'
+            : 'You currently have no remaining practice exam attempts for this number (0).'
+        );
       } else {
-        toastError(language === 'rw' ? 'Nta bizamini usigaranye kuri iyi numero. Hitamo package hasi maze ugure.' : 'No active exam credits found for this number. Choose a package below to buy.');
+        // Situation 3: Number has remaining exams -> pop out white-mode modal dialog!
+        setBalanceStatus('IDLE');
+        setAccessModalStep('DETAILS');
+        setIsAccessModalOpen(true);
       }
     } catch (err: any) {
-      toastError(err?.message || (language === 'rw' ? 'Kureba ibizamini byanze.' : 'Failed to retrieve balance.'));
+      setPhoneError(err?.message || (language === 'rw' ? 'Kureba ibizamini byanze.' : 'Failed to retrieve balance.'));
     } finally {
       setIsCheckingBalance(false);
     }
@@ -402,27 +481,85 @@ export const PricingPage: React.FC = () => {
     }
   };
 
-  // Start Exam Immediately
-  const handleStartExamNow = async () => {
-    const phoneToUse = lookupPhone.trim() || user?.phoneNumber || '';
-    if (!phoneToUse && !user) {
-      toastError(language === 'rw' ? 'Numero ya terefone irakenewe kugira ngo utangire ikizamini.' : 'Phone number is required to start the exam.');
+  const formatOtpTimer = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+  };
+
+  // Step 1 -> Step 2: Request OTP and transition to OTP verification in white-mode modal
+  const handleSendOtpAndShowVerify = async () => {
+    const clean = lookupPhone.trim().replace(/\D/g, '');
+    if (!clean) return;
+
+    try {
+      setIsSendingOtp(true);
+      const res = await adminService.requestPublicExamOTP(clean, balance?.full_name);
+      setOtpTimeLeft(res.expires_in_seconds || 300);
+      setIsOtpTimerRunning(true);
+      setOtpCode('');
+      setAccessModalStep('OTP');
+      success(
+        language === 'rw'
+          ? `Kode y'umutekano yoherejwe kuri ${clean}. Yinjize kugira ngo ukomeze mu cyumba cy'ikizamini.`
+          : `Security verification code sent to ${clean}. Please enter it below to proceed to the Examination Ready Room.`
+      );
+    } catch (err: any) {
+      toastError(err?.message || (language === 'rw' ? 'Gusaba kode byanze. Ongera ugerageze.' : 'Failed to send verification code. Please retry.'));
+    } finally {
+      setIsSendingOtp(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    const clean = lookupPhone.trim().replace(/\D/g, '');
+    if (!clean) return;
+
+    try {
+      setIsResendingOtp(true);
+      const res = await adminService.requestPublicExamOTP(clean, balance?.full_name);
+      setOtpTimeLeft(res.expires_in_seconds || 300);
+      setIsOtpTimerRunning(true);
+      setOtpCode('');
+      success(
+        language === 'rw'
+          ? `Kode nshya yoherejwe kuri ${clean}.`
+          : `New verification code sent to ${clean}.`
+      );
+    } catch (err: any) {
+      toastError(err?.message || (language === 'rw' ? 'Gusubiramo kode byanze.' : 'Failed to resend code.'));
+    } finally {
+      setIsResendingOtp(false);
+    }
+  };
+
+  const handleVerifyOtpAndProceed = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const clean = lookupPhone.trim().replace(/\D/g, '');
+    if (!otpCode.trim() || otpCode.trim().length < 4) {
+      toastError(language === 'rw' ? 'Nyamuneka andika kode y\'imibare 6 yoherejwe kuri terefone.' : 'Please enter the 6-digit verification code.');
+      return;
+    }
+    if (otpTimeLeft <= 0) {
+      toastError(language === 'rw' ? 'Igihe cya kode cyarangiye. Kanda \'Ongera wohereze\'.' : 'Verification code has expired. Please click Resend Code.');
       return;
     }
 
     try {
-      setIsStartingExam(true);
-      const session = await adminService.startPublicPracticeExam(phoneToUse);
-      success(language === 'rw' ? 'Ikizamini cyatangiye! Ukatishijwe mu cyumba cy\'ikizamini...' : 'Exam session created! Redirecting to official exam room...');
-      navigate(`/examinations/session/${session.id}`);
+      setIsVerifyingOtp(true);
+      await adminService.verifyPublicExamOTP(clean, otpCode.trim());
+      success(
+        language === 'rw'
+          ? 'Nimero yemerewe neza! Ugiye kwinjira mu cyumba cy\'ikizamini...'
+          : 'Identity verified successfully! Entering Examination Ready Room...'
+      );
+      localStorage.setItem('sifo_last_candidate_phone', clean);
+      setIsAccessModalOpen(false);
+      navigate(`/practice-exams?phone=${encodeURIComponent(clean)}&lang=${encodeURIComponent(language)}&theme=${encodeURIComponent(theme)}`);
     } catch (err: any) {
-      const msg = err?.response?.data?.message || err?.message || (language === 'rw' ? 'Gufungura ikizamini byanze.' : 'Could not start practice exam.');
-      toastError(msg);
-      if (err?.response?.status === 402) {
-        setIsBuyModalOpen(true);
-      }
+      toastError(err?.message || (language === 'rw' ? 'Kode si yo cyangwa yarengeje igihe.' : 'Invalid or expired verification code.'));
     } finally {
-      setIsStartingExam(false);
+      setIsVerifyingOtp(false);
     }
   };
 
@@ -466,7 +603,7 @@ export const PricingPage: React.FC = () => {
             </p>
           </div>
 
-          {/* Quick Credit Lookup & Exam Launch Box */}
+          {/* Quick Credit Lookup & Access Verification Box */}
           <div
             className="glass-panel"
             style={{
@@ -476,121 +613,183 @@ export const PricingPage: React.FC = () => {
               border: '1px solid var(--border-medium)',
               background: 'var(--bg-surface-card)',
               display: 'flex',
-              flexWrap: 'wrap',
-              alignItems: 'center',
-              justifyContent: 'space-between',
+              flexDirection: 'column',
               gap: '20px',
               boxShadow: 'var(--shadow-md)',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-              <div
-                style={{
-                  width: '52px',
-                  height: '52px',
-                  borderRadius: '16px',
-                  background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#ffffff',
-                  boxShadow: '0 4px 14px rgba(16, 185, 129, 0.4)',
-                  flexShrink: 0,
-                }}
-              >
-                <Wallet size={26} />
-              </div>
-              <div>
-                <div style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-                  {t('pricing.alreadyHaveCredits')}
-                </div>
-                <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                  {t('pricing.checkCreditsSubtitle')}
-                </div>
-              </div>
-            </div>
-
-            <form
-              onSubmit={handleCheckBalance}
+            <div
               style={{
                 display: 'flex',
-                alignItems: 'center',
-                gap: '10px',
                 flexWrap: 'wrap',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '20px',
               }}
             >
-              <div style={{ position: 'relative', minWidth: '240px' }}>
-                <input
-                  type="tel"
-                  value={lookupPhone}
-                  onChange={(e) => setLookupPhone(e.target.value)}
-                  placeholder="e.g. 0788123456"
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <div
                   style={{
-                    background: 'var(--bg-surface-elevated)',
-                    border: '1px solid var(--border-medium)',
-                    borderRadius: '12px',
-                    padding: '10px 14px 10px 38px',
-                    color: 'var(--text-primary)',
-                    fontSize: '0.9rem',
-                    width: '100%',
-                    outline: 'none',
-                    transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
-                  }}
-                  onFocus={(e) => {
-                    e.currentTarget.style.borderColor = 'var(--primary)';
-                    e.currentTarget.style.boxShadow = '0 0 0 3px var(--primary-glow)';
-                  }}
-                  onBlur={(e) => {
-                    e.currentTarget.style.borderColor = 'var(--border-medium)';
-                    e.currentTarget.style.boxShadow = 'none';
-                  }}
-                />
-                <Phone
-                  size={16}
-                  style={{
-                    position: 'absolute',
-                    left: '12px',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    color: 'var(--text-muted)',
-                  }}
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={isCheckingBalance}
-                className="btn btn-secondary btn-md"
-                style={{ borderRadius: '12px', padding: '10px 18px', fontWeight: 600 }}
-              >
-                {isCheckingBalance ? t('pricing.checking') : t('pricing.checkBalance')}
-              </button>
-
-              {balance && balance.credits > 0 && (
-                <button
-                  type="button"
-                  onClick={handleStartExamNow}
-                  disabled={isStartingExam}
-                  className="btn btn-primary pulse-glow"
-                  style={{
-                    borderRadius: '12px',
-                    padding: '10px 20px',
-                    fontWeight: 700,
+                    width: '52px',
+                    height: '52px',
+                    borderRadius: '16px',
+                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '8px',
-                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                    justifyContent: 'center',
+                    color: '#ffffff',
+                    boxShadow: '0 4px 14px rgba(16, 185, 129, 0.4)',
+                    flexShrink: 0,
                   }}
                 >
-                  <Play size={16} />
-                  <span>{isStartingExam ? (language === 'rw' ? 'Gufungura ikizamini...' : 'Launching Exam...') : `${t('pricing.startExam')} (${balance.credits} ${language === 'rw' ? 'bisigaye' : 'left'})`}</span>
+                  <Wallet size={26} />
+                </div>
+                <div>
+                  <div style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                    {t('pricing.alreadyHaveCredits')}
+                  </div>
+                  <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                    {t('pricing.checkCreditsSubtitle')}
+                  </div>
+                </div>
+              </div>
+
+              <form
+                onSubmit={handleCheckBalance}
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '10px',
+                  flexWrap: 'wrap',
+                }}
+              >
+                <div>
+                  <div style={{ position: 'relative', minWidth: '240px' }}>
+                    <input
+                      type="tel"
+                      inputMode="numeric"
+                      maxLength={10}
+                      value={lookupPhone}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                        setLookupPhone(val);
+                        setBalanceStatus('IDLE');
+                        if (phoneError) setPhoneError(null);
+                      }}
+                      placeholder="e.g. 0788123456"
+                      style={{
+                        background: 'var(--bg-surface-elevated)',
+                        border: `1px solid ${phoneError ? '#ef4444' : 'var(--border-medium)'}`,
+                        borderRadius: '12px',
+                        padding: '10px 14px 10px 38px',
+                        color: 'var(--text-primary)',
+                        fontSize: '0.9rem',
+                        width: '100%',
+                        outline: 'none',
+                        transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
+                        boxShadow: phoneError ? '0 0 0 3px rgba(239, 68, 68, 0.15)' : 'none',
+                      }}
+                      onFocus={(e) => {
+                        e.currentTarget.style.borderColor = phoneError ? '#ef4444' : 'var(--primary)';
+                        e.currentTarget.style.boxShadow = phoneError
+                          ? '0 0 0 3px rgba(239, 68, 68, 0.15)'
+                          : '0 0 0 3px var(--primary-glow)';
+                      }}
+                      onBlur={(e) => {
+                        e.currentTarget.style.borderColor = phoneError ? '#ef4444' : 'var(--border-medium)';
+                        e.currentTarget.style.boxShadow = phoneError ? '0 0 0 3px rgba(239, 68, 68, 0.15)' : 'none';
+                      }}
+                    />
+                    <Phone
+                      size={16}
+                      style={{
+                        position: 'absolute',
+                        left: '12px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        color: phoneError ? '#ef4444' : 'var(--text-muted)',
+                      }}
+                    />
+                  </div>
+                  {phoneError && (
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        color: '#ef4444',
+                        fontSize: '0.8rem',
+                        fontWeight: 600,
+                        marginTop: '6px',
+                        maxWidth: '280px',
+                        lineHeight: 1.3,
+                      }}
+                    >
+                      <AlertCircle size={14} style={{ flexShrink: 0 }} />
+                      <span>{phoneError}</span>
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isCheckingBalance}
+                  className="btn btn-secondary btn-md"
+                  style={{ borderRadius: '12px', padding: '10px 18px', fontWeight: 600 }}
+                >
+                  {isCheckingBalance ? t('pricing.checking') : t('pricing.checkBalance')}
                 </button>
-              )}
-            </form>
+              </form>
+            </div>
+
+            {/* ── SITUATION 1: Number is not registered at all in the system ── */}
+            {balanceStatus === 'NOT_REGISTERED' && (
+              <div
+                style={{
+                  width: '100%',
+                  padding: '18px 22px',
+                  borderRadius: '14px',
+                  backgroundColor: 'rgba(239, 68, 68, 0.08)',
+                  border: '1px solid rgba(239, 68, 68, 0.28)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: '16px',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flex: 1, minWidth: '260px' }}>
+                  <AlertCircle size={24} color="#ef4444" style={{ flexShrink: 0 }} />
+                  <div>
+                    <div style={{ fontWeight: 800, color: 'var(--text-primary)', fontSize: '0.98rem' }}>
+                      {language === 'rw' ? 'Nimero Ntabwo Yanditswe' : 'Number Not Registered'}
+                    </div>
+                    <div style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', marginTop: '3px', lineHeight: 1.5 }}>
+                      {language === 'rw'
+                        ? 'Iyi nimero ya terefone ntabwo irandikwa muri sisitemu yacu. Hitamo imwe muri gahunda zo kwitoza ziri hasi maze ugure ikizamini.'
+                        : 'This phone number is not registered in our system yet. Please choose one of the examination plans below and purchase your exam.'}
+                    </div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const el = document.getElementById('pricing-packages');
+                    if (el) el.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                  className="btn btn-primary btn-sm"
+                  style={{ borderRadius: '10px', padding: '10px 20px', fontWeight: 700 }}
+                >
+                  {language === 'rw' ? 'Hitamo Gahunda Hasi' : 'Choose a Plan Below'}
+                </button>
+              </div>
+            )}
+
+
           </div>
 
           {/* PRACTICE EXAM PACKAGES */}
-          <div>
+          <div id="pricing-packages">
               <div
                 style={{
                   display: 'grid',
@@ -899,6 +1098,331 @@ export const PricingPage: React.FC = () => {
         initialPackageKey={selectedPackageKey}
         initialExamCount={selectedExamCount}
       />
+
+      {/* ── Fixed White Mode Modal Dialog for Exam Access & OTP Verification ── */}
+      {isAccessModalOpen && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 9999,
+            backgroundColor: 'rgba(15, 23, 42, 0.65)',
+            backdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px',
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsAccessModalOpen(false);
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: '#ffffff',
+              color: '#111827',
+              border: '1px solid #e5e7eb',
+              borderRadius: '24px',
+              maxWidth: '480px',
+              width: '100%',
+              padding: '36px 32px',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(0, 0, 0, 0.05)',
+              position: 'relative',
+              textAlign: 'left',
+              fontFamily: 'inherit',
+            }}
+          >
+            {/* Close Button */}
+            <button
+              type="button"
+              onClick={() => setIsAccessModalOpen(false)}
+              style={{
+                position: 'absolute',
+                top: '20px',
+                right: '20px',
+                background: 'none',
+                border: 'none',
+                color: '#6b7280',
+                cursor: 'pointer',
+                padding: '6px',
+                borderRadius: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'background-color 0.15s ease, color 0.15s ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = '#f3f4f6';
+                e.currentTarget.style.color = '#111827';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'transparent';
+                e.currentTarget.style.color = '#6b7280';
+              }}
+            >
+              <X size={20} />
+            </button>
+
+            {/* ── STEP 1: Candidate Details & Proceed Confirmation ── */}
+            {accessModalStep === 'DETAILS' && (
+              <div>
+                <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+                  <div
+                    style={{
+                      width: '60px',
+                      height: '60px',
+                      borderRadius: '18px',
+                      backgroundColor: '#ecfdf5',
+                      color: '#059669',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      margin: '0 auto 16px auto',
+                      border: '1px solid #a7f3d0',
+                    }}
+                  >
+                    <CheckCircle2 size={32} />
+                  </div>
+                  <h3 style={{ fontSize: '1.35rem', fontWeight: 800, color: '#111827', margin: 0, letterSpacing: '-0.01em' }}>
+                    {language === 'rw' ? 'Ibizamini Byo Kwitoza Birahari' : 'Active Exam Attempts Found'}
+                  </h3>
+                </div>
+
+                {/* Candidate Info Vertical List */}
+                <div
+                  style={{
+                    backgroundColor: '#f9fafb',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '16px',
+                    padding: '18px 20px',
+                    marginBottom: '26px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '12px',
+                  }}
+                >
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.85rem', color: '#6b7280', fontWeight: 600 }}>
+                      {language === 'rw' ? 'Nimero ya Terefone:' : 'Phone Number:'}
+                    </span>
+                    <span style={{ fontSize: '0.95rem', color: '#111827', fontWeight: 700, fontFamily: 'monospace' }}>
+                      {lookupPhone.trim()}
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '8px', borderTop: '1px solid #e5e7eb' }}>
+                    <span style={{ fontSize: '0.85rem', color: '#6b7280', fontWeight: 600 }}>
+                      {language === 'rw' ? 'Ibizamini Bisigaye:' : 'Remaining Exams:'}
+                    </span>
+                    <span style={{ fontSize: '0.95rem', color: '#111827', fontWeight: 700 }}>
+                      {balance?.credits ?? 0}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div style={{ display: 'flex', gap: '12px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setIsAccessModalOpen(false)}
+                    style={{
+                      flex: 1,
+                      backgroundColor: '#f3f4f6',
+                      border: '1px solid #e5e7eb',
+                      color: '#374151',
+                      borderRadius: '12px',
+                      padding: '12px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      fontSize: '0.9rem',
+                    }}
+                  >
+                    {language === 'rw' ? 'Hagarika' : 'Cancel'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSendOtpAndShowVerify}
+                    disabled={isSendingOtp}
+                    style={{
+                      flex: 2,
+                      background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                      border: 'none',
+                      color: '#ffffff',
+                      borderRadius: '12px',
+                      padding: '12px 18px',
+                      fontWeight: 800,
+                      cursor: isSendingOtp ? 'not-allowed' : 'pointer',
+                      fontSize: '0.92rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                      boxShadow: '0 4px 14px rgba(16, 185, 129, 0.35)',
+                    }}
+                  >
+                    <ShieldCheck size={18} />
+                    <span>
+                      {isSendingOtp
+                        ? (language === 'rw' ? 'Kohereza Kode...' : 'Sending OTP...')
+                        : (language === 'rw' ? 'Komeza' : 'Proceed')}
+                    </span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* ── STEP 2: OTP Verification ── */}
+            {accessModalStep === 'OTP' && (
+              <div>
+                <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+                  <div
+                    style={{
+                      width: '60px',
+                      height: '60px',
+                      borderRadius: '18px',
+                      backgroundColor: '#ecfdf5',
+                      color: '#059669',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      margin: '0 auto 16px auto',
+                      border: '1px solid #a7f3d0',
+                    }}
+                  >
+                    <ShieldCheck size={32} />
+                  </div>
+                  <h3 style={{ fontSize: '1.35rem', fontWeight: 800, color: '#111827', margin: '0 0 6px 0', letterSpacing: '-0.01em' }}>
+                    {language === 'rw' ? 'Emeza Umwirondoro wawe' : 'Security Verification'}
+                  </h3>
+                  <p style={{ fontSize: '0.88rem', color: '#4b5563', lineHeight: 1.5, margin: 0 }}>
+                    {language === 'rw'
+                      ? `Kode y'imibare 6 yoherejwe kuri ${lookupPhone.trim()}. Yinjize hano munsi kugira ngo winjire mu cyumba cy'ikizamini.`
+                      : `A 6-digit verification code was sent to ${lookupPhone.trim()}. Enter it below to access your examination attempts.`}
+                  </p>
+                </div>
+
+                <form onSubmit={handleVerifyOtpAndProceed}>
+                  <div style={{ marginBottom: '20px' }}>
+                    <input
+                      type="text"
+                      maxLength={6}
+                      inputMode="numeric"
+                      value={otpCode}
+                      onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      placeholder="• • • • • •"
+                      autoFocus
+                      style={{
+                        width: '100%',
+                        textAlign: 'center',
+                        fontSize: '1.85rem',
+                        fontWeight: 800,
+                        letterSpacing: '0.35em',
+                        padding: '14px',
+                        borderRadius: '14px',
+                        backgroundColor: '#f9fafb',
+                        border: '2px solid #e5e7eb',
+                        color: '#111827',
+                        outline: 'none',
+                        transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
+                      }}
+                      onFocus={(e) => {
+                        e.currentTarget.style.borderColor = '#10b981';
+                        e.currentTarget.style.boxShadow = '0 0 0 3px rgba(16, 185, 129, 0.2)';
+                      }}
+                      onBlur={(e) => {
+                        e.currentTarget.style.borderColor = '#e5e7eb';
+                        e.currentTarget.style.boxShadow = 'none';
+                      }}
+                    />
+                  </div>
+
+                  {/* Countdown Timer & Resend */}
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      marginBottom: '26px',
+                      fontSize: '0.86rem',
+                    }}
+                  >
+                    <span style={{ color: otpTimeLeft < 60 ? '#dc2626' : '#4b5563', fontWeight: 600 }}>
+                      {language === 'rw' ? 'Igihe gisigaye: ' : 'Code valid for: '}
+                      {formatOtpTimer(otpTimeLeft)}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleResendOtp}
+                      disabled={isResendingOtp || otpTimeLeft > 240}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: isResendingOtp || otpTimeLeft > 240 ? '#9ca3af' : '#059669',
+                        fontWeight: 700,
+                        cursor: isResendingOtp || otpTimeLeft > 240 ? 'not-allowed' : 'pointer',
+                        fontSize: '0.86rem',
+                      }}
+                    >
+                      {isResendingOtp
+                        ? (language === 'rw' ? 'Kohereza...' : 'Sending...')
+                        : (language === 'rw' ? 'Ongera wohereze' : 'Resend Code')}
+                    </button>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '12px' }}>
+                    <button
+                      type="button"
+                      onClick={() => setAccessModalStep('DETAILS')}
+                      style={{
+                        flex: 1,
+                        backgroundColor: '#f3f4f6',
+                        border: '1px solid #e5e7eb',
+                        color: '#374151',
+                        borderRadius: '12px',
+                        padding: '12px',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        fontSize: '0.9rem',
+                      }}
+                    >
+                      {language === 'rw' ? 'Gusubira Inyuma' : 'Back'}
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isVerifyingOtp || otpCode.length < 4}
+                      style={{
+                        flex: 2,
+                        background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                        border: 'none',
+                        color: '#ffffff',
+                        borderRadius: '12px',
+                        padding: '12px',
+                        fontWeight: 700,
+                        cursor: isVerifyingOtp || otpCode.length < 4 ? 'not-allowed' : 'pointer',
+                        fontSize: '0.92rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '8px',
+                        opacity: isVerifyingOtp || otpCode.length < 4 ? 0.7 : 1,
+                        boxShadow: '0 4px 14px rgba(16, 185, 129, 0.35)',
+                      }}
+                    >
+                      <ArrowRight size={16} />
+                      <span>
+                        {isVerifyingOtp
+                          ? (language === 'rw' ? 'Kwemeza...' : 'Verifying...')
+                          : (language === 'rw' ? 'Emeza & Fungura' : 'Verify & Enter Exam Room')}
+                      </span>
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       <Footer />
     </div>

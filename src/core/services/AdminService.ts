@@ -377,6 +377,8 @@ export interface CandidateExamQuestionItem {
 
 export interface CandidateSessionItem {
   id: string;
+  candidate_name?: string;
+  candidate_phone?: string;
   exam_id?: string | null;
   exam_title: string;
   track: 'STUDENT' | 'GUEST' | 'PUBLIC' | 'B2B';
@@ -429,11 +431,14 @@ export interface ExamPackageItem {
 
 export interface ExamCreditBalance {
   identifier: string;
+  is_registered?: boolean;
   credits: number;
   total_purchased: number;
   total_consumed: number;
   last_purchased_at?: string;
   transactions_count?: number;
+  full_name?: string;
+  candidate_name?: string;
 }
 
 
@@ -1894,6 +1899,11 @@ export class AdminService {
       phone_number: phone || '',
     });
     return res?.data || res;
+  }
+
+  public async getPublicExamHistory(phone?: string): Promise<any[]> {
+    const res = await this.http.get<any>(ApiEndpoints.ADMIN.PUBLIC_EXAM_HISTORY(phone));
+    return Array.isArray(res) ? res : res?.data || [];
   }
 
   public async verifyPublicCertificate(hashOrCode: string): Promise<any> {
