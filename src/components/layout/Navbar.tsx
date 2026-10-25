@@ -1,10 +1,25 @@
 import React from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Compass, BookOpen, Video, Calendar, Sun, Moon, LogIn, LogOut, Shield } from 'lucide-react';
+import {
+  Compass,
+  Home,
+  Sparkles,
+  GraduationCap,
+  Newspaper,
+  Handshake,
+  PhoneCall,
+  Sun,
+  Moon,
+  LogIn,
+  LogOut,
+  Shield,
+} from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useTranslation } from '../../context/I18nContext';
 import { Badge } from '../common/Badge';
+import { usePublicNavigation } from '../../hooks/usePublicNavigation';
+import type { PublicNavTabConfig } from '../../features/settings/types';
 
 export const Navbar: React.FC = () => {
   const { user, isAuthenticated, logout } = useAuth();
@@ -12,6 +27,7 @@ export const Navbar: React.FC = () => {
   const { t, language, setLanguage } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
+  const { visibleTabs } = usePublicNavigation();
 
   const handleLogout = () => {
     logout();
@@ -24,6 +40,42 @@ export const Navbar: React.FC = () => {
 
   const isNavActive = (path: string) => {
     return location.pathname.startsWith(path);
+  };
+
+  const isTabActive = (tab: PublicNavTabConfig) => {
+    if (tab.path === '/') {
+      return location.pathname === '/';
+    }
+    return location.pathname.startsWith(tab.path);
+  };
+
+  const getTabLabel = (tab: PublicNavTabConfig) => {
+    if (tab.id === 'home') return t('nav.home');
+    if (tab.id === 'service_concierge') return t('nav.serviceConcierge');
+    if (tab.id === 'school_program') return t('nav.schoolProgram');
+    if (tab.id === 'newsroom') return t('nav.newsroom');
+    if (tab.id === 'partner') return t('nav.partnerWithUs');
+    if (tab.id === 'contact') return t('nav.contact');
+    return language === 'rw' ? tab.labelKinyarwanda || tab.label : tab.label;
+  };
+
+  const getTabIcon = (tabId: string) => {
+    switch (tabId) {
+      case 'home':
+        return <Home size={15} style={{ flexShrink: 0 }} />;
+      case 'service_concierge':
+        return <Sparkles size={15} style={{ flexShrink: 0 }} />;
+      case 'school_program':
+        return <GraduationCap size={15} style={{ flexShrink: 0 }} />;
+      case 'newsroom':
+        return <Newspaper size={15} style={{ flexShrink: 0 }} />;
+      case 'partner':
+        return <Handshake size={15} style={{ flexShrink: 0 }} />;
+      case 'contact':
+        return <PhoneCall size={15} style={{ flexShrink: 0 }} />;
+      default:
+        return <Compass size={15} style={{ flexShrink: 0 }} />;
+    }
   };
 
   return (
@@ -89,36 +141,22 @@ export const Navbar: React.FC = () => {
           </div>
         </Link>
 
-        {/* Navigation Links in Visible Containers */}
+        {/* Dynamic Public Navigation Links (Can be toggled On/Off by Admin) */}
         <nav className="nav-track">
-          <Link
-            to="/courses"
-            className={`nav-btn ${isNavActive('/courses') ? 'active' : ''}`}
-          >
-            <BookOpen size={16} />
-            <span>{t('nav.courses')}</span>
-          </Link>
-          <Link
-            to="/road-signs"
-            className={`nav-btn ${isNavActive('/road-signs') ? 'active' : ''}`}
-          >
-            <Compass size={16} />
-            <span>{t('nav.roadSigns')}</span>
-          </Link>
-          <Link
-            to="/live-classes"
-            className={`nav-btn ${isNavActive('/live-classes') ? 'active' : ''}`}
-          >
-            <Video size={16} />
-            <span>{t('nav.liveClasses')}</span>
-          </Link>
-          <Link
-            to="/booking"
-            className={`nav-btn ${isNavActive('/booking') ? 'active' : ''}`}
-          >
-            <Calendar size={16} />
-            <span>{t('nav.booking')}</span>
-          </Link>
+          {visibleTabs.map((tab) => {
+            const active = isTabActive(tab);
+            return (
+              <Link
+                key={tab.id}
+                to={tab.path}
+                className={`nav-btn ${active ? 'active' : ''}`}
+                title={tab.description}
+              >
+                {getTabIcon(tab.id)}
+                <span>{getTabLabel(tab)}</span>
+              </Link>
+            );
+          })}
         </nav>
 
         {/* Actions, Language Selector & Profile */}

@@ -30,6 +30,16 @@ export interface PublicBackgroundConfig {
   darkGradientOpacity: number;
 }
 
+export interface PublicNavTabConfig {
+  id: string; // 'home' | 'service_concierge' | 'school_program' | 'newsroom' | 'partner' | 'contact'
+  label: string;
+  labelKinyarwanda: string;
+  path: string;
+  isEnabled: boolean;
+  order: number;
+  description?: string;
+}
+
 export interface PlatformEnvironmentConfig {
   maintenanceMode: boolean;
   maintenanceMessage: string;
@@ -50,6 +60,7 @@ export interface PlatformEnvironmentConfig {
   guestTrialExamCount?: number;
   captchaOnGuestCheckout?: boolean;
   publicBackground?: PublicBackgroundConfig;
+  publicNavTabs?: PublicNavTabConfig[];
 
   // Student Sub-section Settings
   studentAudioNarration?: boolean;

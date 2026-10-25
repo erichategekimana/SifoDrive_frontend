@@ -47,6 +47,8 @@ function platformConfigPlugin(): Plugin {
 export default defineConfig({
   plugins: [react(), platformConfigPlugin()],
   server: {
+    host: '0.0.0.0',
+    allowedHosts: true,
     port: 3000,
     proxy: {
       '/api': {

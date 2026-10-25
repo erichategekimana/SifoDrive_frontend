@@ -7,6 +7,11 @@ import { AppLayout } from '../components/layout/AppLayout';
 import { LandingPage } from '../pages/public/LandingPage';
 import { LoginPage } from '../pages/public/LoginPage';
 import { RegisterPage } from '../pages/public/RegisterPage';
+import { ServiceConciergePage } from '../pages/public/ServiceConciergePage';
+import { SchoolProgramPage } from '../pages/public/SchoolProgramPage';
+import { NewsroomPage } from '../pages/public/NewsroomPage';
+import { PartnerWithUsPage } from '../pages/public/PartnerWithUsPage';
+import { ContactPage } from '../pages/public/ContactPage';
 
 // Protected Pages & Role Consoles
 import { DashboardDispatcher } from '../pages/dashboard/DashboardDispatcher';
@@ -61,6 +66,15 @@ export const AppRoutes: React.FC = () => {
     <Routes>
       {/* Public Pages */}
       <Route path="/" element={<LandingPage />} />
+      <Route path="/services" element={<ServiceConciergePage />} />
+      <Route path="/concierge" element={<ServiceConciergePage />} />
+      <Route path="/school-program" element={<SchoolProgramPage />} />
+      <Route path="/newsroom" element={<NewsroomPage />} />
+      <Route path="/news" element={<NewsroomPage />} />
+      <Route path="/partner" element={<PartnerWithUsPage />} />
+      <Route path="/partners" element={<PartnerWithUsPage />} />
+      <Route path="/partner-with-us" element={<PartnerWithUsPage />} />
+      <Route path="/contact" element={<ContactPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/pricing" element={<PricingPage />} />

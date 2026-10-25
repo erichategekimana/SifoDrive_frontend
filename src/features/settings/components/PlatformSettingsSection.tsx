@@ -13,16 +13,29 @@ import {
   Download,
   Terminal,
   Upload,
+  X,
+  AlertCircle,
+  Navigation,
+  ToggleLeft,
+  ToggleRight,
+  ChevronUp,
+  ChevronDown,
 } from 'lucide-react';
 import type {
   PlatformFeatureFlag,
   PlatformEnvironmentConfig,
   PlatformSubSection,
   PublicBackgroundConfig,
+  PublicNavTabConfig,
 } from '../types';
-import { DEFAULT_PUBLIC_BACKGROUND, DEFAULT_PUBLIC_BG_URL } from '../hooks/useAdminSettingsData';
+import {
+  DEFAULT_PUBLIC_BACKGROUND,
+  DEFAULT_PUBLIC_BG_URL,
+  DEFAULT_PUBLIC_NAV_TABS,
+} from '../hooks/useAdminSettingsData';
 import { useToast } from '../../../context/ToastContext';
 import { useTranslation } from '../../../context/I18nContext';
+import { useTheme } from '../../../context/ThemeContext';
 
 interface PlatformSettingsSectionProps {
   platformConfig: PlatformEnvironmentConfig;
@@ -46,6 +59,8 @@ export const PlatformSettingsSection: React.FC<PlatformSettingsSectionProps> = (
   const { showToast } = useToast();
   const { language } = useTranslation();
   const isRw = language === 'rw';
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
 
   // Active Sub-Section: Public | Student | Tutors | Admins | General
   const [activeSubSection, setActiveSubSection] = useState<PlatformSubSection>('public');
@@ -65,6 +80,108 @@ export const PlatformSettingsSection: React.FC<PlatformSettingsSectionProps> = (
   const [isUploading, setIsUploading] = useState<boolean>(false);
   const [previewTheme, setPreviewTheme] = useState<'light' | 'dark'>('light');
 
+  // Pop-out Alert Warning for Toggling Background Feature
+  const [pendingToggleState, setPendingToggleState] = useState<boolean | null>(null);
+
+  // ── Public Navigation Tabs State & Helpers ──
+  const navTabs: PublicNavTabConfig[] = useMemo(() => {
+    if (Array.isArray(platformConfig.publicNavTabs) && platformConfig.publicNavTabs.length > 0) {
+      const existing = [...platformConfig.publicNavTabs];
+      DEFAULT_PUBLIC_NAV_TABS.forEach((def) => {
+        if (!existing.some((t) => t.id === def.id)) {
+          existing.push(def);
+        }
+      });
+      return existing.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    }
+    return DEFAULT_PUBLIC_NAV_TABS;
+  }, [platformConfig.publicNavTabs]);
+
+  const handleToggleNavTab = (tabId: string) => {
+    const updated = navTabs.map((tab) => {
+      if (tab.id === tabId) {
+        const nextState = !tab.isEnabled;
+        showToast(
+          isRw
+            ? `Ifishi ya "${tab.labelKinyarwanda || tab.label}" ubu ${nextState ? 'IRAGARAGARA' : 'YAHISHWE'} ku murongo w'ibanze`
+            : `"${tab.label}" tab is now ${nextState ? 'VISIBLE' : 'HIDDEN'} on public topbar`,
+          nextState ? 'success' : 'info'
+        );
+        return { ...tab, isEnabled: nextState };
+      }
+      return tab;
+    });
+
+    const nextConfig: PlatformEnvironmentConfig = {
+      ...platformConfig,
+      publicNavTabs: updated,
+    };
+    setPlatformConfig(nextConfig);
+    try {
+      localStorage.setItem('sifo_admin_settings_platform_config', JSON.stringify(nextConfig));
+      window.dispatchEvent(new CustomEvent('sifo_platform_config_updated', { detail: nextConfig }));
+    } catch (err) {
+      console.error('Failed to save nav tab toggle', err);
+    }
+  };
+
+  const handleMoveNavTab = (tabIndex: number, direction: 'up' | 'down') => {
+    if (
+      (direction === 'up' && tabIndex === 0) ||
+      (direction === 'down' && tabIndex === navTabs.length - 1)
+    ) {
+      return;
+    }
+
+    const targetIndex = direction === 'up' ? tabIndex - 1 : tabIndex + 1;
+    const newTabs = [...navTabs];
+    const [movedTab] = newTabs.splice(tabIndex, 1);
+    newTabs.splice(targetIndex, 0, movedTab);
+
+    const reordered = newTabs.map((tab, idx) => ({
+      ...tab,
+      order: idx + 1,
+    }));
+
+    const nextConfig: PlatformEnvironmentConfig = {
+      ...platformConfig,
+      publicNavTabs: reordered,
+    };
+    setPlatformConfig(nextConfig);
+    try {
+      localStorage.setItem('sifo_admin_settings_platform_config', JSON.stringify(nextConfig));
+      window.dispatchEvent(new CustomEvent('sifo_platform_config_updated', { detail: nextConfig }));
+      showToast(
+        isRw
+          ? `Guhindura umwanya: "${movedTab.labelKinyarwanda || movedTab.label}"`
+          : `Moved "${movedTab.label}" tab ${direction}`,
+        'info'
+      );
+    } catch (err) {
+      console.error('Failed to save reordered nav tabs', err);
+    }
+  };
+
+  const handleResetNavTabs = () => {
+    const nextConfig: PlatformEnvironmentConfig = {
+      ...platformConfig,
+      publicNavTabs: DEFAULT_PUBLIC_NAV_TABS,
+    };
+    setPlatformConfig(nextConfig);
+    try {
+      localStorage.setItem('sifo_admin_settings_platform_config', JSON.stringify(nextConfig));
+      window.dispatchEvent(new CustomEvent('sifo_platform_config_updated', { detail: nextConfig }));
+      showToast(
+        isRw
+          ? 'Amafishi yo hejuru yasubijwe ku miterere yayo y\'ibanze'
+          : 'Public navigation tabs reset to default configuration',
+        'info'
+      );
+    } catch (err) {
+      console.error('Failed to reset nav tabs', err);
+    }
+  };
+
   const publicBg = platformConfig.publicBackground || DEFAULT_PUBLIC_BACKGROUND;
 
   const updatePublicBg = (patch: Partial<PublicBackgroundConfig>) => {
@@ -75,6 +192,23 @@ export const PlatformSettingsSection: React.FC<PlatformSettingsSectionProps> = (
         ...patch,
       },
     }));
+  };
+
+  const handleConfirmToggle = () => {
+    if (pendingToggleState !== null) {
+      updatePublicBg({ enabled: pendingToggleState });
+      showToast(
+        isRw
+          ? `Ifoto y'inyuma ${pendingToggleState ? 'IRAFUNGUWE' : 'IRAFUNZWE'}`
+          : `Background image ${pendingToggleState ? 'ENABLED' : 'DISABLED'}`,
+        'info'
+      );
+      setPendingToggleState(null);
+    }
+  };
+
+  const handleCancelToggle = () => {
+    setPendingToggleState(null);
   };
 
   const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -514,9 +648,7 @@ export const PlatformSettingsSection: React.FC<PlatformSettingsSectionProps> = (
                 <button
                   type="button"
                   onClick={() => {
-                    const next = !publicBg.enabled;
-                    updatePublicBg({ enabled: next });
-                    showToast(`Background Image ${next ? 'ENABLED' : 'DISABLED'}`, 'info');
+                    setPendingToggleState(!publicBg.enabled);
                   }}
                   aria-label="Toggle background image"
                   style={{
@@ -946,6 +1078,204 @@ export const PlatformSettingsSection: React.FC<PlatformSettingsSectionProps> = (
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* ── PUBLIC NAVIGATION TABS & TOPBAR VISIBILITY MANAGER ── */}
+        <div
+          className="glass-panel"
+          style={{
+            maxWidth: '620px',
+            width: '100%',
+            padding: '24px',
+            borderRadius: '16px',
+            border: '1px solid var(--border-subtle)',
+            background: 'rgba(255, 255, 255, 0.02)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '20px',
+          }}
+        >
+          {/* Header & Overview */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div
+                  style={{
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: '10px',
+                    background: 'rgba(56, 189, 248, 0.12)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    border: '1px solid rgba(56, 189, 248, 0.25)',
+                  }}
+                >
+                  <Navigation size={20} color="#38bdf8" />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, color: '#ffffff' }}>
+                    {isRw ? 'Amafishi yo Hejuru n\'Ibyo Abashyitsi Babona' : 'Navigation & Tab Visibility'}
+                  </h3>
+                  <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginTop: '2px' }}>
+                    {isRw
+                      ? 'Genzura amafishi agaragara hejuru ku rubuga rw\'abashyitsi.'
+                      : 'Control which sections are visible in the topbar.'}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Actions */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+
+              <button
+                type="button"
+                onClick={handleResetNavTabs}
+                className="btn btn-secondary btn-sm"
+                style={{ fontSize: '0.78rem', padding: '6px 12px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                title="Reset to default tab order and visibility"
+              >
+                <RotateCcw size={13} />
+                <span>{isRw ? 'Subiza ku Miterere' : 'Reset Defaults'}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Tabs Management Cards Grid */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {navTabs.map((tab, index) => {
+              const isFirst = index === 0;
+              const isLast = index === navTabs.length - 1;
+
+              return (
+                <div
+                  key={tab.id}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '12px 16px',
+                    borderRadius: '12px',
+                    border: tab.isEnabled ? '1px solid var(--border-subtle)' : '1px dashed rgba(255, 255, 255, 0.1)',
+                    background: tab.isEnabled ? 'rgba(255, 255, 255, 0.03)' : 'rgba(255, 255, 255, 0.01)',
+                    opacity: tab.isEnabled ? 1 : 0.62,
+                    transition: 'all 0.2s ease',
+                    gap: '12px',
+                  }}
+                >
+                  {/* Left: Reorder Controls + Tab Meta */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
+                    {/* Position badge & Up/Down buttons */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <span
+                        style={{
+                          width: '24px',
+                          height: '24px',
+                          borderRadius: '6px',
+                          background: 'rgba(255, 255, 255, 0.06)',
+                          color: '#94a3b8',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '0.75rem',
+                          fontWeight: 800,
+                        }}
+                      >
+                        {index + 1}
+                      </span>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                        <button
+                          type="button"
+                          disabled={isFirst}
+                          onClick={() => handleMoveNavTab(index, 'up')}
+                          style={{
+                            width: '22px',
+                            height: '16px',
+                            borderRadius: '4px',
+                            border: 'none',
+                            background: isFirst ? 'transparent' : 'rgba(255, 255, 255, 0.08)',
+                            color: isFirst ? '#475569' : '#ffffff',
+                            cursor: isFirst ? 'not-allowed' : 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            padding: 0,
+                          }}
+                          title="Move tab earlier in topbar"
+                        >
+                          <ChevronUp size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          disabled={isLast}
+                          onClick={() => handleMoveNavTab(index, 'down')}
+                          style={{
+                            width: '22px',
+                            height: '16px',
+                            borderRadius: '4px',
+                            border: 'none',
+                            background: isLast ? 'transparent' : 'rgba(255, 255, 255, 0.08)',
+                            color: isLast ? '#475569' : '#ffffff',
+                            cursor: isLast ? 'not-allowed' : 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            padding: 0,
+                          }}
+                          title="Move tab later in topbar"
+                        >
+                          <ChevronDown size={14} />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Labels & Path */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '0.94rem', fontWeight: 800, color: '#ffffff' }}>
+                        {isRw ? (tab.labelKinyarwanda || tab.label) : tab.label}
+                      </span>
+                      <span
+                        style={{
+                          padding: '2px 6px',
+                          borderRadius: '4px',
+                          fontSize: '0.68rem',
+                          fontFamily: 'monospace',
+                          background: 'rgba(255, 255, 255, 0.05)',
+                          color: '#38bdf8',
+                          border: '1px solid rgba(255, 255, 255, 0.1)',
+                        }}
+                      >
+                        {tab.path}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Right: Toggle Switch */}
+                  <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+
+                    <button
+                      type="button"
+                      onClick={() => handleToggleNavTab(tab.id)}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        color: tab.isEnabled ? '#38bdf8' : '#64748b',
+                        display: 'flex',
+                        alignItems: 'center',
+                        padding: 0,
+                        transition: 'transform 0.15s ease, color 0.15s ease',
+                      }}
+                      title={tab.isEnabled ? 'Click to hide this tab from public visitors' : 'Click to show this tab on public topbar'}
+                    >
+                      {tab.isEnabled ? <ToggleRight size={34} /> : <ToggleLeft size={34} />}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
 
@@ -2633,6 +2963,170 @@ export const PlatformSettingsSection: React.FC<PlatformSettingsSectionProps> = (
                 }}
               >
                 Close Simulator
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* ── Pop-out Alert Modal for Toggling Background Feature ── */}
+      {pendingToggleState !== null && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 10000,
+            backgroundColor: 'rgba(15, 23, 42, 0.70)',
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px',
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) handleCancelToggle();
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: isDark ? '#111827' : '#ffffff',
+              color: isDark ? '#f8fafc' : '#0f172a',
+              border: isDark ? '1px solid rgba(255, 255, 255, 0.12)' : '1px solid #e2e8f0',
+              borderRadius: '24px',
+              maxWidth: '440px',
+              width: '100%',
+              padding: '32px 28px',
+              boxShadow: isDark
+                ? '0 25px 50px -12px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.05)'
+                : '0 25px 50px -12px rgba(0, 0, 0, 0.22), 0 0 0 1px rgba(0, 0, 0, 0.05)',
+              position: 'relative',
+              textAlign: 'center',
+            }}
+          >
+            {/* Close Button */}
+            <button
+              type="button"
+              onClick={handleCancelToggle}
+              aria-label="Close dialog"
+              style={{
+                position: 'absolute',
+                top: '18px',
+                right: '18px',
+                background: 'none',
+                border: 'none',
+                color: isDark ? '#94a3b8' : '#64748b',
+                cursor: 'pointer',
+                padding: '6px',
+                borderRadius: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <X size={18} />
+            </button>
+
+            {/* Warning Icon Badge */}
+            <div
+              style={{
+                width: '60px',
+                height: '60px',
+                borderRadius: '18px',
+                margin: '0 auto 18px auto',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: pendingToggleState
+                  ? (isDark ? 'rgba(2, 132, 199, 0.18)' : '#e0f2fe')
+                  : (isDark ? 'rgba(239, 68, 68, 0.18)' : '#fee2e2'),
+                border: pendingToggleState
+                  ? (isDark ? '1px solid rgba(2, 132, 199, 0.35)' : '1px solid #7dd3fc')
+                  : (isDark ? '1px solid rgba(239, 68, 68, 0.35)' : '1px solid #fca5a5'),
+              }}
+            >
+              <AlertCircle
+                size={32}
+                color={pendingToggleState ? (isDark ? '#38bdf8' : '#0284c7') : (isDark ? '#f87171' : '#dc2626')}
+              />
+            </div>
+
+            {/* Title */}
+            <h3
+              style={{
+                fontSize: '1.28rem',
+                fontWeight: 800,
+                color: isDark ? '#ffffff' : '#0f172a',
+                margin: '0 0 10px 0',
+                letterSpacing: '-0.01em',
+              }}
+            >
+              {pendingToggleState
+                ? (isRw ? "Gufungura Ifoto y'Inyuma?" : 'Enable Background Image?')
+                : (isRw ? "Gufunga Ifoto y'Inyuma?" : 'Disable Background Image?')}
+            </h3>
+
+            {/* Description */}
+            <p
+              style={{
+                fontSize: '0.9rem',
+                color: isDark ? '#94a3b8' : '#334155',
+                lineHeight: 1.55,
+                margin: '0 0 24px 0',
+                fontWeight: 500,
+              }}
+            >
+              {pendingToggleState
+                ? (isRw
+                    ? "Ibi biratuma ifoto nshya y'inyuma igaragara kuri paji z'Intangiriro n'Ibiciro ku banyeshuri n'abashyitsi bose."
+                    : 'This will display the custom background image on the public Home and Pricing pages for all visitors and students.')
+                : (isRw
+                    ? "Ibi birahisha ifoto y'inyuma, paji z'Intangiriro n'Ibiciro zisubire ku buryo busanzwe."
+                    : 'This will hide the background image, returning the public Home and Pricing pages to their default look.')}
+            </p>
+
+            {/* Action Buttons */}
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button
+                type="button"
+                onClick={handleCancelToggle}
+                style={{
+                  flex: 1,
+                  padding: '11px 16px',
+                  borderRadius: '12px',
+                  backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#f1f5f9',
+                  border: isDark ? '1px solid rgba(255, 255, 255, 0.14)' : '1px solid #cbd5e1',
+                  color: isDark ? '#e2e8f0' : '#0f172a',
+                  fontSize: '0.9rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  transition: 'background-color 0.15s ease',
+                }}
+              >
+                {isRw ? 'Hagarika' : 'Cancel'}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleConfirmToggle}
+                style={{
+                  flex: 1,
+                  padding: '11px 16px',
+                  borderRadius: '12px',
+                  border: 'none',
+                  backgroundColor: pendingToggleState ? '#0284c7' : '#ef4444',
+                  color: '#ffffff',
+                  fontSize: '0.9rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  boxShadow: pendingToggleState
+                    ? '0 4px 14px rgba(2, 132, 199, 0.35)'
+                    : '0 4px 14px rgba(239, 68, 68, 0.35)',
+                  transition: 'transform 0.15s ease, opacity 0.15s ease',
+                }}
+              >
+                {pendingToggleState
+                  ? (isRw ? 'Fungura' : 'Enable')
+                  : (isRw ? 'Funga' : 'Disable')}
               </button>
             </div>
           </div>

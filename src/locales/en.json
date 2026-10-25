@@ -1,6 +1,12 @@
 {
   "nav": {
     "brandSub": "Driving Academy",
+    "home": "Home",
+    "serviceConcierge": "Service Concierge",
+    "schoolProgram": "School Program",
+    "newsroom": "Newsroom",
+    "partnerWithUs": "Partner with us",
+    "contact": "Contact",
     "courses": "Theory LMS",
     "roadSigns": "Road Signs",
     "liveClasses": "Live Classes",

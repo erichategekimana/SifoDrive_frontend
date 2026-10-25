@@ -55,11 +55,18 @@ nav svg {
   display: flex;
   align-items: center;
   gap: 8px;
-  flex-shrink: 0;
+  flex-shrink: 1;
   padding: 4px 6px;
   border-radius: var(--radius-xl);
   background: rgba(0, 0, 0, 0.035);
   border: 1px solid rgba(0, 0, 0, 0.06);
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.nav-track::-webkit-scrollbar {
+  display: none;
 }
 
 .nav-btn {

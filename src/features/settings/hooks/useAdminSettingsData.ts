@@ -11,6 +11,7 @@ import type {
   PlatformFeatureFlag,
   PlatformEnvironmentConfig,
   PublicBackgroundConfig,
+  PublicNavTabConfig,
 } from '../types';
 
 export const DEFAULT_PUBLIC_BG_URL = '/default-public-bg.jpg';
@@ -24,6 +25,63 @@ export const DEFAULT_PUBLIC_BACKGROUND: PublicBackgroundConfig = {
   darkImageOpacity: 0.15,
   darkGradientOpacity: 0.70,
 };
+
+export const DEFAULT_PUBLIC_NAV_TABS: PublicNavTabConfig[] = [
+  {
+    id: 'home',
+    label: 'Home',
+    labelKinyarwanda: 'Ahabanza',
+    path: '/',
+    isEnabled: true,
+    order: 1,
+    description: 'Main public landing portal',
+  },
+  {
+    id: 'service_concierge',
+    label: 'Service Concierge',
+    labelKinyarwanda: 'Serivisi zihariye',
+    path: '/services',
+    isEnabled: true,
+    order: 2,
+    description: 'VIP test car rental, private tutoring & Irembo registration',
+  },
+  {
+    id: 'school_program',
+    label: 'School Program',
+    labelKinyarwanda: 'Gahunda y\'Amashuri',
+    path: '/school-program',
+    isEnabled: true,
+    order: 3,
+    description: 'Auto-school partnerships, youth driving literacy & fleet training',
+  },
+  {
+    id: 'newsroom',
+    label: 'Newsroom',
+    labelKinyarwanda: 'Amakuru & Amatangazo',
+    path: '/newsroom',
+    isEnabled: true,
+    order: 4,
+    description: 'Rwanda traffic updates, road safety campaigns & police news',
+  },
+  {
+    id: 'partner',
+    label: 'Partner with us',
+    labelKinyarwanda: 'Fatanya Natwe',
+    path: '/partner',
+    isEnabled: true,
+    order: 5,
+    description: 'Driving schools, certified instructors & corporate fleet partners',
+  },
+  {
+    id: 'contact',
+    label: 'Contact',
+    labelKinyarwanda: 'Twandikire',
+    path: '/contact',
+    isEnabled: true,
+    order: 6,
+    description: 'Kigali headquarters, direct phone hotline & live inquiry',
+  },
+];
 
 export const DEFAULT_PLATFORM_CONFIG: PlatformEnvironmentConfig = {
   maintenanceMode: false,
@@ -45,6 +103,7 @@ export const DEFAULT_PLATFORM_CONFIG: PlatformEnvironmentConfig = {
   guestTrialExamCount: 2,
   captchaOnGuestCheckout: false,
   publicBackground: DEFAULT_PUBLIC_BACKGROUND,
+  publicNavTabs: DEFAULT_PUBLIC_NAV_TABS,
 
   // Student Sub-section Settings
   studentAudioNarration: true,
@@ -276,9 +335,17 @@ export const useAdminSettingsData = () => {
       const stored = localStorage.getItem('sifo_admin_settings_platform_config');
       if (stored) {
         const parsed = JSON.parse(stored);
+        const navTabs = parsed.publicNavTabs && Array.isArray(parsed.publicNavTabs)
+          ? DEFAULT_PUBLIC_NAV_TABS.map((def) => {
+              const existing = parsed.publicNavTabs.find((t: any) => t.id === def.id);
+              return existing ? { ...def, ...existing } : def;
+            })
+          : DEFAULT_PUBLIC_NAV_TABS;
+
         return {
           ...DEFAULT_PLATFORM_CONFIG,
           ...parsed,
+          publicNavTabs: navTabs,
           publicBackground: {
             ...DEFAULT_PUBLIC_BACKGROUND,
             ...(parsed.publicBackground || {}),

@@ -48,16 +48,17 @@ export const Footer: React.FC = () => {
           </p>
         </div>
 
-        {/* Academics */}
+        {/* Academics & Services */}
         <div>
           <h4 style={{ fontSize: '0.95rem', marginBottom: '16px', color: 'var(--text-primary)' }}>
             {t('footer.learningHub')}
           </h4>
           <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.85rem' }}>
-            <li><Link to="/courses">{t('footer.universalTheory')}</Link></li>
-            <li><Link to="/road-signs">{t('footer.roadSignsCatalog')}</Link></li>
-            <li><Link to="/live-classes">{t('footer.liveClassesLink')}</Link></li>
-            <li><Link to="/booking">{t('footer.iremboBookingLink')}</Link></li>
+            <li><Link to="/services">{t('nav.serviceConcierge') || 'Service Concierge'}</Link></li>
+            <li><Link to="/school-program">{t('nav.schoolProgram') || 'School Program'}</Link></li>
+            <li><Link to="/newsroom">{t('nav.newsroom') || 'Newsroom'}</Link></li>
+            <li><Link to="/partner">{t('nav.partnerWithUs') || 'Partner with us'}</Link></li>
+            <li><Link to="/contact">{t('nav.contact') || 'Contact Us'}</Link></li>
           </ul>
         </div>
 
