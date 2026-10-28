@@ -12,6 +12,16 @@ import type {
   PlatformEnvironmentConfig,
   PublicBackgroundConfig,
   PublicNavTabConfig,
+  PublicAboutUsConfig,
+  PublicContactConfig,
+  PublicLegalConfig,
+  PublicStatsConfig,
+  PublicAgentServicesConfig,
+  AgentServiceStep,
+  AgentServicesBookingFormConfig,
+  AgentServiceOption,
+  BookingFormFieldVisibility,
+  BookingFormFieldKey,
 } from '../types';
 
 export const DEFAULT_PUBLIC_BG_URL = '/default-public-bg.jpg';
@@ -26,6 +36,329 @@ export const DEFAULT_PUBLIC_BACKGROUND: PublicBackgroundConfig = {
   darkGradientOpacity: 0.70,
 };
 
+export const DEFAULT_PUBLIC_ABOUT_US: PublicAboutUsConfig = {
+  aboutUsTitle: 'About Us',
+  aboutUsTitleRw: 'Ibyerekeye Sifo Drive',
+  aboutUsSubtitle: 'Dedicated to modernizing driver education in Rwanda through accessible technology, rigorous traffic law training, and a deep commitment to national road safety.',
+  aboutUsSubtitleRw: 'Twiyemeje kuvugurura uburezi bwo gutwara ibinyabiziga mu Rwanda binyuze mu ikoranabuhanga ryoroheye bose, inyigisho zizewe z\'amategeko y\'umuhanda, no kubungabunga umutekano wo mu muhanda.',
+  whoWeAreTitle: 'Who We Are',
+  whoWeAreTitleRw: 'Abo Turi Bo',
+  whoWeAreDesc: 'Rwanda\'s premier digital driving academy ecosystem connecting learners, certified instructors, and driving schools. We bring official road safety curriculum, standardized traffic law preparation, and licensing support directly to your fingertips.',
+  whoWeAreDescRw: 'Urubuga rw\'ikoranabuhanga mu Rwanda rwunganira abanyeshuri, abarimu babifitiye ububasha, n\'amashuri yo gutwara ibinyabiziga. Duhuza inyigisho zemewe z\'amategeko y\'umuhanda no kwitegura neza ibizamini bya Polisi.',
+};
+
+export const DEFAULT_PUBLIC_CONTACT: PublicContactConfig = {
+  address: 'Kigali, Rwanda',
+  addressRw: 'Kigali, u Rwanda',
+  phone: '+250 788 123 456',
+  email: 'support@sifodrive.rw',
+  brandDescription: "Rwanda's leading digital driving academy. Preparing future drivers with high-standard theory, live tutoring, and seamless Irembo driving test booking concierge.",
+  brandDescriptionRw: "Ishuri Rikuru ry'Ikoranabuhanga ryo Gutwara Ibinyabiziga mu Rwanda. Ritegura abanyeshuri kwiga amategeko y'umuhanda, amasomo y'imbonankubone, no kwiyandikisha ku kizamini kuri Irembo.",
+};
+
+export const DEFAULT_PUBLIC_STATS: PublicStatsConfig = {
+  passRate: '98.4%',
+  activeLearners: '15,000+',
+  totalExams: '100+',
+  serviceConcierge: '24/7',
+};
+
+export const DEFAULT_AGENT_SERVICE_STEPS: AgentServiceStep[] = [
+  {
+    id: 'step-1',
+    stepNumber: 1,
+    title: 'Available Services',
+    titleRw: 'Serivisi Ubona',
+    description: 'Irembo practical & provisional exam bookings and slot tracking.',
+    descriptionRw: "Kwandikisha ibizamini by'agateganyo na ngiro kuri Irembo.",
+  },
+  {
+    id: 'step-2',
+    stepNumber: 2,
+    title: 'How to Book',
+    titleRw: 'Uko Bisabwa',
+    description: 'Fill your details below; an agent completes everything remotely.',
+    descriptionRw: 'Uzuza fomu iri hasi, umu-ajenti ahita agukorera byose.',
+  },
+  {
+    id: 'step-3',
+    stepNumber: 3,
+    title: 'Why Book',
+    titleRw: 'Impamvu yo Gukoresha',
+    description: 'Zero travel, immediate slot reservation, and instant SMS confirmation.',
+    descriptionRw: 'Nta rugendo, kubona amatariki vuba, no kwakira SMS.',
+  },
+];
+
+export const ALL_BOOKING_FIELD_KEYS: BookingFormFieldKey[] = [
+  'fullName',
+  'phoneNumber',
+  'nationalId',
+  'dateOfBirth',
+  'licenseCategory',
+  'provisionalLicenseNumber',
+  'preferredDistrict',
+  'testingCenter',
+  'workingSite',
+  'teacher',
+  'preferredDate',
+  'notes',
+];
+
+export const DEFAULT_SERVICE_FIELDS: Record<string, BookingFormFieldKey[]> = {
+  irembo_provisional: [
+    'fullName',
+    'phoneNumber',
+    'nationalId',
+    'dateOfBirth',
+    'preferredDistrict',
+    'preferredDate',
+    'notes',
+  ],
+  irembo_practical: [
+    'fullName',
+    'phoneNumber',
+    'nationalId',
+    'licenseCategory',
+    'provisionalLicenseNumber',
+    'preferredDistrict',
+    'testingCenter',
+    'workingSite',
+    'teacher',
+    'preferredDate',
+    'notes',
+  ],
+  slot_reservation: [
+    'fullName',
+    'phoneNumber',
+    'nationalId',
+    'licenseCategory',
+    'preferredDistrict',
+    'testingCenter',
+    'preferredDate',
+    'notes',
+  ],
+  license_renewal: [
+    'fullName',
+    'phoneNumber',
+    'nationalId',
+    'licenseCategory',
+    'notes',
+  ],
+};
+
+export const DEFAULT_AGENT_SERVICE_OPTIONS: AgentServiceOption[] = [
+  {
+    id: 'opt-provisional',
+    key: 'irembo_provisional',
+    label: 'Irembo Provisional Exam Booking',
+    labelRw: 'Kwandikisha Ikizamini cy\'Agateganyo',
+    enabled: true,
+    fields: DEFAULT_SERVICE_FIELDS.irembo_provisional,
+  },
+  {
+    id: 'opt-practical',
+    key: 'irembo_practical',
+    label: 'Irembo Practical Exam Booking',
+    labelRw: 'Kwandikisha Ikizamini Ngiro',
+    enabled: true,
+    fields: DEFAULT_SERVICE_FIELDS.irembo_practical,
+  },
+  {
+    id: 'opt-slot',
+    key: 'slot_reservation',
+    label: 'Fast-Track Exam Slot Booking',
+    labelRw: 'Gushaka Itariki Yihuse (Slot Tracking)',
+    enabled: true,
+    fields: DEFAULT_SERVICE_FIELDS.slot_reservation,
+  },
+  {
+    id: 'opt-renewal',
+    key: 'license_renewal',
+    label: 'Driving License Renewal / Duplicate',
+    labelRw: 'Kongera Igihe cy\'Uruhushya / Karita Nshya',
+    enabled: true,
+    fields: DEFAULT_SERVICE_FIELDS.license_renewal,
+  },
+];
+
+export const DEFAULT_DISTRICT_OPTIONS: AgentServiceOption[] = [
+  { id: 'dist-1', key: 'GASABO', label: 'Gasabo', labelRw: 'Gasabo', enabled: true },
+  { id: 'dist-2', key: 'KICUKIRO', label: 'Kicukiro', labelRw: 'Kicukiro', enabled: true },
+  { id: 'dist-3', key: 'NYARUGENGE', label: 'Nyarugenge', labelRw: 'Nyarugenge', enabled: true },
+  { id: 'dist-4', key: 'MUSANZE', label: 'Musanze', labelRw: 'Musanze', enabled: true },
+  { id: 'dist-5', key: 'HUYE', label: 'Huye', labelRw: 'Huye', enabled: true },
+  { id: 'dist-6', key: 'RUBAVU', label: 'Rubavu', labelRw: 'Rubavu', enabled: true },
+  { id: 'dist-7', key: 'RWAMAGANA', label: 'Rwamagana', labelRw: 'Rwamagana', enabled: true },
+];
+
+export const DEFAULT_TESTING_CENTER_OPTIONS: AgentServiceOption[] = [
+  { id: 'tc-1', key: 'REMERA', label: 'Remera - Amahoro Police Test Center', labelRw: 'Remera - Amahoro Police Test Center', enabled: true },
+  { id: 'tc-2', key: 'BUSANZA', label: 'Busanza Automated Test Center', labelRw: 'Busanza Automated Test Center', enabled: true },
+  { id: 'tc-3', key: 'NYAMIRAMBO', label: 'Nyamirambo Testing Center', labelRw: 'Nyamirambo Testing Center', enabled: true },
+  { id: 'tc-4', key: 'MUSANZE_TC', label: 'Musanze Regional Police Center', labelRw: 'Musanze Regional Police Center', enabled: true },
+  { id: 'tc-5', key: 'HUYE_TC', label: 'Huye Driving Exam Center', labelRw: 'Huye Driving Exam Center', enabled: true },
+];
+
+export const DEFAULT_WORKING_SITE_OPTIONS: AgentServiceOption[] = [
+  { id: 'ws-1', key: 'BUSANZA AUTOMATED CENTER', label: 'BUSANZA AUTOMATED CENTER', labelRw: 'BUSANZA AUTOMATED CENTER', enabled: true },
+  { id: 'ws-2', key: 'BUSANZA SITE (KIC)', label: 'BUSANZA SITE (KIC)', labelRw: 'BUSANZA SITE (KIC)', enabled: true },
+  { id: 'ws-3', key: 'REMERA POLICE GROUNDS', label: 'Remera Police Grounds', labelRw: 'Remera Police Grounds', enabled: true },
+  { id: 'ws-4', key: 'NYAMIRAMBO REGIONAL SITE', label: 'Nyamirambo Regional Site', labelRw: 'Nyamirambo Regional Site', enabled: true },
+];
+
+export const DEFAULT_TEACHER_OPTIONS: AgentServiceOption[] = [
+  { id: 't-1', key: 'Jean Damascene Habimana', label: 'Jean Damascene Habimana', labelRw: 'Jean Damascene Habimana', enabled: true },
+  { id: 't-2', key: 'Emmanuel Mugisha', label: 'Emmanuel Mugisha', labelRw: 'Emmanuel Mugisha', enabled: true },
+  { id: 't-3', key: 'Clarisse Mukamana', label: 'Clarisse Mukamana', labelRw: 'Clarisse Mukamana', enabled: true },
+  { id: 't-4', key: 'Patrick Nshimiyimana', label: 'Patrick Nshimiyimana', labelRw: 'Patrick Nshimiyimana', enabled: true },
+];
+
+export const DEFAULT_BOOKING_FIELD_VISIBILITY: BookingFormFieldVisibility = {
+  fullName: true,
+  phoneNumber: true,
+  nationalId: true,
+  dateOfBirth: true,
+  serviceType: true,
+  licenseCategory: true,
+  provisionalLicenseNumber: true,
+  preferredDistrict: true,
+  testingCenter: true,
+  workingSite: true,
+  teacher: true,
+  preferredDate: true,
+  notes: true,
+};
+
+export const DEFAULT_AGENT_SERVICES_BOOKING_FORM: AgentServicesBookingFormConfig = {
+  isEnabled: true,
+  formTitle: 'Book Agent Service',
+  formTitleRw: 'Kora Gahunda ya Agent',
+  formSubtitle: 'Fill in your details below. A Sifo Drive agent will process your request remotely.',
+  formSubtitleRw: 'Uzuza iyi myirondoro, umu-ajenti wa Sifo Drive aragufasha mu kanya gato.',
+  fieldVisibility: DEFAULT_BOOKING_FIELD_VISIBILITY,
+  serviceOptions: DEFAULT_AGENT_SERVICE_OPTIONS,
+  districtOptions: DEFAULT_DISTRICT_OPTIONS,
+  testingCenterOptions: DEFAULT_TESTING_CENTER_OPTIONS,
+  workingSiteOptions: DEFAULT_WORKING_SITE_OPTIONS,
+  teacherOptions: DEFAULT_TEACHER_OPTIONS,
+  allowProvisionalExam: true,
+  allowPracticalExam: true,
+  allowSlotReservation: true,
+  allowLicenseRenewal: true,
+  requirePreferredDate: false,
+  requireTestingCenter: false,
+  showNotesField: true,
+  defaultLocation: 'Remera - Amahoro Police Test Center',
+  submitButtonText: 'Submit Agent Service Request',
+  submitButtonTextRw: 'Ohereza Ubusabe bwa Agent',
+};
+
+export const DEFAULT_PUBLIC_AGENT_SERVICES: PublicAgentServicesConfig = {
+  enableBooking: true,
+  autoAssignAgent: true,
+  iremboSyncEnabled: true,
+  hotlinePhone: '+250 788 123 456',
+  hotlineWhatsapp: '+250 788 123 456',
+  noticeEn: 'Our verified field agents assist candidates with Irembo test bookings, documentation, and queue management without physical travel.',
+  noticeRw: 'Abakozi bacu babifitiye ububasha bafasha abakandida kwiyandikisha ku bizamini bya Irembo no gukemura ibibazo bitabaye ngombwa ko uhasanga umuntu imbonankubone.',
+  howItWorksTitle: 'How It Works & Booking Steps',
+  howItWorksTitleRw: 'Uko Bikora & Ibyiza',
+  steps: DEFAULT_AGENT_SERVICE_STEPS,
+  bookingForm: DEFAULT_AGENT_SERVICES_BOOKING_FORM,
+};
+
+export const DEFAULT_PUBLIC_LEGAL: PublicLegalConfig = {
+  privacyPolicy: 'Privacy Policy',
+  privacyPolicyRw: 'Politiki yo Kurinda Amakuru Bwite',
+  termsAndConditions: 'Terms & Conditions',
+  termsAndConditionsRw: 'Amabwiriza n\'Ibisabwa',
+  cookies: 'Cookies',
+  cookiesRw: 'Amakuru y\'Inyandiko (Cookies)',
+  privacyPolicyContent: `1. Introduction & Overview
+Sifo Drive is committed to protecting your personal data in full compliance with Rwandan Data Protection Laws (Law Nº 058/2021). This Privacy Policy explains how we collect, process, and safeguard your information when you access our driver education platform, mobile services, and examination practice systems.
+
+2. Information We Collect
+We collect personal identification data (including your national identification number, legal name, telephone number, and email address), driving license test booking references, learning progress records, quiz score history, and payment transaction metadata processed via licensed payment service providers in Rwanda (such as MTN MoMo, Airtel Money, or approved banking gateways).
+
+3. How We Use Your Data
+Your personal data is strictly utilized to:
+- Deliver personalized driving education curricula, mock tests, and road safety modules.
+- Facilitate official driving school scheduling and Irembo examination coordination.
+- Maintain transparent academic logs and issue verified completion certificates.
+- Prevent fraudulent activity, automated abuse, and maintain overall platform security.
+
+4. Data Sharing & Third Parties
+We do not sell, rent, or trade your personal information. Data may only be shared with authorized Rwandan regulatory authorities (such as Rwanda National Police and RTDA) when required for driving test validation, or with certified technological partners under strict confidentiality agreements.
+
+5. Data Security & Storage
+All student records and examination logs are encrypted in transit and at rest using modern encryption protocols. Access is restricted to authorized administrative personnel on a least-privilege basis.
+
+6. Your Rights
+Under Rwandan law, you have the right to request access to your personal records, rectify inaccuracies, request deletion subject to statutory retention obligations, and revoke consent at any time by contacting our privacy officer at support@sifodrive.rw.`,
+  privacyPolicyContentRw: `1. Intangiriro
+Sifo Drive yiyemeje gucunga no kurinda amakuru yawe bwite hakurikijwe amategeko y'u Rwanda agenga kurinda amakuru n'ubuzima bwite (Itegeko Nº 058/2021). Iyi politiki isobanura uburyo dukusanya, dukoresha, kandi turinda amakuru yawe iyo ukoresha imbuga n'amasomo yacu yo kwiga gutwara ibinyabiziga.
+
+2. Amakuru Dukusanya
+Dukusanya imyirondoro y'umunyeshuri (izina ryose, nimero y'indangamuntu, nomero ya telefoni, na imeli), amakuru ajyanye no kwiyandikisha ku bizamini, imitsindire y'ibizamini by'igerageza, hamwe n'amakuru y'ubwishyu anyura ku buryo bwemewe mu Rwanda (MTN MoMo, Airtel Money, cyangwa amabanki).
+
+3. Uburyo Dukoreshamo Amakuru
+Amakuru yawe akoreshwa gusa mu:
+- Gushyikiriza abanyeshuri amasomo y'amategeko y'umuhanda n'ibizamini by'imyitozo.
+- Korohereza iyandikishwa ku bizamini by'uruhushya rwo gutwara ibinyabiziga binyuze kuri Irembo na Polisi y'u Rwanda.
+- Kubika no kumenyekanisha intambwe umunyeshuri agezeho n'impamyabumenyi z'amasomo.
+- Gukumira uburiganya no gucunga umutekano w'urubuga.
+
+4. Isaranganya ry'Amakuru
+Ntiducuruza cyangwa ngo dusangize abandi amakuru yawe bwite ku mpamvu z'ubucuruzi. Amakuru ashobora gusangizwa inzego za Leta zibifitiye ububasha (nk'Ishami rya Polisi y'u Rwanda rishinzwe Umutekano wo mu Muhanda cyangwa RTDA) gusa iyo bikenewe mu kwemeza ibizamini by'uruhushya rwo gutwara ibinyabiziga.
+
+5. Umutekano w'Amakuru
+Amakuru yose acungirwa umutekano ukomeye hakoreshejwe tekinoloji zigezweho zo gukingira amakuru (encryption). Abakozi babifitiye uburenganzira gusa nibo bemerewe kuyageraho.
+
+6. Uburenganzira Bwawe
+Ufite uburenganzira bwo gusaba kureba amakuru yawe, kuyakosora, cyangwa gusaba ko akurwaho hakurikijwe amategeko y'u Rwanda, unyuze kuri imeli support@sifodrive.rw.`,
+  termsAndConditionsContent: `1. Acceptance of Terms
+By creating an account, accessing learning modules, or taking mock driving tests on Sifo Drive, you agree to be bound by these Terms & Conditions. If you do not accept these terms in full, you must discontinue using our services immediately.
+
+2. Eligibility & Account Security
+Users must provide accurate, current, and complete identification details during registration. You are solely responsible for maintaining the confidentiality of your account credentials and for all activities conducted under your registered account. Sharing accounts or test access credentials is strictly prohibited.
+
+3. Educational Content & Intellectual Property
+All pedagogical materials, including traffic code explanations, illustrated road signs, animated scenario questions, and audio explanations, are the exclusive intellectual property of Sifo Drive Ltd. You may not reproduce, redistribute, record, or scrape content without prior written authorization.
+
+4. Mock Exams & Official License Testing
+Sifo Drive provides high-fidelity training simulations designed to reflect the standards of Rwanda National Police (RNP) and RTDA examinations. While our platform is engineered to maximize pass rates, official driving licenses and test verdicts are issued exclusively by national authorities.
+
+5. Subscriptions, Payments & Refunds
+Access fees for practice exams, premium courses, or private tutoring concierge services must be settled in Rwandan Francs (RWF) via supported mobile money or banking channels. Fees for activated digital services are non-refundable once content has been accessed, except where mandated by applicable consumer protection laws.
+
+6. User Conduct & Code of Ethics
+Users must not attempt to circumvent platform security, employ automated bots, reverse engineer assessment algorithms, or post defamatory content within community discussion forums. Violations will result in immediate account termination.
+
+7. Governing Law & Dispute Resolution
+These Terms & Conditions are governed by and construed in accordance with the laws of the Republic of Rwanda. Any dispute arising out of or in connection with these terms shall be subject to the exclusive jurisdiction of the competent courts of Kigali, Rwanda.`,
+  termsAndConditionsContentRw: `1. Kwemera Amabwiriza
+Mu gihe ufunguye konti, winjiye mu masomo, cyangwa witoza ibizamini by'amategeko y'umuhanda kuri Sifo Drive, uba wemeye kubahiriza aya mabwiriza n'ibisabwa. Niba utemera aya mabwiriza yose, urasabwa guhagarika gukoresha iyi serivisi ako kanya.
+
+2. Uburenganzira bwo Gukoresha Konti
+Buri mukoresha asabwa gutanga imyirondoro yukuri igihe yiyandikisha. Ni inshingano zawe gucunga umutekano w'ijambobanga ryawe. Birabujijwe gusangiza abandi konti yawe cyangwa kugurisha uburenganzira bwo gukora ibizamini.
+
+3. Umutungo mu By'ubwenge
+Amasomo yose, ibimenyetso by'umuhanda bibarizwaho, amashusho yigisha, n'ibibazo by'ibizamini byateguwe na Sifo Drive ni umutungo witegeko w'urubuga. Ntibyemewe kubikoporora, kubikwirakwiza, cyangwa kubikoresha mu zindi nyungu z'ubucuruzi utabiherewe uburenganzira mu nyandiko.
+
+4. Imyitozo y'Ibizamini n'Ibyangombwa bya Leta
+Sifo Drive itanga ubumenyi n'imyitozo byo ku rwego rwo hejuru bifasha gutsinda ibizamini bya Polisi y'u Rwanda (RNP) na RTDA. Icyakora, inzego za Leta zibifitiye ububasha nizo zonyine zitanga uruhushya rwo gutwara ibinyabiziga.
+
+5. Amafaranga y'Amasomo no Kwishyura
+Ubwishyu bwose bw'amasomo, ibizamini byo kwitoza, cyangwa serivisi zihariye bukorwa mu mafaranga y'u Rwanda (RWF) binyuze kuri MTN MoMo, Airtel Money, cyangwa amakarita ya banki. Amafaranga yishyuwe kuri serivisi zamaze gutangira ntasubizwa, uretse aho amategeko abiteganya.
+
+6. Imyitwarire Myiza n'Ibisabwa
+Birabujijwe gushaka gucengera umutekano w'urubuga, gukoresha porogaramu zitemewe (bots), cyangwa gukwirakwiza ubutumwa butajyanye n'amasomo. Uwishe aya mabwiriza ahagarikirwa konti ako kanya.
+
+7. Amategeko Agenga Amasezerano
+Aya mabwiriza agengwa kandi agasobanurwa hakurikijwe amategeko ya Repubulika y'u Rwanda. Amakimbirane yose yaturuka kuri aya masezerano azakemurirwa mu nkiko zibifitiye ububasha mu mujyi wa Kigali, u Rwanda.`,
+};
+
 export const DEFAULT_PUBLIC_NAV_TABS: PublicNavTabConfig[] = [
   {
     id: 'home',
@@ -38,8 +371,8 @@ export const DEFAULT_PUBLIC_NAV_TABS: PublicNavTabConfig[] = [
   },
   {
     id: 'service_concierge',
-    label: 'Service Concierge',
-    labelKinyarwanda: 'Serivisi zihariye',
+    label: 'Agent Services',
+    labelKinyarwanda: 'Serivisi za agent',
     path: '/services',
     isEnabled: true,
     order: 2,
@@ -48,7 +381,7 @@ export const DEFAULT_PUBLIC_NAV_TABS: PublicNavTabConfig[] = [
   {
     id: 'school_program',
     label: 'School Program',
-    labelKinyarwanda: 'Gahunda y\'Amashuri',
+    labelKinyarwanda: 'Gahunda y\'Ishuri',
     path: '/school-program',
     isEnabled: true,
     order: 3,
@@ -104,6 +437,11 @@ export const DEFAULT_PLATFORM_CONFIG: PlatformEnvironmentConfig = {
   captchaOnGuestCheckout: false,
   publicBackground: DEFAULT_PUBLIC_BACKGROUND,
   publicNavTabs: DEFAULT_PUBLIC_NAV_TABS,
+  publicAboutUs: DEFAULT_PUBLIC_ABOUT_US,
+  publicContact: DEFAULT_PUBLIC_CONTACT,
+  publicLegal: DEFAULT_PUBLIC_LEGAL,
+  publicStats: DEFAULT_PUBLIC_STATS,
+  publicAgentServices: DEFAULT_PUBLIC_AGENT_SERVICES,
 
   // Student Sub-section Settings
   studentAudioNarration: true,
@@ -354,6 +692,18 @@ export const useAdminSettingsData = () => {
               : DEFAULT_PUBLIC_BG_URL,
             imageFileName: parsed.publicBackground?.imageFileName || 'Highway Landscape (Default)',
           },
+          publicAboutUs: {
+            ...DEFAULT_PUBLIC_ABOUT_US,
+            ...(parsed.publicAboutUs || {}),
+          },
+          publicContact: {
+            ...DEFAULT_PUBLIC_CONTACT,
+            ...(parsed.publicContact || {}),
+          },
+          publicLegal: {
+            ...DEFAULT_PUBLIC_LEGAL,
+            ...(parsed.publicLegal || {}),
+          },
         };
       }
     } catch {}
@@ -372,10 +722,10 @@ export const useAdminSettingsData = () => {
   useEffect(() => {
     const syncFromServer = async () => {
       try {
-        const res = await fetch('/platform-settings-sync');
+        const res = await fetch(`/platform-settings-sync?t=${Date.now()}`);
         if (res.ok) {
           const serverData = await res.json();
-          if (serverData && serverData.publicBackground) {
+          if (serverData && typeof serverData === 'object') {
             setPlatformConfig((prev) => {
               // If local has custom uploaded image that server doesn't have yet, push to server
               if (prev.publicBackground?.imageDataUrl && prev.publicBackground.imageDataUrl.startsWith('data:')) {
@@ -386,22 +736,33 @@ export const useAdminSettingsData = () => {
                 }).catch(() => {});
                 return prev;
               }
+
+              const resolvedNavTabs = Array.isArray(serverData.publicNavTabs) && serverData.publicNavTabs.length > 0
+                ? serverData.publicNavTabs
+                : (prev.publicNavTabs || DEFAULT_PUBLIC_NAV_TABS);
+
               return {
                 ...prev,
                 ...serverData,
+                publicNavTabs: resolvedNavTabs,
                 publicBackground: {
                   ...DEFAULT_PUBLIC_BACKGROUND,
-                  ...serverData.publicBackground,
+                  ...(serverData.publicBackground || {}),
+                },
+                publicAboutUs: {
+                  ...DEFAULT_PUBLIC_ABOUT_US,
+                  ...(serverData.publicAboutUs || {}),
+                },
+                publicContact: {
+                  ...DEFAULT_PUBLIC_CONTACT,
+                  ...(serverData.publicContact || {}),
+                },
+                publicLegal: {
+                  ...DEFAULT_PUBLIC_LEGAL,
+                  ...(serverData.publicLegal || {}),
                 },
               };
             });
-          } else if (platformConfig.publicBackground?.enabled) {
-            // Push existing local config to server
-            fetch('/platform-settings-sync', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(platformConfig),
-            }).catch(() => {});
           }
         }
       } catch {}

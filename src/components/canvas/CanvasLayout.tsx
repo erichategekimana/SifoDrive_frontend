@@ -7,7 +7,6 @@ import {
   Users,
   Calendar,
   HelpCircle,
-  Car,
   LogOut,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
@@ -221,7 +220,7 @@ export const CanvasLayout: React.FC = () => {
 
       {/* 1. Leftmost Canvas Blue Rail (86px) */}
       <nav className="canvas-primary-rail" aria-label="Main Navigation">
-        {/* Brand Emblem: Canvas ALU-style red rectangle on blue background */}
+        {/* Sifo Group Brand Logo */}
         <div
           onClick={() => navigate('/dashboard')}
           style={{
@@ -230,34 +229,36 @@ export const CanvasLayout: React.FC = () => {
             alignItems: 'center',
             justifyContent: 'center',
             cursor: 'pointer',
-            padding: '12px 0 12px 0',
+            padding: '10px 6px 12px 6px',
             width: '100%',
             borderBottom: '1px solid rgba(255,255,255,0.18)',
             marginBottom: '6px',
           }}
-          title="Sifo Drive Home"
+          title="Sifo Drive - Sifo Group Ltd"
         >
           <div
             style={{
-              width: '54px',
-              height: '42px',
-              backgroundColor: '#D9381E',
+              width: '72px',
+              height: '38px',
+              backgroundColor: '#FFFFFF',
               display: 'flex',
-              flexDirection: 'column',
               alignItems: 'center',
               justifyContent: 'center',
-              borderRadius: '2px',
-              color: '#FFFFFF',
-              fontWeight: 900,
-              fontSize: '0.92rem',
-              letterSpacing: '0.04em',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+              borderRadius: '6px',
+              boxShadow: '0 2px 6px rgba(0,0,0,0.25)',
+              padding: '2px 4px',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '3px', lineHeight: 1 }}>
-              <Car size={16} strokeWidth={2.5} />
-              <span>SIFO</span>
-            </div>
+            <img
+              src="/sifo-group-logo.png"
+              alt="Sifo Group Ltd"
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'contain',
+                display: 'block',
+              }}
+            />
           </div>
         </div>
 

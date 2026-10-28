@@ -69,14 +69,15 @@ export class BookingService {
    * Submit an Irembo Driving Test Concierge application
    */
   public async submitApplication(payload: {
-    category: LicenseCategory;
-    preferred_district: string;
+    category?: LicenseCategory | null;
+    preferred_district?: string | null;
     preferred_site?: string;
+    testing_center?: string | null;
     applicant_name: string;
     applicant_national_id: string;
     applicant_phone: string;
   }): Promise<Booking> {
-    logger.info(`Submitting booking application for Category ${payload.category}`);
+    logger.info(`Submitting booking application (Category: ${payload.category || 'N/A'})`);
     const data = await this.http.post<BookingDTO>(ApiEndpoints.BOOKING.APPLY, payload);
     return new Booking(data);
   }

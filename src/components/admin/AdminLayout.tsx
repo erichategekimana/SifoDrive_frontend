@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Outlet, Link, useNavigate } from 'react-router-dom';
-import { Compass, Sun, Moon, LogOut, Clock, Activity, Shield, GraduationCap } from 'lucide-react';
+import { Sun, Moon, LogOut, Clock, Activity, Shield, GraduationCap } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useTranslation } from '../../context/I18nContext';
@@ -57,51 +57,54 @@ export const AdminLayout: React.FC = () => {
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <Link to="/admin" style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none' }}>
+          <Link to="/admin" style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none' }} title="Sifo Drive - Sifo Group Ltd">
             <div
               style={{
-                width: '36px',
-                height: '36px',
-                borderRadius: 'var(--radius-md)',
-                background: '#0284c7',
+                background: '#ffffff',
+                padding: '3px 8px',
+                borderRadius: '8px',
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.12)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
+                height: '36px',
               }}
             >
-              <Compass size={20} color="#ffffff" />
+              <img
+                src="/sifo-group-logo.png"
+                alt="Sifo Group Ltd"
+                style={{
+                  height: '28px',
+                  width: 'auto',
+                  maxWidth: '120px',
+                  objectFit: 'contain',
+                  display: 'block',
+                }}
+              />
             </div>
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
-                  SIFO DRIVE
-                </span>
-                <span
-                  style={{
-                    padding: '2px 8px',
-                    borderRadius: 'var(--radius-sm)',
-                    background: user?.isBoardReviewer()
-                      ? 'rgba(13, 148, 136, 0.1)'
-                      : user?.isTrainingAdmin()
-                      ? 'rgba(2, 132, 199, 0.1)'
-                      : 'rgba(239, 68, 68, 0.1)',
-                    border: user?.isBoardReviewer()
-                      ? '1px solid rgba(13, 148, 136, 0.25)'
-                      : user?.isTrainingAdmin()
-                      ? '1px solid rgba(2, 132, 199, 0.25)'
-                      : '1px solid rgba(239, 68, 68, 0.25)',
-                    color: user?.isBoardReviewer() ? '#0d9488' : user?.isTrainingAdmin() ? '#0284c7' : '#ef4444',
-                    fontSize: '0.68rem',
-                    fontWeight: 700,
-                    letterSpacing: '0.04em',
-                  }}
-                >
-                  {user?.isBoardReviewer() ? 'BOARD REVIEW' : user?.isTrainingAdmin() ? "INDIRERWE Y'AMASOMO" : 'ADMIN CONSOLE'}
-                </span>
-              </div>
-              <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Driving Academy
-              </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span
+                style={{
+                  padding: '2px 8px',
+                  borderRadius: 'var(--radius-sm)',
+                  background: user?.isBoardReviewer()
+                    ? 'rgba(13, 148, 136, 0.1)'
+                    : user?.isTrainingAdmin()
+                    ? 'rgba(2, 132, 199, 0.1)'
+                    : 'rgba(239, 68, 68, 0.1)',
+                  border: user?.isBoardReviewer()
+                    ? '1px solid rgba(13, 148, 136, 0.25)'
+                    : user?.isTrainingAdmin()
+                    ? '1px solid rgba(2, 132, 199, 0.25)'
+                    : '1px solid rgba(239, 68, 68, 0.25)',
+                  color: user?.isBoardReviewer() ? '#0d9488' : user?.isTrainingAdmin() ? '#0284c7' : '#ef4444',
+                  fontSize: '0.68rem',
+                  fontWeight: 700,
+                  letterSpacing: '0.04em',
+                }}
+              >
+                {user?.isBoardReviewer() ? 'BOARD REVIEW' : user?.isTrainingAdmin() ? "INDIRERWE Y'AMASOMO" : 'ADMIN CONSOLE'}
+              </span>
             </div>
           </Link>
         </div>

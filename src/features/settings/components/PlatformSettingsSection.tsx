@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
   Globe,
   GraduationCap,
@@ -20,6 +20,15 @@ import {
   ToggleRight,
   ChevronUp,
   ChevronDown,
+  PhoneCall,
+  Shield,
+  TrendingUp,
+  Briefcase,
+  Plus,
+  Trash2,
+  ListOrdered,
+  ClipboardList,
+  SlidersHorizontal,
 } from 'lucide-react';
 import type {
   PlatformFeatureFlag,
@@ -27,11 +36,34 @@ import type {
   PlatformSubSection,
   PublicBackgroundConfig,
   PublicNavTabConfig,
+  PublicAboutUsConfig,
+  PublicContactConfig,
+  PublicLegalConfig,
+  PublicStatsConfig,
+  PublicAgentServicesConfig,
+  AgentServiceStep,
+  AgentServicesBookingFormConfig,
+  AgentServiceOption,
+  BookingFormFieldKey,
 } from '../types';
 import {
   DEFAULT_PUBLIC_BACKGROUND,
   DEFAULT_PUBLIC_BG_URL,
   DEFAULT_PUBLIC_NAV_TABS,
+  DEFAULT_PUBLIC_ABOUT_US,
+  DEFAULT_PUBLIC_CONTACT,
+  DEFAULT_PUBLIC_LEGAL,
+  DEFAULT_PUBLIC_STATS,
+  DEFAULT_PUBLIC_AGENT_SERVICES,
+  DEFAULT_AGENT_SERVICE_STEPS,
+  DEFAULT_AGENT_SERVICES_BOOKING_FORM,
+  DEFAULT_AGENT_SERVICE_OPTIONS,
+  DEFAULT_DISTRICT_OPTIONS,
+  DEFAULT_TESTING_CENTER_OPTIONS,
+  DEFAULT_WORKING_SITE_OPTIONS,
+  DEFAULT_TEACHER_OPTIONS,
+  ALL_BOOKING_FIELD_KEYS,
+  DEFAULT_SERVICE_FIELDS,
 } from '../hooks/useAdminSettingsData';
 import { useToast } from '../../../context/ToastContext';
 import { useTranslation } from '../../../context/I18nContext';
@@ -97,32 +129,105 @@ export const PlatformSettingsSection: React.FC<PlatformSettingsSectionProps> = (
     return DEFAULT_PUBLIC_NAV_TABS;
   }, [platformConfig.publicNavTabs]);
 
+  // Special confirmation & 1-minute countdown state for disabling Home tab
+  const [isHomeAlertOpen, setIsHomeAlertOpen] = useState<boolean>(false);
+  const [homeCountdown, setHomeCountdown] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (homeCountdown === null) return;
+
+    if (homeCountdown <= 0) {
+      const updated = navTabs.map((t) => (t.id === 'home' ? { ...t, isEnabled: false } : t));
+      const nextConfig: PlatformEnvironmentConfig = {
+        ...platformConfig,
+        publicNavTabs: updated,
+      };
+      saveAndBroadcastNavTabs(
+        nextConfig,
+        isRw
+          ? "Intangiriro yahagaritswe. Urubuga ruri mu mirimo yo kuvugurura."
+          : "Home landing page disabled. Website is under maintenance.",
+        'info'
+      );
+      setHomeCountdown(null);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setHomeCountdown((prev) => (prev !== null ? prev - 1 : null));
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [homeCountdown, navTabs, platformConfig, isRw, showToast]);
+
+  const saveAndBroadcastNavTabs = (
+    nextConfig: PlatformEnvironmentConfig,
+    toastMsg?: string,
+    toastType: 'success' | 'info' = 'info'
+  ) => {
+    setPlatformConfig(nextConfig);
+    try {
+      localStorage.setItem('sifo_admin_settings_platform_config', JSON.stringify(nextConfig));
+      window.dispatchEvent(new CustomEvent('sifo_platform_config_updated', { detail: nextConfig }));
+      try {
+        const ch = new BroadcastChannel('sifo_platform_sync');
+        ch.postMessage({ publicNavTabs: nextConfig.publicNavTabs });
+        ch.close();
+      } catch {}
+      fetch('/platform-settings-sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(nextConfig),
+      }).catch(console.error);
+      if (toastMsg) {
+        showToast(toastMsg, toastType);
+      }
+    } catch (err) {
+      console.error('Failed to save nav tabs', err);
+    }
+  };
+
+  const handleConfirmHomeDisable = () => {
+    setIsHomeAlertOpen(false);
+    setHomeCountdown(60);
+  };
+
+  const handleCancelHomeDisable = () => {
+    setHomeCountdown(null);
+    showToast(
+      isRw ? "Gufunga Intangiriro byahagaritswe" : "Home disable action cancelled",
+      'info'
+    );
+  };
+
   const handleToggleNavTab = (tabId: string) => {
+    const targetTab = navTabs.find((t) => t.id === tabId);
+    if (!targetTab) return;
+
+    // Disabling Home tab requires maintenance confirmation & 1-minute countdown
+    if (tabId === 'home' && targetTab.isEnabled) {
+      if (homeCountdown !== null) return;
+      setIsHomeAlertOpen(true);
+      return;
+    }
+
     const updated = navTabs.map((tab) => {
       if (tab.id === tabId) {
-        const nextState = !tab.isEnabled;
-        showToast(
-          isRw
-            ? `Ifishi ya "${tab.labelKinyarwanda || tab.label}" ubu ${nextState ? 'IRAGARAGARA' : 'YAHISHWE'} ku murongo w'ibanze`
-            : `"${tab.label}" tab is now ${nextState ? 'VISIBLE' : 'HIDDEN'} on public topbar`,
-          nextState ? 'success' : 'info'
-        );
-        return { ...tab, isEnabled: nextState };
+        return { ...tab, isEnabled: !tab.isEnabled };
       }
       return tab;
     });
+
+    const nextState = !targetTab.isEnabled;
+    const msg = isRw
+      ? `Ifishi ya "${targetTab.labelKinyarwanda || targetTab.label}" ubu ${nextState ? 'IRAGARAGARA' : 'YAHISHWE'} ku murongo w'ibanze`
+      : `"${targetTab.label}" tab is now ${nextState ? 'VISIBLE' : 'HIDDEN'} on public topbar`;
 
     const nextConfig: PlatformEnvironmentConfig = {
       ...platformConfig,
       publicNavTabs: updated,
     };
-    setPlatformConfig(nextConfig);
-    try {
-      localStorage.setItem('sifo_admin_settings_platform_config', JSON.stringify(nextConfig));
-      window.dispatchEvent(new CustomEvent('sifo_platform_config_updated', { detail: nextConfig }));
-    } catch (err) {
-      console.error('Failed to save nav tab toggle', err);
-    }
+    saveAndBroadcastNavTabs(nextConfig, msg, nextState ? 'success' : 'info');
   };
 
   const handleMoveNavTab = (tabIndex: number, direction: 'up' | 'down') => {
@@ -147,19 +252,10 @@ export const PlatformSettingsSection: React.FC<PlatformSettingsSectionProps> = (
       ...platformConfig,
       publicNavTabs: reordered,
     };
-    setPlatformConfig(nextConfig);
-    try {
-      localStorage.setItem('sifo_admin_settings_platform_config', JSON.stringify(nextConfig));
-      window.dispatchEvent(new CustomEvent('sifo_platform_config_updated', { detail: nextConfig }));
-      showToast(
-        isRw
-          ? `Guhindura umwanya: "${movedTab.labelKinyarwanda || movedTab.label}"`
-          : `Moved "${movedTab.label}" tab ${direction}`,
-        'info'
-      );
-    } catch (err) {
-      console.error('Failed to save reordered nav tabs', err);
-    }
+    const msg = isRw
+      ? `Guhindura umwanya: "${movedTab.labelKinyarwanda || movedTab.label}"`
+      : `Moved "${movedTab.label}" tab ${direction}`;
+    saveAndBroadcastNavTabs(nextConfig, msg, 'info');
   };
 
   const handleResetNavTabs = () => {
@@ -167,19 +263,639 @@ export const PlatformSettingsSection: React.FC<PlatformSettingsSectionProps> = (
       ...platformConfig,
       publicNavTabs: DEFAULT_PUBLIC_NAV_TABS,
     };
+    const msg = isRw
+      ? 'Amafishi yo hejuru yasubijwe ku miterere yayo y\'ibanze'
+      : 'Public navigation tabs reset to default configuration';
+    saveAndBroadcastNavTabs(nextConfig, msg, 'info');
+  };
+
+  // ── About Us & Who We Are Content Manager ──
+  const [aboutUsLangTab, setAboutUsLangTab] = useState<'en' | 'rw'>('en');
+
+  const currentAboutUs: PublicAboutUsConfig = useMemo(() => {
+    return {
+      ...DEFAULT_PUBLIC_ABOUT_US,
+      ...(platformConfig.publicAboutUs || {}),
+    };
+  }, [platformConfig.publicAboutUs]);
+
+  const handleAboutUsFieldChange = (field: keyof PublicAboutUsConfig, value: string) => {
+    const updatedAboutUs: PublicAboutUsConfig = {
+      ...currentAboutUs,
+      [field]: value,
+    };
+    const nextConfig: PlatformEnvironmentConfig = {
+      ...platformConfig,
+      publicAboutUs: updatedAboutUs,
+    };
     setPlatformConfig(nextConfig);
     try {
       localStorage.setItem('sifo_admin_settings_platform_config', JSON.stringify(nextConfig));
       window.dispatchEvent(new CustomEvent('sifo_platform_config_updated', { detail: nextConfig }));
-      showToast(
-        isRw
-          ? 'Amafishi yo hejuru yasubijwe ku miterere yayo y\'ibanze'
-          : 'Public navigation tabs reset to default configuration',
-        'info'
-      );
-    } catch (err) {
-      console.error('Failed to reset nav tabs', err);
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        const ch = new BroadcastChannel('sifo_platform_sync');
+        ch.postMessage({ publicAboutUs: updatedAboutUs });
+        ch.close();
+      }
+      fetch('/platform-settings-sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(nextConfig),
+      }).catch(() => {});
+    } catch {}
+  };
+
+  const handleResetAboutUs = () => {
+    const nextConfig: PlatformEnvironmentConfig = {
+      ...platformConfig,
+      publicAboutUs: DEFAULT_PUBLIC_ABOUT_US,
+    };
+    setPlatformConfig(nextConfig);
+    try {
+      localStorage.setItem('sifo_admin_settings_platform_config', JSON.stringify(nextConfig));
+      window.dispatchEvent(new CustomEvent('sifo_platform_config_updated', { detail: nextConfig }));
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        const ch = new BroadcastChannel('sifo_platform_sync');
+        ch.postMessage({ publicAboutUs: DEFAULT_PUBLIC_ABOUT_US });
+        ch.close();
+      }
+      fetch('/platform-settings-sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(nextConfig),
+      }).catch(() => {});
+    } catch {}
+    showToast(isRw ? 'Inyandiko zasubijwe ku miterere yazo y\'ibanze' : 'About Us copy reset to defaults', 'info');
+  };
+
+  // ── Contact & Support Details ──
+  const currentContact: PublicContactConfig = useMemo(() => {
+    return {
+      ...DEFAULT_PUBLIC_CONTACT,
+      ...(platformConfig.publicContact || {}),
+    };
+  }, [platformConfig.publicContact]);
+
+  const handleContactFieldChange = (field: keyof PublicContactConfig, value: string) => {
+    const updatedContact: PublicContactConfig = {
+      ...currentContact,
+      [field]: value,
+    };
+    const nextConfig: PlatformEnvironmentConfig = {
+      ...platformConfig,
+      publicContact: updatedContact,
+    };
+    setPlatformConfig(nextConfig);
+    try {
+      localStorage.setItem('sifo_admin_settings_platform_config', JSON.stringify(nextConfig));
+      window.dispatchEvent(new CustomEvent('sifo_platform_config_updated', { detail: nextConfig }));
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        const ch = new BroadcastChannel('sifo_platform_sync');
+        ch.postMessage({ publicContact: updatedContact });
+        ch.close();
+      }
+      fetch('/platform-settings-sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(nextConfig),
+      }).catch(() => {});
+    } catch {}
+  };
+
+  const handleResetContact = () => {
+    const nextConfig: PlatformEnvironmentConfig = {
+      ...platformConfig,
+      publicContact: DEFAULT_PUBLIC_CONTACT,
+    };
+    setPlatformConfig(nextConfig);
+    try {
+      localStorage.setItem('sifo_admin_settings_platform_config', JSON.stringify(nextConfig));
+      window.dispatchEvent(new CustomEvent('sifo_platform_config_updated', { detail: nextConfig }));
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        const ch = new BroadcastChannel('sifo_platform_sync');
+        ch.postMessage({ publicContact: DEFAULT_PUBLIC_CONTACT });
+        ch.close();
+      }
+      fetch('/platform-settings-sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(nextConfig),
+      }).catch(() => {});
+    } catch {}
+    showToast(isRw ? 'Amakuru yo kutwandikira yasubijwe ku miterere y\'ibanze' : 'Contact details reset to defaults', 'info');
+  };
+
+  // ── Homepage Statistics / Numbers ──
+  const currentStats: PublicStatsConfig = useMemo(() => {
+    return {
+      ...DEFAULT_PUBLIC_STATS,
+      ...(platformConfig.publicStats || {}),
+    };
+  }, [platformConfig.publicStats]);
+
+  const handleStatsFieldChange = (field: keyof PublicStatsConfig, value: string) => {
+    const updatedStats: PublicStatsConfig = {
+      ...currentStats,
+      [field]: value,
+    };
+    const nextConfig: PlatformEnvironmentConfig = {
+      ...platformConfig,
+      publicStats: updatedStats,
+    };
+    setPlatformConfig(nextConfig);
+    try {
+      localStorage.setItem('sifo_admin_settings_platform_config', JSON.stringify(nextConfig));
+      window.dispatchEvent(new CustomEvent('sifo_platform_config_updated', { detail: nextConfig }));
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        const ch = new BroadcastChannel('sifo_platform_sync');
+        ch.postMessage({ publicStats: updatedStats });
+        ch.close();
+      }
+      fetch('/platform-settings-sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(nextConfig),
+      }).catch(() => {});
+    } catch {}
+  };
+
+  const handleResetStats = () => {
+    const nextConfig: PlatformEnvironmentConfig = {
+      ...platformConfig,
+      publicStats: DEFAULT_PUBLIC_STATS,
+    };
+    setPlatformConfig(nextConfig);
+    try {
+      localStorage.setItem('sifo_admin_settings_platform_config', JSON.stringify(nextConfig));
+      window.dispatchEvent(new CustomEvent('sifo_platform_config_updated', { detail: nextConfig }));
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        const ch = new BroadcastChannel('sifo_platform_sync');
+        ch.postMessage({ publicStats: DEFAULT_PUBLIC_STATS });
+        ch.close();
+      }
+      fetch('/platform-settings-sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(nextConfig),
+      }).catch(() => {});
+    } catch {}
+    showToast(isRw ? 'Imibare y\'ahabanza yasubijwe ku miterere y\'ibanze' : 'Homepage numbers reset to defaults', 'info');
+  };
+
+  // ── Legal & Regulatory Manager ──
+  const [legalLangTab, setLegalLangTab] = useState<'en' | 'rw'>('en');
+
+  const currentLegal: PublicLegalConfig = useMemo(() => {
+    return {
+      ...DEFAULT_PUBLIC_LEGAL,
+      ...(platformConfig.publicLegal || {}),
+    };
+  }, [platformConfig.publicLegal]);
+
+  const handleLegalFieldChange = (field: keyof PublicLegalConfig, value: string) => {
+    const updatedLegal: PublicLegalConfig = {
+      ...currentLegal,
+      [field]: value,
+    };
+    const nextConfig: PlatformEnvironmentConfig = {
+      ...platformConfig,
+      publicLegal: updatedLegal,
+    };
+    setPlatformConfig(nextConfig);
+    try {
+      localStorage.setItem('sifo_admin_settings_platform_config', JSON.stringify(nextConfig));
+      window.dispatchEvent(new CustomEvent('sifo_platform_config_updated', { detail: nextConfig }));
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        const ch = new BroadcastChannel('sifo_platform_sync');
+        ch.postMessage({ publicLegal: updatedLegal });
+        ch.close();
+      }
+      fetch('/platform-settings-sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(nextConfig),
+      }).catch(() => {});
+    } catch {}
+  };
+
+  const handleResetLegal = () => {
+    const nextConfig: PlatformEnvironmentConfig = {
+      ...platformConfig,
+      publicLegal: DEFAULT_PUBLIC_LEGAL,
+    };
+    setPlatformConfig(nextConfig);
+    try {
+      localStorage.setItem('sifo_admin_settings_platform_config', JSON.stringify(nextConfig));
+      window.dispatchEvent(new CustomEvent('sifo_platform_config_updated', { detail: nextConfig }));
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        const ch = new BroadcastChannel('sifo_platform_sync');
+        ch.postMessage({ publicLegal: DEFAULT_PUBLIC_LEGAL });
+        ch.close();
+      }
+      fetch('/platform-settings-sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(nextConfig),
+      }).catch(() => {});
+    } catch {}
+    showToast(isRw ? 'Amategeko n\'amabwiriza byasubijwe ku miterere y\'ibanze' : 'Legal & regulatory titles reset to defaults', 'info');
+  };
+
+  // ── Agent Services Tab Manager ──
+  const currentAgentServices: PublicAgentServicesConfig = useMemo(() => {
+    return {
+      ...DEFAULT_PUBLIC_AGENT_SERVICES,
+      ...(platformConfig.publicAgentServices || {}),
+    };
+  }, [platformConfig.publicAgentServices]);
+
+  const handleAgentServicesFieldChange = <K extends keyof PublicAgentServicesConfig>(
+    field: K,
+    value: PublicAgentServicesConfig[K]
+  ) => {
+    const updatedAgentServices: PublicAgentServicesConfig = {
+      ...currentAgentServices,
+      [field]: value,
+    };
+    const nextConfig: PlatformEnvironmentConfig = {
+      ...platformConfig,
+      publicAgentServices: updatedAgentServices,
+    };
+    setPlatformConfig(nextConfig);
+    try {
+      localStorage.setItem('sifo_admin_settings_platform_config', JSON.stringify(nextConfig));
+      window.dispatchEvent(new CustomEvent('sifo_platform_config_updated', { detail: nextConfig }));
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        const ch = new BroadcastChannel('sifo_platform_sync');
+        ch.postMessage({ publicAgentServices: updatedAgentServices });
+        ch.close();
+      }
+      fetch('/platform-settings-sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(nextConfig),
+      }).catch(() => {});
+    } catch {}
+  };
+
+  const handleResetAgentServices = () => {
+    const nextConfig: PlatformEnvironmentConfig = {
+      ...platformConfig,
+      publicAgentServices: DEFAULT_PUBLIC_AGENT_SERVICES,
+    };
+    setPlatformConfig(nextConfig);
+    try {
+      localStorage.setItem('sifo_admin_settings_platform_config', JSON.stringify(nextConfig));
+      window.dispatchEvent(new CustomEvent('sifo_platform_config_updated', { detail: nextConfig }));
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        const ch = new BroadcastChannel('sifo_platform_sync');
+        ch.postMessage({ publicAgentServices: DEFAULT_PUBLIC_AGENT_SERVICES });
+        ch.close();
+      }
+      fetch('/platform-settings-sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(nextConfig),
+      }).catch(() => {});
+    } catch {}
+    showToast(isRw ? 'Igenamiterere rya Agent Services ryasubijwe ku miterere y\'ibanze' : 'Agent Services settings reset to defaults', 'info');
+  };
+
+  // ── Agent Services Steps State & Handlers ──
+  const [stepsLangTab, setStepsLangTab] = useState<'en' | 'rw'>('en');
+
+  const currentSteps: AgentServiceStep[] = useMemo(() => {
+    if (Array.isArray(currentAgentServices.steps) && currentAgentServices.steps.length > 0) {
+      return currentAgentServices.steps;
     }
+    return DEFAULT_AGENT_SERVICE_STEPS;
+  }, [currentAgentServices.steps]);
+
+  const handleUpdateStep = (id: string, patch: Partial<AgentServiceStep>) => {
+    const updated = currentSteps.map((s) => (s.id === id ? { ...s, ...patch } : s));
+    handleAgentServicesFieldChange('steps', updated);
+  };
+
+  const handleAddStep = () => {
+    const nextNumber = currentSteps.length + 1;
+    const newStep: AgentServiceStep = {
+      id: `step-${Date.now()}`,
+      stepNumber: nextNumber,
+      title: `Step ${nextNumber}`,
+      titleRw: `Intambwe ya ${nextNumber}`,
+      description: '',
+      descriptionRw: '',
+    };
+    const updated = [...currentSteps, newStep];
+    handleAgentServicesFieldChange('steps', updated);
+    showToast(isRw ? 'Intambwe nshya yongeyeho' : 'New step added', 'success');
+  };
+
+  const handleRemoveStep = (id: string) => {
+    if (currentSteps.length <= 1) {
+      showToast(isRw ? 'Ntushobora gusiba intambwe yonyine isigaye' : 'Cannot delete the only remaining step', 'warning');
+      return;
+    }
+    const filtered = currentSteps.filter((s) => s.id !== id);
+    const resequenced = filtered.map((s, idx) => ({
+      ...s,
+      stepNumber: idx + 1,
+    }));
+    handleAgentServicesFieldChange('steps', resequenced);
+    showToast(isRw ? 'Intambwe yasibwe' : 'Step removed', 'info');
+  };
+
+  const handleMoveStep = (index: number, direction: 'up' | 'down') => {
+    if (direction === 'up' && index === 0) return;
+    if (direction === 'down' && index === currentSteps.length - 1) return;
+
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    const reordered = [...currentSteps];
+    const [moved] = reordered.splice(index, 1);
+    reordered.splice(targetIndex, 0, moved);
+
+    const resequenced = reordered.map((s, idx) => ({
+      ...s,
+      stepNumber: idx + 1,
+    }));
+    handleAgentServicesFieldChange('steps', resequenced);
+  };
+
+  const handleResetSteps = () => {
+    handleAgentServicesFieldChange('steps', DEFAULT_AGENT_SERVICE_STEPS);
+    handleAgentServicesFieldChange('howItWorksTitle', 'How It Works & Booking Steps');
+    handleAgentServicesFieldChange('howItWorksTitleRw', 'Uko Bikora & Ibyiza');
+    showToast(isRw ? 'Intambwe zasubijwe ku miterere y\'ibanze' : 'Steps reset to defaults', 'info');
+  };
+
+  // ── Agent Services Booking Form State & Handlers ──
+  const [bookingFormLangTab, setBookingFormLangTab] = useState<'en' | 'rw'>('en');
+  const [isManageFieldsModalOpen, setIsManageFieldsModalOpen] = useState(false);
+  const [activeManageServiceKey, setActiveManageServiceKey] = useState<string>('irembo_provisional');
+
+  const BOOKING_FIELD_DEFINITIONS: Record<BookingFormFieldKey, { labelEn: string; labelRw: string }> = {
+    fullName: { labelEn: 'Full Legal Name', labelRw: 'Amazina Yombi' },
+    phoneNumber: { labelEn: 'Phone Number', labelRw: 'Nimero ya Telefone' },
+    nationalId: { labelEn: 'National ID Number', labelRw: 'Numero y\'Indangamuntu' },
+    dateOfBirth: { labelEn: 'Date of Birth', labelRw: 'Itariki y\'Amavuko' },
+    licenseCategory: { labelEn: 'License Category', labelRw: 'Icyiciro cy\'Uruhushya' },
+    provisionalLicenseNumber: { labelEn: 'Provisional License Number', labelRw: 'Numero y\'Uruhushya rw\'Agateganyo' },
+    preferredDistrict: { labelEn: 'Preferred District', labelRw: 'Akarere Wifuza' },
+    testingCenter: { labelEn: 'Testing Center', labelRw: 'Ikigo cy\'Ikizamini' },
+    workingSite: { labelEn: 'Working Site', labelRw: 'Site yo Gukoreraho' },
+    teacher: { labelEn: 'Driving Teacher / Instructor', labelRw: 'Umwarimu Wakwigishije' },
+    preferredDate: { labelEn: 'Preferred Date', labelRw: 'Itariki Yitezwe y\'Ikizamini' },
+    notes: { labelEn: 'Additional Requests / Notes', labelRw: 'Ibisobanuro Byiyongereyeho' },
+  };
+
+  const currentBookingForm: AgentServicesBookingFormConfig = useMemo(() => {
+    return {
+      ...DEFAULT_AGENT_SERVICES_BOOKING_FORM,
+      ...(currentAgentServices.bookingForm || {}),
+    };
+  }, [currentAgentServices.bookingForm]);
+
+  const handleUpdateBookingForm = (patch: Partial<AgentServicesBookingFormConfig>) => {
+    const updatedForm: AgentServicesBookingFormConfig = {
+      ...currentBookingForm,
+      ...patch,
+    };
+    handleAgentServicesFieldChange('bookingForm', updatedForm);
+  };
+
+  const handleResetBookingForm = () => {
+    handleAgentServicesFieldChange('bookingForm', DEFAULT_AGENT_SERVICES_BOOKING_FORM);
+    showToast(isRw ? 'Fomu yo kwiyandikisha yasubijwe ku miterere y\'ibanze' : 'Booking form reset to default configuration', 'info');
+  };
+
+  type BookingOptionCategory = 'services' | 'districts' | 'centers' | 'sites' | 'teachers';
+  const [bookingOptionCategory, setBookingOptionCategory] = useState<BookingOptionCategory>('services');
+
+  const currentServiceOptions: AgentServiceOption[] = useMemo(() => {
+    if (Array.isArray(currentBookingForm.serviceOptions) && currentBookingForm.serviceOptions.length > 0) {
+      return currentBookingForm.serviceOptions;
+    }
+    return DEFAULT_AGENT_SERVICE_OPTIONS;
+  }, [currentBookingForm.serviceOptions]);
+
+  const selectedManageService = useMemo(() => {
+    return (
+      currentServiceOptions.find(
+        (s) => (s.key || s.id) === activeManageServiceKey
+      ) || currentServiceOptions[0]
+    );
+  }, [currentServiceOptions, activeManageServiceKey]);
+
+  const selectedManageServiceKey = selectedManageService
+    ? (selectedManageService.key || selectedManageService.id)
+    : 'irembo_provisional';
+
+  // Active fields for the selected service in order
+  const activeServiceFields: BookingFormFieldKey[] = useMemo(() => {
+    if (selectedManageService?.fields && Array.isArray(selectedManageService.fields)) {
+      return selectedManageService.fields;
+    }
+    if (currentBookingForm.serviceFieldsMap?.[selectedManageServiceKey]) {
+      return currentBookingForm.serviceFieldsMap[selectedManageServiceKey];
+    }
+    return DEFAULT_SERVICE_FIELDS[selectedManageServiceKey] || ALL_BOOKING_FIELD_KEYS;
+  }, [selectedManageService, currentBookingForm.serviceFieldsMap, selectedManageServiceKey]);
+
+  // Inactive fields for the selected service
+  const inactiveServiceFields: BookingFormFieldKey[] = useMemo(() => {
+    const activeSet = new Set(activeServiceFields);
+    return ALL_BOOKING_FIELD_KEYS.filter((k) => !activeSet.has(k));
+  }, [activeServiceFields]);
+
+  const saveServiceFields = (serviceKey: string, newFields: BookingFormFieldKey[]) => {
+    const updatedServices = currentServiceOptions.map((s) => {
+      if ((s.key || s.id) === serviceKey) {
+        return { ...s, fields: newFields };
+      }
+      return s;
+    });
+    const updatedMap = {
+      ...(currentBookingForm.serviceFieldsMap || {}),
+      [serviceKey]: newFields,
+    };
+    handleUpdateBookingForm({
+      serviceOptions: updatedServices,
+      serviceFieldsMap: updatedMap,
+    });
+  };
+
+  const handleMoveServiceField = (serviceKey: string, index: number, direction: 'up' | 'down') => {
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= activeServiceFields.length) return;
+    const newFields = [...activeServiceFields];
+    const [moved] = newFields.splice(index, 1);
+    newFields.splice(targetIndex, 0, moved);
+    saveServiceFields(serviceKey, newFields);
+  };
+
+  const handleToggleServiceField = (serviceKey: string, fieldKey: BookingFormFieldKey) => {
+    const isCurrentlyActive = activeServiceFields.includes(fieldKey);
+    let newFields: BookingFormFieldKey[];
+    if (isCurrentlyActive) {
+      newFields = activeServiceFields.filter((f) => f !== fieldKey);
+    } else {
+      newFields = [...activeServiceFields, fieldKey];
+    }
+    saveServiceFields(serviceKey, newFields);
+  };
+
+  const handleSetAllServiceFields = (serviceKey: string, enableAll: boolean) => {
+    const newFields: BookingFormFieldKey[] = enableAll ? [...ALL_BOOKING_FIELD_KEYS] : [];
+    saveServiceFields(serviceKey, newFields);
+    showToast(
+      enableAll
+        ? (isRw ? 'Imyanya yose yemejwe kuri iyi serivisi' : 'All fields enabled for this service')
+        : (isRw ? 'Imyanya yose yarahagaritswe kuri iyi serivisi' : 'All fields disabled for this service'),
+      'info'
+    );
+  };
+
+  const handleResetServiceFields = (serviceKey: string) => {
+    const defaultFields = DEFAULT_SERVICE_FIELDS[serviceKey] || ALL_BOOKING_FIELD_KEYS;
+    saveServiceFields(serviceKey, defaultFields);
+    showToast(isRw ? 'Imyanya yasubijwe ku miterere y\'ibanze' : 'Service fields reset to default order', 'info');
+  };
+
+  const currentDistrictOptions: AgentServiceOption[] = useMemo(() => {
+    if (Array.isArray(currentBookingForm.districtOptions) && currentBookingForm.districtOptions.length > 0) {
+      return currentBookingForm.districtOptions;
+    }
+    return DEFAULT_DISTRICT_OPTIONS;
+  }, [currentBookingForm.districtOptions]);
+
+  const currentTestingCenterOptions: AgentServiceOption[] = useMemo(() => {
+    if (Array.isArray(currentBookingForm.testingCenterOptions) && currentBookingForm.testingCenterOptions.length > 0) {
+      return currentBookingForm.testingCenterOptions;
+    }
+    return DEFAULT_TESTING_CENTER_OPTIONS;
+  }, [currentBookingForm.testingCenterOptions]);
+
+  const currentWorkingSiteOptions: AgentServiceOption[] = useMemo(() => {
+    if (Array.isArray(currentBookingForm.workingSiteOptions) && currentBookingForm.workingSiteOptions.length > 0) {
+      return currentBookingForm.workingSiteOptions;
+    }
+    return DEFAULT_WORKING_SITE_OPTIONS;
+  }, [currentBookingForm.workingSiteOptions]);
+
+  const currentTeacherOptions: AgentServiceOption[] = useMemo(() => {
+    if (Array.isArray(currentBookingForm.teacherOptions) && currentBookingForm.teacherOptions.length > 0) {
+      return currentBookingForm.teacherOptions;
+    }
+    return DEFAULT_TEACHER_OPTIONS;
+  }, [currentBookingForm.teacherOptions]);
+
+  const getOptionCategoryConfig = (cat: BookingOptionCategory) => {
+    switch (cat) {
+      case 'districts':
+        return {
+          title: isRw ? 'Akarere Wifuza (Preferred District)' : 'Preferred District Dropdown',
+          field: 'districtOptions' as const,
+          options: currentDistrictOptions,
+          addLabel: isRw ? 'Ongeraho Akarere' : 'Add District',
+          placeholder: isRw ? 'Urugero: Gasabo' : 'e.g. Gasabo',
+          placeholderEn: 'e.g. Gasabo',
+          placeholderRw: 'e.g. Gasabo',
+          defaultKey: 'district',
+          isTranslatable: false,
+        };
+      case 'centers':
+        return {
+          title: isRw ? 'Ikigo cy\'Ikizamini (Testing Center)' : 'Testing Center Dropdown',
+          field: 'testingCenterOptions' as const,
+          options: currentTestingCenterOptions,
+          addLabel: isRw ? 'Ongeraho Ikigo' : 'Add Testing Center',
+          placeholder: isRw ? 'Urugero: Remera - Amahoro Police Test Center' : 'e.g. Remera - Amahoro Police Test Center',
+          placeholderEn: 'e.g. Remera - Amahoro Police Test Center',
+          placeholderRw: 'e.g. Remera - Amahoro Police Test Center',
+          defaultKey: 'center',
+          isTranslatable: false,
+        };
+      case 'sites':
+        return {
+          title: isRw ? 'Site yo Gukoreraho (Working Site)' : 'Working Site Dropdown',
+          field: 'workingSiteOptions' as const,
+          options: currentWorkingSiteOptions,
+          addLabel: isRw ? 'Ongeraho Site' : 'Add Working Site',
+          placeholder: isRw ? 'Urugero: BUSANZA AUTOMATED CENTER' : 'e.g. BUSANZA AUTOMATED CENTER',
+          placeholderEn: 'e.g. BUSANZA AUTOMATED CENTER',
+          placeholderRw: 'e.g. BUSANZA AUTOMATED CENTER',
+          defaultKey: 'site',
+          isTranslatable: false,
+        };
+      case 'teachers':
+        return {
+          title: isRw ? 'Umwarimu (Partner Driving Teacher)' : 'Teacher / Instructor Dropdown',
+          field: 'teacherOptions' as const,
+          options: currentTeacherOptions,
+          addLabel: isRw ? 'Ongeraho Umwarimu' : 'Add Teacher',
+          placeholder: isRw ? 'Urugero: Jean Damascene Habimana' : 'e.g. Jean Damascene Habimana',
+          placeholderEn: 'e.g. Jean Damascene Habimana',
+          placeholderRw: 'e.g. Jean Damascene Habimana',
+          defaultKey: 'teacher',
+          isTranslatable: false,
+        };
+      default:
+        return {
+          title: isRw ? 'Serivisi Zemewe Muri Fomu' : 'Active Service Dropdown',
+          field: 'serviceOptions' as const,
+          options: currentServiceOptions,
+          addLabel: isRw ? 'Ongeraho Serivisi' : 'Add Option',
+          placeholder: 'e.g. Provisional Exam Booking',
+          placeholderEn: 'e.g. Provisional Exam Booking',
+          placeholderRw: 'Urugero: Kwandikisha Ikizamini cy\'Agateganyo',
+          defaultKey: 'service',
+          isTranslatable: true,
+        };
+    }
+  };
+
+  const handleUpdateDropdownOption = (field: keyof AgentServicesBookingFormConfig, id: string, patch: Partial<AgentServiceOption>) => {
+    const list = ((currentBookingForm[field] as AgentServiceOption[]) || getOptionCategoryConfig(bookingOptionCategory).options);
+    const updated = list.map((opt) => (opt.id === id ? { ...opt, ...patch } : opt));
+    handleUpdateBookingForm({ [field]: updated });
+  };
+
+  const handleAddDropdownOption = (field: keyof AgentServicesBookingFormConfig, defaultKey: string, isTranslatable: boolean = true) => {
+    const list = ((currentBookingForm[field] as AgentServiceOption[]) || getOptionCategoryConfig(bookingOptionCategory).options);
+    const nextNum = list.length + 1;
+    const defaultName = isTranslatable ? `Option ${nextNum}` : `New ${defaultKey.charAt(0).toUpperCase() + defaultKey.slice(1)} ${nextNum}`;
+    const newOption: AgentServiceOption = {
+      id: `opt-${Date.now()}`,
+      key: `${defaultKey}_${Date.now()}`,
+      label: defaultName,
+      labelRw: defaultName,
+      enabled: true,
+    };
+    handleUpdateBookingForm({ [field]: [...list, newOption] });
+    showToast(isRw ? 'Ihitamo rishya ryongereweho' : 'New option added', 'success');
+  };
+
+  const handleRemoveDropdownOption = (field: keyof AgentServicesBookingFormConfig, id: string) => {
+    const list = ((currentBookingForm[field] as AgentServiceOption[]) || getOptionCategoryConfig(bookingOptionCategory).options);
+    if (list.length <= 1) {
+      showToast(isRw ? 'Ntushobora gusiba ihitamo ryonyine risigaye' : 'Cannot delete the only remaining option', 'warning');
+      return;
+    }
+    const filtered = list.filter((opt) => opt.id !== id);
+    handleUpdateBookingForm({ [field]: filtered });
+    showToast(isRw ? 'Ihitamo ryasibwe' : 'Option removed', 'info');
+  };
+
+  const handleMoveDropdownOption = (field: keyof AgentServicesBookingFormConfig, index: number, direction: 'up' | 'down') => {
+    const list = ((currentBookingForm[field] as AgentServiceOption[]) || getOptionCategoryConfig(bookingOptionCategory).options);
+    if (direction === 'up' && index === 0) return;
+    if (direction === 'down' && index === list.length - 1) return;
+
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    const reordered = [...list];
+    const [moved] = reordered.splice(index, 1);
+    reordered.splice(targetIndex, 0, moved);
+    handleUpdateBookingForm({ [field]: reordered });
   };
 
   const publicBg = platformConfig.publicBackground || DEFAULT_PUBLIC_BACKGROUND;
@@ -1081,21 +1797,29 @@ export const PlatformSettingsSection: React.FC<PlatformSettingsSectionProps> = (
           </div>
         </div>
 
-        {/* ── PUBLIC NAVIGATION TABS & TOPBAR VISIBILITY MANAGER ── */}
+        {/* Row 1: Navigation & Tab Visibility (Left) + About Us & Who We Are (Right) */}
         <div
-          className="glass-panel"
           style={{
-            maxWidth: '620px',
-            width: '100%',
-            padding: '24px',
-            borderRadius: '16px',
-            border: '1px solid var(--border-subtle)',
-            background: 'rgba(255, 255, 255, 0.02)',
-            display: 'flex',
-            flexDirection: 'column',
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))',
             gap: '20px',
+            alignItems: 'start',
           }}
         >
+          {/* ── PUBLIC NAVIGATION TABS & TOPBAR VISIBILITY MANAGER ── */}
+          <div
+            className="glass-panel"
+            style={{
+              width: '100%',
+              padding: '24px',
+              borderRadius: '16px',
+              border: '1px solid var(--border-subtle)',
+              background: 'rgba(255, 255, 255, 0.02)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '20px',
+            }}
+          >
           {/* Header & Overview */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
             <div>
@@ -1252,23 +1976,61 @@ export const PlatformSettingsSection: React.FC<PlatformSettingsSectionProps> = (
                     </div>
                   </div>
 
-                  {/* Right: Toggle Switch */}
-                  <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+                  {/* Right: Toggle Switch & Countdown */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                    {tab.id === 'home' && homeCountdown !== null && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span
+                          style={{
+                            fontSize: '0.78rem',
+                            fontFamily: 'monospace',
+                            color: isDark ? '#a1a1aa' : '#52525b',
+                            fontWeight: 600,
+                          }}
+                        >
+                          {homeCountdown}s
+                        </span>
+                        <button
+                          type="button"
+                          onClick={handleCancelHomeDisable}
+                          style={{
+                            padding: '3px 8px',
+                            borderRadius: '4px',
+                            border: isDark ? '1px solid #3f3f46' : '1px solid #d4d4d8',
+                            background: 'transparent',
+                            color: isDark ? '#f4f4f5' : '#18181b',
+                            fontSize: '0.72rem',
+                            fontWeight: 500,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {isRw ? 'Hagarika' : 'Cancel'}
+                        </button>
+                      </div>
+                    )}
 
                     <button
                       type="button"
+                      disabled={tab.id === 'home' && homeCountdown !== null}
                       onClick={() => handleToggleNavTab(tab.id)}
                       style={{
                         background: 'none',
                         border: 'none',
-                        cursor: 'pointer',
+                        cursor: tab.id === 'home' && homeCountdown !== null ? 'not-allowed' : 'pointer',
                         color: tab.isEnabled ? '#38bdf8' : '#64748b',
                         display: 'flex',
                         alignItems: 'center',
                         padding: 0,
-                        transition: 'transform 0.15s ease, color 0.15s ease',
+                        opacity: tab.id === 'home' && homeCountdown !== null ? 0.4 : 1,
+                        transition: 'transform 0.15s ease, color 0.15s ease, opacity 0.15s ease',
                       }}
-                      title={tab.isEnabled ? 'Click to hide this tab from public visitors' : 'Click to show this tab on public topbar'}
+                      title={
+                        tab.id === 'home' && homeCountdown !== null
+                          ? 'Countdown in progress'
+                          : tab.isEnabled
+                          ? 'Click to hide this tab from public visitors'
+                          : 'Click to show this tab on public topbar'
+                      }
                     >
                       {tab.isEnabled ? <ToggleRight size={34} /> : <ToggleLeft size={34} />}
                     </button>
@@ -1278,6 +2040,2007 @@ export const PlatformSettingsSection: React.FC<PlatformSettingsSectionProps> = (
             })}
           </div>
         </div>
+
+          {/* About Us & Who We Are Content Manager */}
+          <div
+            className="glass-panel"
+            style={{
+              width: '100%',
+              padding: '24px',
+              borderRadius: '16px',
+              border: '1px solid var(--border-subtle)',
+              background: 'rgba(255, 255, 255, 0.02)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '20px',
+            }}
+          >
+          {/* Header & Quick Action */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div
+                style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '10px',
+                  background: 'rgba(56, 189, 248, 0.12)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  border: '1px solid rgba(56, 189, 248, 0.25)',
+                }}
+              >
+                <Users size={20} color="#38bdf8" />
+              </div>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, color: '#ffffff' }}>
+                  {isRw ? 'Ibyerekeye Sifo Drive & Abo Turi Bo' : 'About Us & Who We Are'}
+                </h3>
+                <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginTop: '2px' }}>
+                  {isRw
+                    ? 'Hindura inyandiko z\'Ibyerekeye Twebwe n\'Abo Turi Bo zigaragara ku rupapuro rw\'ahabanza.'
+                    : 'Edit the About Us headline, intro text, and Who We Are description on the Home page.'}
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleResetAboutUs}
+              className="btn btn-secondary btn-sm"
+              style={{ fontSize: '0.78rem', padding: '6px 12px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}
+              title="Reset to default copy"
+            >
+              <RotateCcw size={13} />
+              <span>{isRw ? 'Subiza ku Miterere' : 'Reset Defaults'}</span>
+            </button>
+          </div>
+
+          {/* Language Switcher Tabs */}
+          <div
+            style={{
+              display: 'flex',
+              background: 'rgba(0, 0, 0, 0.25)',
+              padding: '4px',
+              borderRadius: '8px',
+              border: '1px solid var(--border-subtle)',
+              gap: '4px',
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setAboutUsLangTab('en')}
+              style={{
+                flex: 1,
+                padding: '6px 12px',
+                borderRadius: '6px',
+                border: 'none',
+                background: aboutUsLangTab === 'en' ? 'rgba(56, 189, 248, 0.2)' : 'transparent',
+                color: aboutUsLangTab === 'en' ? '#38bdf8' : '#94a3b8',
+                fontWeight: aboutUsLangTab === 'en' ? 700 : 500,
+                fontSize: '0.82rem',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              English
+            </button>
+            <button
+              type="button"
+              onClick={() => setAboutUsLangTab('rw')}
+              style={{
+                flex: 1,
+                padding: '6px 12px',
+                borderRadius: '6px',
+                border: 'none',
+                background: aboutUsLangTab === 'rw' ? 'rgba(56, 189, 248, 0.2)' : 'transparent',
+                color: aboutUsLangTab === 'rw' ? '#38bdf8' : '#94a3b8',
+                fontWeight: aboutUsLangTab === 'rw' ? 700 : 500,
+                fontSize: '0.82rem',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              Ikinyarwanda (Kinyarwanda)
+            </button>
+          </div>
+
+          {/* Form Fields for Active Language */}
+          {aboutUsLangTab === 'en' ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#e2e8f0', marginBottom: '6px' }}>
+                  Section Title (English)
+                </label>
+                <input
+                  type="text"
+                  value={currentAboutUs.aboutUsTitle ?? ''}
+                  onChange={(e) => handleAboutUsFieldChange('aboutUsTitle', e.target.value)}
+                  placeholder="About Us"
+                  style={{
+                    width: '100%',
+                    padding: '9px 12px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--border-subtle)',
+                    background: 'rgba(255, 255, 255, 0.04)',
+                    color: '#ffffff',
+                    fontSize: '0.88rem',
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#e2e8f0', marginBottom: '6px' }}>
+                  Section Subtitle / Tagline (English)
+                </label>
+                <textarea
+                  rows={2}
+                  value={currentAboutUs.aboutUsSubtitle ?? ''}
+                  onChange={(e) => handleAboutUsFieldChange('aboutUsSubtitle', e.target.value)}
+                  placeholder="Dedicated to modernizing driver education in Rwanda..."
+                  style={{
+                    width: '100%',
+                    padding: '9px 12px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--border-subtle)',
+                    background: 'rgba(255, 255, 255, 0.04)',
+                    color: '#ffffff',
+                    fontSize: '0.88rem',
+                    resize: 'vertical',
+                    fontFamily: 'inherit',
+                  }}
+                />
+              </div>
+
+              <div style={{ borderTop: '1px solid rgba(255, 255, 255, 0.08)', paddingTop: '14px' }}>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#e2e8f0', marginBottom: '6px' }}>
+                  Who We Are Card Title (English)
+                </label>
+                <input
+                  type="text"
+                  value={currentAboutUs.whoWeAreTitle ?? ''}
+                  onChange={(e) => handleAboutUsFieldChange('whoWeAreTitle', e.target.value)}
+                  placeholder="Who We Are"
+                  style={{
+                    width: '100%',
+                    padding: '9px 12px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--border-subtle)',
+                    background: 'rgba(255, 255, 255, 0.04)',
+                    color: '#ffffff',
+                    fontSize: '0.88rem',
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#e2e8f0', marginBottom: '6px' }}>
+                  Who We Are Description (English)
+                </label>
+                <textarea
+                  rows={4}
+                  value={currentAboutUs.whoWeAreDesc ?? ''}
+                  onChange={(e) => handleAboutUsFieldChange('whoWeAreDesc', e.target.value)}
+                  placeholder="Rwanda's premier digital driving academy ecosystem connecting learners..."
+                  style={{
+                    width: '100%',
+                    padding: '9px 12px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--border-subtle)',
+                    background: 'rgba(255, 255, 255, 0.04)',
+                    color: '#ffffff',
+                    fontSize: '0.88rem',
+                    resize: 'vertical',
+                    fontFamily: 'inherit',
+                  }}
+                />
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#e2e8f0', marginBottom: '6px' }}>
+                  Umutwe w'Icyiciro (Ikinyarwanda)
+                </label>
+                <input
+                  type="text"
+                  value={currentAboutUs.aboutUsTitleRw ?? ''}
+                  onChange={(e) => handleAboutUsFieldChange('aboutUsTitleRw', e.target.value)}
+                  placeholder="Ibyerekeye Sifo Drive"
+                  style={{
+                    width: '100%',
+                    padding: '9px 12px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--border-subtle)',
+                    background: 'rgba(255, 255, 255, 0.04)',
+                    color: '#ffffff',
+                    fontSize: '0.88rem',
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#e2e8f0', marginBottom: '6px' }}>
+                  Ibisobanuro Rusange by'Icyiciro (Ikinyarwanda)
+                </label>
+                <textarea
+                  rows={2}
+                  value={currentAboutUs.aboutUsSubtitleRw ?? ''}
+                  onChange={(e) => handleAboutUsFieldChange('aboutUsSubtitleRw', e.target.value)}
+                  placeholder="Twiyemeje kuvugurura uburezi bwo gutwara ibinyabiziga mu Rwanda..."
+                  style={{
+                    width: '100%',
+                    padding: '9px 12px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--border-subtle)',
+                    background: 'rgba(255, 255, 255, 0.04)',
+                    color: '#ffffff',
+                    fontSize: '0.88rem',
+                    resize: 'vertical',
+                    fontFamily: 'inherit',
+                  }}
+                />
+              </div>
+
+              <div style={{ borderTop: '1px solid rgba(255, 255, 255, 0.08)', paddingTop: '14px' }}>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#e2e8f0', marginBottom: '6px' }}>
+                  Umutwe w'Ikarita y'Abo Turi Bo (Ikinyarwanda)
+                </label>
+                <input
+                  type="text"
+                  value={currentAboutUs.whoWeAreTitleRw ?? ''}
+                  onChange={(e) => handleAboutUsFieldChange('whoWeAreTitleRw', e.target.value)}
+                  placeholder="Abo Turi Bo"
+                  style={{
+                    width: '100%',
+                    padding: '9px 12px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--border-subtle)',
+                    background: 'rgba(255, 255, 255, 0.04)',
+                    color: '#ffffff',
+                    fontSize: '0.88rem',
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#e2e8f0', marginBottom: '6px' }}>
+                  Ibisobanuro Byimbitse by'Abo Turi Bo (Ikinyarwanda)
+                </label>
+                <textarea
+                  rows={4}
+                  value={currentAboutUs.whoWeAreDescRw ?? ''}
+                  onChange={(e) => handleAboutUsFieldChange('whoWeAreDescRw', e.target.value)}
+                  placeholder="Urubuga rw'ikoranabuhanga mu Rwanda rwunganira abanyeshuri..."
+                  style={{
+                    width: '100%',
+                    padding: '9px 12px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--border-subtle)',
+                    background: 'rgba(255, 255, 255, 0.04)',
+                    color: '#ffffff',
+                    fontSize: '0.88rem',
+                    resize: 'vertical',
+                    fontFamily: 'inherit',
+                  }}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Row 2: Contact & Support Details (Left) + Legal & Regulatory (Right) */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))',
+          gap: '20px',
+          alignItems: 'start',
+        }}
+      >
+        {/* Left Column: Contact & Support Details + Homepage Statistics */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          {/* Contact & Support Details Manager */}
+          <div
+            className="glass-panel"
+            style={{
+              width: '100%',
+              padding: '24px',
+              borderRadius: '16px',
+              border: '1px solid var(--border-subtle)',
+              background: 'rgba(255, 255, 255, 0.02)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '20px',
+            }}
+          >
+            {/* Header & Quick Action */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div
+                  style={{
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: '10px',
+                    background: 'rgba(56, 189, 248, 0.12)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    border: '1px solid rgba(56, 189, 248, 0.25)',
+                  }}
+                >
+                  <PhoneCall size={20} color="#38bdf8" />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, color: isDark ? '#ffffff' : '#0f172a' }}>
+                    {isRw ? 'Amakuru yo Kutwandikira & Ubufasha' : 'Contact & Support Details'}
+                  </h3>
+                  <div style={{ fontSize: '0.78rem', color: isDark ? '#94a3b8' : '#64748b', marginTop: '2px' }}>
+                    {isRw
+                      ? 'Hindura inyandiko iri munsi y\'ikirango cya Sifo (mbere y\'Amategeko), aderesi, telefone, na imeli bigaragara munsi ku mbuga zose.'
+                      : 'Edit brand description under Sifo logo, address, telephone hotline, and support email displayed in the footer.'}
+                  </div>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleResetContact}
+                className="btn btn-secondary btn-sm"
+                style={{ fontSize: '0.78rem', padding: '6px 12px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                title="Reset contact details to defaults"
+              >
+                <RotateCcw size={13} />
+                <span>{isRw ? 'Subiza ku Miterere' : 'Reset Defaults'}</span>
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              {/* Brand Description under Sifo Logo (English & Kinyarwanda) */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: isDark ? '#e2e8f0' : '#334155', marginBottom: '4px' }}>
+                  {isRw ? 'Inyandiko munsi y’Ikirango cya Sifo (Icyongereza)' : 'Footer Summary under Sifo Logo (English)'}
+                </label>
+                <div style={{ fontSize: '0.74rem', color: isDark ? '#94a3b8' : '#64748b', marginBottom: '6px' }}>
+                  {isRw
+                    ? 'Inyandiko y\'Icyongereza igaragara munsi y\'ikirango cya Sifo mbere y\'igice cy\'Amategeko (Legal & Regulatory).'
+                    : 'Text displayed directly under the Sifo logo in the footer, right before the Legal & Regulatory section.'}
+                </div>
+                <textarea
+                  rows={3}
+                  value={currentContact.brandDescription ?? ''}
+                  onChange={(e) => handleContactFieldChange('brandDescription', e.target.value)}
+                  placeholder="e.g. Rwanda's leading digital driving academy. Preparing future drivers with high-standard theory..."
+                  style={{
+                    width: '100%',
+                    padding: '9px 12px',
+                    borderRadius: '8px',
+                    border: isDark ? '1px solid var(--border-subtle)' : '1px solid #cbd5e1',
+                    background: isDark ? 'rgba(255, 255, 255, 0.04)' : '#ffffff',
+                    color: isDark ? '#ffffff' : '#0f172a',
+                    fontSize: '0.85rem',
+                    lineHeight: '1.5',
+                    resize: 'vertical',
+                    fontFamily: 'inherit',
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: isDark ? '#e2e8f0' : '#334155', marginBottom: '4px' }}>
+                  {isRw ? 'Inyandiko munsi y’Ikirango cya Sifo (Ikinyarwanda)' : 'Footer Summary under Sifo Logo (Kinyarwanda)'}
+                </label>
+                <div style={{ fontSize: '0.74rem', color: isDark ? '#94a3b8' : '#64748b', marginBottom: '6px' }}>
+                  {isRw
+                    ? 'Inyandiko y\'Ikinyarwanda igaragara munsi y\'ikirango cya Sifo mbere y\'igice cy\'Amategeko.'
+                    : 'Kinyarwanda translation for the brand summary under the Sifo logo.'}
+                </div>
+                <textarea
+                  rows={3}
+                  value={currentContact.brandDescriptionRw ?? ''}
+                  onChange={(e) => handleContactFieldChange('brandDescriptionRw', e.target.value)}
+                  placeholder="urugero: Ishuri Rikuru ry'Ikoranabuhanga ryo Gutwara Ibinyabiziga mu Rwanda..."
+                  style={{
+                    width: '100%',
+                    padding: '9px 12px',
+                    borderRadius: '8px',
+                    border: isDark ? '1px solid var(--border-subtle)' : '1px solid #cbd5e1',
+                    background: isDark ? 'rgba(255, 255, 255, 0.04)' : '#ffffff',
+                    color: isDark ? '#ffffff' : '#0f172a',
+                    fontSize: '0.85rem',
+                    lineHeight: '1.5',
+                    resize: 'vertical',
+                    fontFamily: 'inherit',
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: isDark ? '#e2e8f0' : '#334155', marginBottom: '6px' }}>
+                  Address / Physical Headquarters (English)
+                </label>
+                <input
+                  type="text"
+                  value={currentContact.address ?? ''}
+                  onChange={(e) => handleContactFieldChange('address', e.target.value)}
+                  placeholder="e.g. Kigali, Rwanda"
+                  style={{
+                    width: '100%',
+                    padding: '9px 12px',
+                    borderRadius: '8px',
+                    border: isDark ? '1px solid var(--border-subtle)' : '1px solid #cbd5e1',
+                    background: isDark ? 'rgba(255, 255, 255, 0.04)' : '#ffffff',
+                    color: isDark ? '#ffffff' : '#0f172a',
+                    fontSize: '0.88rem',
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: isDark ? '#e2e8f0' : '#334155', marginBottom: '6px' }}>
+                  Aderesi / Icyicaro Gikuru (Ikinyarwanda)
+                </label>
+                <input
+                  type="text"
+                  value={currentContact.addressRw ?? ''}
+                  onChange={(e) => handleContactFieldChange('addressRw', e.target.value)}
+                  placeholder="urugero: Kigali, u Rwanda"
+                  style={{
+                    width: '100%',
+                    padding: '9px 12px',
+                    borderRadius: '8px',
+                    border: isDark ? '1px solid var(--border-subtle)' : '1px solid #cbd5e1',
+                    background: isDark ? 'rgba(255, 255, 255, 0.04)' : '#ffffff',
+                    color: isDark ? '#ffffff' : '#0f172a',
+                    fontSize: '0.88rem',
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '14px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: isDark ? '#e2e8f0' : '#334155', marginBottom: '6px' }}>
+                    Support Phone Hotline
+                  </label>
+                  <input
+                    type="text"
+                    value={currentContact.phone ?? ''}
+                    onChange={(e) => handleContactFieldChange('phone', e.target.value)}
+                    placeholder="e.g. +250 788 123 456"
+                    style={{
+                      width: '100%',
+                      padding: '9px 12px',
+                      borderRadius: '8px',
+                      border: isDark ? '1px solid var(--border-subtle)' : '1px solid #cbd5e1',
+                      background: isDark ? 'rgba(255, 255, 255, 0.04)' : '#ffffff',
+                      color: isDark ? '#ffffff' : '#0f172a',
+                      fontSize: '0.88rem',
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: isDark ? '#e2e8f0' : '#334155', marginBottom: '6px' }}>
+                    Support Email Address
+                  </label>
+                  <input
+                    type="email"
+                    value={currentContact.email ?? ''}
+                    onChange={(e) => handleContactFieldChange('email', e.target.value)}
+                    placeholder="e.g. support@sifodrive.rw"
+                    style={{
+                      width: '100%',
+                      padding: '9px 12px',
+                      borderRadius: '8px',
+                      border: isDark ? '1px solid var(--border-subtle)' : '1px solid #cbd5e1',
+                      background: isDark ? 'rgba(255, 255, 255, 0.04)' : '#ffffff',
+                      color: isDark ? '#ffffff' : '#0f172a',
+                      fontSize: '0.88rem',
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Homepage Statistics & Numbers Manager */}
+          <div
+            className="glass-panel"
+            style={{
+              width: '100%',
+              padding: '24px',
+              borderRadius: '16px',
+              border: isDark ? '1px solid var(--border-subtle)' : '1px solid #e2e8f0',
+              background: isDark ? 'rgba(255, 255, 255, 0.02)' : '#ffffff',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '20px',
+              boxShadow: isDark ? 'none' : '0 1px 3px rgba(0,0,0,0.05)',
+            }}
+          >
+            {/* Header & Quick Action */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div
+                  style={{
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: '10px',
+                    background: 'rgba(56, 189, 248, 0.12)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    border: '1px solid rgba(56, 189, 248, 0.25)',
+                  }}
+                >
+                  <TrendingUp size={20} color="#38bdf8" />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, color: isDark ? '#ffffff' : '#0f172a' }}>
+                    {isRw ? 'Imibare y’Ahabanza (Homepage Numbers)' : 'Homepage Statistics & Numbers'}
+                  </h3>
+                  <div style={{ fontSize: '0.78rem', color: isDark ? '#94a3b8' : '#64748b', marginTop: '2px' }}>
+                    {isRw
+                      ? 'Hindura imibare 4 y\'ingenzi igaragara ku rupapuro rw\'ahabanza munsi ya buto ya \'Gura Ikizamini\'.'
+                      : 'Edit the 4 headline metrics displayed in the homepage counter under the Buy Exam button.'}
+                  </div>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleResetStats}
+                className="btn btn-secondary btn-sm"
+                style={{ fontSize: '0.78rem', padding: '6px 12px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                title="Reset statistics to default numbers"
+              >
+                <RotateCcw size={13} />
+                <span>{isRw ? 'Subiza ku Miterere' : 'Reset Defaults'}</span>
+              </button>
+            </div>
+
+            {/* Inputs Grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '14px' }}>
+              {/* 1. Provisional Pass Rate */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: isDark ? '#e2e8f0' : '#334155', marginBottom: '4px' }}>
+                  {isRw ? 'Impuzandengo yo Gutsinda' : 'Provisional Pass Rate'}
+                </label>
+                <div style={{ fontSize: '0.72rem', color: isDark ? '#94a3b8' : '#64748b', marginBottom: '6px' }}>
+                  {isRw ? 'Urugero: 98.4%' : 'Default: 98.4%'}
+                </div>
+                <input
+                  type="text"
+                  value={currentStats.passRate ?? ''}
+                  onChange={(e) => handleStatsFieldChange('passRate', e.target.value)}
+                  placeholder="98.4%"
+                  style={{
+                    width: '100%',
+                    padding: '9px 12px',
+                    borderRadius: '8px',
+                    border: isDark ? '1px solid var(--border-subtle)' : '1px solid #cbd5e1',
+                    background: isDark ? 'rgba(255, 255, 255, 0.04)' : '#f8fafc',
+                    color: isDark ? '#ffffff' : '#0f172a',
+                    fontSize: '0.88rem',
+                    fontWeight: 600,
+                  }}
+                />
+              </div>
+
+              {/* 2. Active Learners in Rwanda */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: isDark ? '#e2e8f0' : '#334155', marginBottom: '4px' }}>
+                  {isRw ? 'Abanyeshuri Bakiri Kwiga' : 'Active Learners in Rwanda'}
+                </label>
+                <div style={{ fontSize: '0.72rem', color: isDark ? '#94a3b8' : '#64748b', marginBottom: '6px' }}>
+                  {isRw ? 'Urugero: 15,000+' : 'Default: 15,000+'}
+                </div>
+                <input
+                  type="text"
+                  value={currentStats.activeLearners ?? ''}
+                  onChange={(e) => handleStatsFieldChange('activeLearners', e.target.value)}
+                  placeholder="15,000+"
+                  style={{
+                    width: '100%',
+                    padding: '9px 12px',
+                    borderRadius: '8px',
+                    border: isDark ? '1px solid var(--border-subtle)' : '1px solid #cbd5e1',
+                    background: isDark ? 'rgba(255, 255, 255, 0.04)' : '#f8fafc',
+                    color: isDark ? '#ffffff' : '#0f172a',
+                    fontSize: '0.88rem',
+                    fontWeight: 600,
+                  }}
+                />
+              </div>
+
+              {/* 3. Total Exam */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: isDark ? '#e2e8f0' : '#334155', marginBottom: '4px' }}>
+                  {isRw ? 'Ibizamini Byose' : 'Total Exam'}
+                </label>
+                <div style={{ fontSize: '0.72rem', color: isDark ? '#94a3b8' : '#64748b', marginBottom: '6px' }}>
+                  {isRw ? 'Urugero: 100+' : 'Default: 100+'}
+                </div>
+                <input
+                  type="text"
+                  value={currentStats.totalExams ?? ''}
+                  onChange={(e) => handleStatsFieldChange('totalExams', e.target.value)}
+                  placeholder="100+"
+                  style={{
+                    width: '100%',
+                    padding: '9px 12px',
+                    borderRadius: '8px',
+                    border: isDark ? '1px solid var(--border-subtle)' : '1px solid #cbd5e1',
+                    background: isDark ? 'rgba(255, 255, 255, 0.04)' : '#f8fafc',
+                    color: isDark ? '#ffffff' : '#0f172a',
+                    fontSize: '0.88rem',
+                    fontWeight: 600,
+                  }}
+                />
+              </div>
+
+              {/* 4. Service Concierge */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: isDark ? '#e2e8f0' : '#334155', marginBottom: '4px' }}>
+                  {isRw ? 'Ubufasha Bwihariye' : 'Service Concierge'}
+                </label>
+                <div style={{ fontSize: '0.72rem', color: isDark ? '#94a3b8' : '#64748b', marginBottom: '6px' }}>
+                  {isRw ? 'Urugero: 24/7' : 'Default: 24/7'}
+                </div>
+                <input
+                  type="text"
+                  value={currentStats.serviceConcierge ?? ''}
+                  onChange={(e) => handleStatsFieldChange('serviceConcierge', e.target.value)}
+                  placeholder="24/7"
+                  style={{
+                    width: '100%',
+                    padding: '9px 12px',
+                    borderRadius: '8px',
+                    border: isDark ? '1px solid var(--border-subtle)' : '1px solid #cbd5e1',
+                    background: isDark ? 'rgba(255, 255, 255, 0.04)' : '#f8fafc',
+                    color: isDark ? '#ffffff' : '#0f172a',
+                    fontSize: '0.88rem',
+                    fontWeight: 600,
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Live Preview Strip */}
+            <div
+              style={{
+                padding: '12px 14px',
+                borderRadius: '10px',
+                background: isDark ? 'rgba(255, 255, 255, 0.03)' : '#f8fafc',
+                border: isDark ? '1px solid rgba(255, 255, 255, 0.06)' : '1px solid #e2e8f0',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px',
+              }}
+            >
+              <div style={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: isDark ? '#94a3b8' : '#64748b' }}>
+                {isRw ? 'Icyitegererezo cy\'Uko Bigaragara ku Ahabanza' : 'Live Homepage Preview'}
+              </div>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(4, 1fr)',
+                  gap: '8px',
+                  textAlign: 'center',
+                  padding: '6px 0',
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--primary-light, #38bdf8)' }}>
+                    {currentStats.passRate || '—'}
+                  </div>
+                  <div style={{ fontSize: '0.68rem', color: isDark ? '#94a3b8' : '#64748b' }}>
+                    {isRw ? 'Impuzandengo yo Gutsinda' : 'Provisional Pass Rate'}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--accent-500, #10b981)' }}>
+                    {currentStats.activeLearners || '—'}
+                  </div>
+                  <div style={{ fontSize: '0.68rem', color: isDark ? '#94a3b8' : '#64748b' }}>
+                    {isRw ? 'Abanyeshuri Bakiri Kwiga' : 'Active Learners in Rwanda'}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--secondary-400, #f59e0b)' }}>
+                    {currentStats.totalExams || '—'}
+                  </div>
+                  <div style={{ fontSize: '0.68rem', color: isDark ? '#94a3b8' : '#64748b' }}>
+                    {isRw ? 'Ibizamini Byose' : 'Total Exam'}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '1.15rem', fontWeight: 800, color: '#ec4899' }}>
+                    {currentStats.serviceConcierge || '—'}
+                  </div>
+                  <div style={{ fontSize: '0.68rem', color: isDark ? '#94a3b8' : '#64748b' }}>
+                    {isRw ? 'Ubufasha Bwihariye' : 'Service Concierge'}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Legal & Regulatory Manager */}
+        <div
+          className="glass-panel"
+          style={{
+            width: '100%',
+            padding: '24px',
+            borderRadius: '16px',
+            border: '1px solid var(--border-subtle)',
+            background: 'rgba(255, 255, 255, 0.02)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '20px',
+          }}
+        >
+          {/* Header & Quick Action */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div
+                style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '10px',
+                  background: 'rgba(56, 189, 248, 0.12)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  border: '1px solid rgba(56, 189, 248, 0.25)',
+                }}
+              >
+                <Shield size={20} color="#38bdf8" />
+              </div>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, color: '#ffffff' }}>
+                  {isRw ? 'Amategeko & Politiki' : 'Legal & Regulatory'}
+                </h3>
+                <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginTop: '2px' }}>
+                  {isRw
+                    ? 'Hindura ibikubiye muri Politiki yo Kurinda Amakuru n\'Amabwiriza agenga urubuga.'
+                    : 'Edit document text for Privacy Policy and Terms & Conditions.'}
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleResetLegal}
+              className="btn btn-secondary btn-sm"
+              style={{ fontSize: '0.78rem', padding: '6px 12px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}
+              title="Reset legal documents to defaults"
+            >
+              <RotateCcw size={13} />
+              <span>{isRw ? 'Subiza ku Miterere' : 'Reset Defaults'}</span>
+            </button>
+          </div>
+
+          {/* Language Switcher Tabs */}
+          <div
+            style={{
+              display: 'flex',
+              background: 'rgba(0, 0, 0, 0.25)',
+              padding: '4px',
+              borderRadius: '8px',
+              border: '1px solid var(--border-subtle)',
+              gap: '4px',
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setLegalLangTab('en')}
+              style={{
+                flex: 1,
+                padding: '6px 12px',
+                borderRadius: '6px',
+                border: 'none',
+                background: legalLangTab === 'en' ? 'rgba(56, 189, 248, 0.2)' : 'transparent',
+                color: legalLangTab === 'en' ? '#38bdf8' : '#94a3b8',
+                fontWeight: legalLangTab === 'en' ? 700 : 500,
+                fontSize: '0.82rem',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              English
+            </button>
+            <button
+              type="button"
+              onClick={() => setLegalLangTab('rw')}
+              style={{
+                flex: 1,
+                padding: '6px 12px',
+                borderRadius: '6px',
+                border: 'none',
+                background: legalLangTab === 'rw' ? 'rgba(56, 189, 248, 0.2)' : 'transparent',
+                color: legalLangTab === 'rw' ? '#38bdf8' : '#94a3b8',
+                fontWeight: legalLangTab === 'rw' ? 700 : 500,
+                fontSize: '0.82rem',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              Ikinyarwanda (Kinyarwanda)
+            </button>
+          </div>
+
+          {/* Form Fields for Active Language */}
+          {legalLangTab === 'en' ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#e2e8f0', marginBottom: '4px' }}>
+                  Privacy Policy Content (English)
+                </label>
+                <div style={{ fontSize: '0.74rem', color: '#94a3b8', marginBottom: '6px' }}>
+                  Displayed in modal dialog when visitors click "Privacy Policy" in the footer.
+                </div>
+                <textarea
+                  rows={8}
+                  value={currentLegal.privacyPolicyContent ?? ''}
+                  onChange={(e) => handleLegalFieldChange('privacyPolicyContent', e.target.value)}
+                  placeholder="Enter Privacy Policy document text..."
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--border-subtle)',
+                    background: 'rgba(255, 255, 255, 0.04)',
+                    color: '#ffffff',
+                    fontSize: '0.85rem',
+                    lineHeight: '1.6',
+                    resize: 'vertical',
+                    fontFamily: 'inherit',
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#e2e8f0', marginBottom: '4px' }}>
+                  Terms & Conditions Content (English)
+                </label>
+                <div style={{ fontSize: '0.74rem', color: '#94a3b8', marginBottom: '6px' }}>
+                  Displayed in modal dialog when visitors click "Terms & Conditions" in the footer.
+                </div>
+                <textarea
+                  rows={8}
+                  value={currentLegal.termsAndConditionsContent ?? ''}
+                  onChange={(e) => handleLegalFieldChange('termsAndConditionsContent', e.target.value)}
+                  placeholder="Enter Terms & Conditions document text..."
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--border-subtle)',
+                    background: 'rgba(255, 255, 255, 0.04)',
+                    color: '#ffffff',
+                    fontSize: '0.85rem',
+                    lineHeight: '1.6',
+                    resize: 'vertical',
+                    fontFamily: 'inherit',
+                  }}
+                />
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#e2e8f0', marginBottom: '4px' }}>
+                  Ibikubiye muri Politiki yo Kurinda Amakuru Bwite (Ikinyarwanda)
+                </label>
+                <div style={{ fontSize: '0.74rem', color: '#94a3b8', marginBottom: '6px' }}>
+                  Bigaragara mu idirishya rifunguka iyo umushyitsi akanze "Politiki yo Kurinda Amakuru Bwite".
+                </div>
+                <textarea
+                  rows={8}
+                  value={currentLegal.privacyPolicyContentRw ?? ''}
+                  onChange={(e) => handleLegalFieldChange('privacyPolicyContentRw', e.target.value)}
+                  placeholder="Andika inyandiko ya Politiki yo Kurinda Amakuru..."
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--border-subtle)',
+                    background: 'rgba(255, 255, 255, 0.04)',
+                    color: '#ffffff',
+                    fontSize: '0.85rem',
+                    lineHeight: '1.6',
+                    resize: 'vertical',
+                    fontFamily: 'inherit',
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#e2e8f0', marginBottom: '4px' }}>
+                  Ibikubiye mu Mabwiriza n'Ibisabwa (Ikinyarwanda)
+                </label>
+                <div style={{ fontSize: '0.74rem', color: '#94a3b8', marginBottom: '6px' }}>
+                  Bigaragara mu idirishya rifunguka iyo umushyitsi akanze "Amabwiriza n'Ibisabwa".
+                </div>
+                <textarea
+                  rows={8}
+                  value={currentLegal.termsAndConditionsContentRw ?? ''}
+                  onChange={(e) => handleLegalFieldChange('termsAndConditionsContentRw', e.target.value)}
+                  placeholder="Andika inyandiko y'Amabwiriza n'Ibisabwa..."
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--border-subtle)',
+                    background: 'rgba(255, 255, 255, 0.04)',
+                    color: '#ffffff',
+                    fontSize: '0.85rem',
+                    lineHeight: '1.6',
+                    resize: 'vertical',
+                    fontFamily: 'inherit',
+                  }}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ───────────────────────────────────────────────────────────── */}
+      {/* ── TAB SETTINGS DIVIDER LINE ── */}
+      {/* ───────────────────────────────────────────────────────────── */}
+      <div
+        style={{
+          width: '100%',
+          height: '1px',
+          background: isDark ? 'rgba(255, 255, 255, 0.1)' : '#e2e8f0',
+          margin: '36px 0 28px 0',
+        }}
+      />
+
+      {/* ───────────────────────────────────────────────────────────── */}
+      {/* ── AGENT SERVICES TAB SETTINGS ── */}
+      {/* ───────────────────────────────────────────────────────────── */}
+      <div
+        className="glass-panel"
+        style={{
+          width: '100%',
+          padding: '24px',
+          borderRadius: '16px',
+          border: isDark ? '1px solid var(--border-subtle)' : '1px solid #e2e8f0',
+          background: isDark ? 'rgba(255, 255, 255, 0.02)' : '#ffffff',
+          boxShadow: isDark ? 'none' : '0 1px 3px rgba(0,0,0,0.05)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '20px',
+          marginBottom: '28px',
+        }}
+      >
+        {/* Header & Quick Action */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '14px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div
+              style={{
+                width: '38px',
+                height: '38px',
+                borderRadius: '10px',
+                background: 'rgba(56, 189, 248, 0.15)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#38bdf8',
+              }}
+            >
+              <Briefcase size={20} />
+            </div>
+            <div>
+              <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, color: isDark ? '#ffffff' : '#0f172a' }}>
+                {isRw ? 'Serivisi za Agent' : 'Agent Services'}
+              </h3>
+              <div style={{ fontSize: '0.78rem', color: isDark ? '#94a3b8' : '#64748b', marginTop: '2px' }}>
+                {isRw
+                  ? 'Igenamiterere ry’amahitamo ku ipaji ya serivisi.'
+                  : 'Configure options on Services portal.'}
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <button
+              type="button"
+              onClick={handleResetAgentServices}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 14px',
+                borderRadius: '8px',
+                border: '1px solid var(--border-subtle)',
+                background: 'rgba(255, 255, 255, 0.04)',
+                color: '#94a3b8',
+                fontSize: '0.8rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = '#38bdf8';
+                e.currentTarget.style.borderColor = 'rgba(56, 189, 248, 0.4)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = '#94a3b8';
+                e.currentTarget.style.borderColor = 'var(--border-subtle)';
+              }}
+            >
+              <RotateCcw size={13} />
+              <span>{isRw ? 'Subiza ku Miterere' : 'Reset Defaults'}</span>
+            </button>
+          </div>
+        </div>
+
+        {/* ───────────────────────────────────────────────────────────── */}
+        {/* ── HOW IT WORKS & BOOKING STEPS MANAGER ── */}
+        {/* ───────────────────────────────────────────────────────────── */}
+        <div
+          style={{
+            marginTop: '8px',
+            padding: '20px',
+            borderRadius: '14px',
+            border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid #e2e8f0',
+            background: isDark ? 'rgba(0, 0, 0, 0.2)' : '#f8fafc',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '18px',
+          }}
+        >
+          {/* Sub-header & Actions */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '14px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div
+                style={{
+                  width: '34px',
+                  height: '34px',
+                  borderRadius: '8px',
+                  background: isDark ? 'rgba(56, 189, 248, 0.15)' : 'rgba(2, 132, 199, 0.1)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: isDark ? '#38bdf8' : '#0284c7',
+                }}
+              >
+                <ListOrdered size={18} />
+              </div>
+              <div>
+                <h4 style={{ margin: 0, fontSize: '0.98rem', fontWeight: 800, color: isDark ? '#ffffff' : '#0f172a' }}>
+                  {isRw ? 'Uko Bikora & Intambwe zo Kwiyandikisha' : 'How It Works & Booking Steps'}
+                </h4>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              {/* Language Switcher Tabs */}
+              <div
+                style={{
+                  display: 'flex',
+                  background: isDark ? 'rgba(0, 0, 0, 0.3)' : '#e2e8f0',
+                  padding: '3px',
+                  borderRadius: '8px',
+                  gap: '4px',
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setStepsLangTab('en')}
+                  style={{
+                    padding: '5px 12px',
+                    borderRadius: '6px',
+                    border: 'none',
+                    background: stepsLangTab === 'en' ? (isDark ? 'rgba(56, 189, 248, 0.25)' : '#ffffff') : 'transparent',
+                    color: stepsLangTab === 'en' ? (isDark ? '#38bdf8' : '#0284c7') : (isDark ? '#94a3b8' : '#64748b'),
+                    fontWeight: stepsLangTab === 'en' ? 700 : 500,
+                    fontSize: '0.78rem',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  English
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStepsLangTab('rw')}
+                  style={{
+                    padding: '5px 12px',
+                    borderRadius: '6px',
+                    border: 'none',
+                    background: stepsLangTab === 'rw' ? (isDark ? 'rgba(56, 189, 248, 0.25)' : '#ffffff') : 'transparent',
+                    color: stepsLangTab === 'rw' ? (isDark ? '#38bdf8' : '#0284c7') : (isDark ? '#94a3b8' : '#64748b'),
+                    fontWeight: stepsLangTab === 'rw' ? 700 : 500,
+                    fontSize: '0.78rem',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  Ikinyarwanda
+                </button>
+              </div>
+
+              {/* Add Step Button */}
+              <button
+                type="button"
+                onClick={handleAddStep}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '6px 14px',
+                  borderRadius: '8px',
+                  background: isDark ? 'rgba(16, 185, 129, 0.2)' : '#10b981',
+                  color: isDark ? '#34d399' : '#ffffff',
+                  border: isDark ? '1px solid rgba(16, 185, 129, 0.35)' : 'none',
+                  fontSize: '0.8rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <Plus size={14} />
+                <span>{isRw ? 'Ongeraho Intambwe' : 'Add New Step'}</span>
+              </button>
+
+              {/* Reset Steps Button */}
+              <button
+                type="button"
+                onClick={handleResetSteps}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '6px 12px',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border-subtle)',
+                  background: 'rgba(255, 255, 255, 0.04)',
+                  color: '#94a3b8',
+                  fontSize: '0.78rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+                title={isRw ? 'Subiza intambwe ku miterere y\'ibanze' : 'Reset steps to defaults'}
+              >
+                <RotateCcw size={12} />
+                <span>{isRw ? 'Subiza ku Miterere' : 'Reset'}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Section Main Title Field */}
+          <div>
+            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: isDark ? '#e2e8f0' : '#334155', marginBottom: '4px' }}>
+              {stepsLangTab === 'en'
+                ? 'Section Headline Title (English)'
+                : 'Umutwe Mukuru w\'Igice (Ikinyarwanda)'}
+            </label>
+            <input
+              type="text"
+              value={stepsLangTab === 'en' ? (currentAgentServices.howItWorksTitle ?? 'How It Works & Booking Steps') : (currentAgentServices.howItWorksTitleRw ?? 'Uko Bikora & Ibyiza')}
+              onChange={(e) => handleAgentServicesFieldChange(stepsLangTab === 'en' ? 'howItWorksTitle' : 'howItWorksTitleRw', e.target.value)}
+              placeholder={stepsLangTab === 'en' ? 'How It Works & Booking Steps' : 'Uko Bikora & Ibyiza'}
+              style={{
+                width: '100%',
+                padding: '9px 12px',
+                borderRadius: '8px',
+                border: isDark ? '1px solid var(--border-subtle)' : '1px solid #cbd5e1',
+                background: isDark ? 'rgba(255, 255, 255, 0.04)' : '#ffffff',
+                color: isDark ? '#ffffff' : '#0f172a',
+                fontSize: '0.88rem',
+                fontWeight: 600,
+              }}
+            />
+          </div>
+
+          {/* Steps List */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {currentSteps.map((step, index) => {
+              const isFirst = index === 0;
+              const isLast = index === currentSteps.length - 1;
+
+              return (
+                <div
+                  key={step.id}
+                  style={{
+                    padding: '16px',
+                    borderRadius: '12px',
+                    border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid #e2e8f0',
+                    background: isDark ? 'rgba(255, 255, 255, 0.02)' : '#ffffff',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '12px',
+                  }}
+                >
+                  {/* Step Row Header: Numbering, Reordering & Deletion */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <div
+                        style={{
+                          width: '28px',
+                          height: '28px',
+                          borderRadius: '8px',
+                          background: isDark ? 'rgba(56, 189, 248, 0.2)' : 'rgba(2, 132, 199, 0.12)',
+                          color: isDark ? '#38bdf8' : '#0284c7',
+                          border: isDark ? '1px solid rgba(56, 189, 248, 0.3)' : '1px solid rgba(2, 132, 199, 0.25)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '0.85rem',
+                          fontWeight: 800,
+                        }}
+                      >
+                        {step.stepNumber}
+                      </div>
+
+                      <span style={{ fontSize: '0.82rem', fontWeight: 700, color: isDark ? '#e2e8f0' : '#334155' }}>
+                        {stepsLangTab === 'en' ? (step.title || `Step ${step.stepNumber}`) : (step.titleRw || `Intambwe ya ${step.stepNumber}`)}
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      {/* Move Up */}
+                      <button
+                        type="button"
+                        onClick={() => handleMoveStep(index, 'up')}
+                        disabled={isFirst}
+                        style={{
+                          width: '28px',
+                          height: '28px',
+                          borderRadius: '6px',
+                          border: '1px solid var(--border-subtle)',
+                          background: 'rgba(255, 255, 255, 0.04)',
+                          color: isFirst ? (isDark ? '#475569' : '#cbd5e1') : (isDark ? '#cbd5e1' : '#475569'),
+                          cursor: isFirst ? 'not-allowed' : 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                        title={isRw ? 'Kuzamura hejuru' : 'Move up'}
+                      >
+                        <ChevronUp size={14} />
+                      </button>
+
+                      {/* Move Down */}
+                      <button
+                        type="button"
+                        onClick={() => handleMoveStep(index, 'down')}
+                        disabled={isLast}
+                        style={{
+                          width: '28px',
+                          height: '28px',
+                          borderRadius: '6px',
+                          border: '1px solid var(--border-subtle)',
+                          background: 'rgba(255, 255, 255, 0.04)',
+                          color: isLast ? (isDark ? '#475569' : '#cbd5e1') : (isDark ? '#cbd5e1' : '#475569'),
+                          cursor: isLast ? 'not-allowed' : 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                        title={isRw ? 'Kumanura hasi' : 'Move down'}
+                      >
+                        <ChevronDown size={14} />
+                      </button>
+
+                      {/* Remove Step */}
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveStep(step.id)}
+                        style={{
+                          width: '28px',
+                          height: '28px',
+                          borderRadius: '6px',
+                          border: '1px solid rgba(239, 68, 68, 0.3)',
+                          background: 'rgba(239, 68, 68, 0.1)',
+                          color: '#ef4444',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                        title={isRw ? 'Siba iyi ntambwe' : 'Delete this step'}
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Step Input Fields */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: isDark ? '#94a3b8' : '#64748b', marginBottom: '3px' }}>
+                        {stepsLangTab === 'en' ? 'Step Title / Label (English)' : 'Umutwe w\'Intambwe (Ikinyarwanda)'}
+                      </label>
+                      <input
+                        type="text"
+                        value={stepsLangTab === 'en' ? step.title : step.titleRw}
+                        onChange={(e) => handleUpdateStep(step.id, stepsLangTab === 'en' ? { title: e.target.value } : { titleRw: e.target.value })}
+                        placeholder={stepsLangTab === 'en' ? 'e.g. Available Services' : 'Urugero: Serivisi Ubona'}
+                        style={{
+                          width: '100%',
+                          padding: '7px 10px',
+                          borderRadius: '6px',
+                          border: isDark ? '1px solid var(--border-subtle)' : '1px solid #cbd5e1',
+                          background: isDark ? 'rgba(255, 255, 255, 0.04)' : '#f8fafc',
+                          color: isDark ? '#ffffff' : '#0f172a',
+                          fontSize: '0.82rem',
+                          fontWeight: 600,
+                        }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: isDark ? '#94a3b8' : '#64748b', marginBottom: '3px' }}>
+                        {stepsLangTab === 'en' ? 'Step Description / Detail (English)' : 'Ibisobanuro by\'Intambwe (Ikinyarwanda)'}
+                      </label>
+                      <input
+                        type="text"
+                        value={stepsLangTab === 'en' ? step.description : step.descriptionRw}
+                        onChange={(e) => handleUpdateStep(step.id, stepsLangTab === 'en' ? { description: e.target.value } : { descriptionRw: e.target.value })}
+                        placeholder={stepsLangTab === 'en' ? 'Explain what this step does...' : 'Sobanura ibikorwa muri iyi ntambwe...'}
+                        style={{
+                          width: '100%',
+                          padding: '7px 10px',
+                          borderRadius: '6px',
+                          border: isDark ? '1px solid var(--border-subtle)' : '1px solid #cbd5e1',
+                          background: isDark ? 'rgba(255, 255, 255, 0.04)' : '#f8fafc',
+                          color: isDark ? '#ffffff' : '#0f172a',
+                          fontSize: '0.82rem',
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Subtle Separator between Steps and Booking Form */}
+        <div
+          style={{
+            height: '1px',
+            background: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(226, 232, 240, 0.9)',
+            margin: '26px 0 24px 0',
+          }}
+        />
+
+        {/* ── BOOKING FORM CONTROLS ── */}
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '20px',
+          }}
+        >
+          {/* Sub-header & Actions */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div
+                style={{
+                  width: '34px',
+                  height: '34px',
+                  borderRadius: '8px',
+                  background: isDark ? 'rgba(56, 189, 248, 0.15)' : 'rgba(2, 132, 199, 0.1)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: isDark ? '#38bdf8' : '#0284c7',
+                }}
+              >
+                <ClipboardList size={18} />
+              </div>
+              <div>
+                <h4 style={{ margin: 0, fontSize: '0.98rem', fontWeight: 800, color: isDark ? '#ffffff' : '#0f172a' }}>
+                  {isRw ? 'Igenzura rya Fomu yo Kwiyandikisha' : 'Booking Form Controls'}
+                </h4>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              {/* Language Switcher Tabs */}
+              <div
+                style={{
+                  display: 'flex',
+                  background: isDark ? 'rgba(0, 0, 0, 0.3)' : '#e2e8f0',
+                  padding: '3px',
+                  borderRadius: '8px',
+                  gap: '4px',
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setBookingFormLangTab('en')}
+                  style={{
+                    padding: '5px 12px',
+                    borderRadius: '6px',
+                    border: 'none',
+                    background: bookingFormLangTab === 'en' ? (isDark ? 'rgba(56, 189, 248, 0.25)' : '#ffffff') : 'transparent',
+                    color: bookingFormLangTab === 'en' ? (isDark ? '#38bdf8' : '#0284c7') : (isDark ? '#94a3b8' : '#64748b'),
+                    fontWeight: bookingFormLangTab === 'en' ? 700 : 500,
+                    fontSize: '0.78rem',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  English
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBookingFormLangTab('rw')}
+                  style={{
+                    padding: '5px 12px',
+                    borderRadius: '6px',
+                    border: 'none',
+                    background: bookingFormLangTab === 'rw' ? (isDark ? 'rgba(56, 189, 248, 0.25)' : '#ffffff') : 'transparent',
+                    color: bookingFormLangTab === 'rw' ? (isDark ? '#38bdf8' : '#0284c7') : (isDark ? '#94a3b8' : '#64748b'),
+                    fontWeight: bookingFormLangTab === 'rw' ? 700 : 500,
+                    fontSize: '0.78rem',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  Ikinyarwanda
+                </button>
+              </div>
+
+              {/* Manage Fields Button */}
+              <button
+                type="button"
+                onClick={() => setIsManageFieldsModalOpen(true)}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '6px 14px',
+                  borderRadius: '8px',
+                  border: isDark ? '1px solid #38bdf8' : '1px solid #0284c7',
+                  background: isDark ? 'rgba(56, 189, 248, 0.15)' : 'rgba(2, 132, 199, 0.1)',
+                  color: isDark ? '#38bdf8' : '#0284c7',
+                  fontSize: '0.78rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+                title={isRw ? 'Guhitamo imyanya igaragara kuri fomu' : 'Configure visible form fields'}
+              >
+                <SlidersHorizontal size={13} />
+                <span>Manage</span>
+              </button>
+
+              {/* Reset Booking Form Defaults */}
+              <button
+                type="button"
+                onClick={handleResetBookingForm}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '6px 12px',
+                  borderRadius: '8px',
+                  border: isDark ? '1px solid rgba(255, 255, 255, 0.12)' : '1px solid #cbd5e1',
+                  background: 'transparent',
+                  color: isDark ? '#94a3b8' : '#64748b',
+                  fontSize: '0.78rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+                title={isRw ? 'Gusubiza fomu ku miterere y\'ibanze' : 'Reset form settings to defaults'}
+              >
+                <RotateCcw size={13} />
+                <span>{isRw ? 'Kugarura Ibisanzwe' : 'Reset Form'}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Form Title & Subtitle Customization */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+              gap: '14px',
+              padding: '16px',
+              borderRadius: '12px',
+              border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid #e2e8f0',
+              background: isDark ? 'rgba(255, 255, 255, 0.02)' : '#ffffff',
+            }}
+          >
+            <div>
+              <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: isDark ? '#94a3b8' : '#64748b', marginBottom: '4px' }}>
+                {bookingFormLangTab === 'en' ? 'Form Title / Heading (English)' : 'Umutwe wa Fomu (Ikinyarwanda)'}
+              </label>
+              <input
+                type="text"
+                value={bookingFormLangTab === 'en' ? (currentBookingForm.formTitle || '') : (currentBookingForm.formTitleRw || '')}
+                onChange={(e) =>
+                  handleUpdateBookingForm(
+                    bookingFormLangTab === 'en'
+                      ? { formTitle: e.target.value }
+                      : { formTitleRw: e.target.value }
+                  )
+                }
+                placeholder={bookingFormLangTab === 'en' ? 'Book Agent Service' : 'Kora Gahunda ya Agent'}
+                style={{
+                  width: '100%',
+                  padding: '8px 10px',
+                  borderRadius: '6px',
+                  border: isDark ? '1px solid var(--border-subtle)' : '1px solid #cbd5e1',
+                  background: isDark ? 'rgba(255, 255, 255, 0.04)' : '#f8fafc',
+                  color: isDark ? '#ffffff' : '#0f172a',
+                  fontSize: '0.82rem',
+                  fontWeight: 600,
+                }}
+              />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: isDark ? '#94a3b8' : '#64748b', marginBottom: '4px' }}>
+                {bookingFormLangTab === 'en' ? 'Form Subtitle / Instructions (English)' : 'Amabwiriza ya Fomu (Ikinyarwanda)'}
+              </label>
+              <input
+                type="text"
+                value={bookingFormLangTab === 'en' ? (currentBookingForm.formSubtitle || '') : (currentBookingForm.formSubtitleRw || '')}
+                onChange={(e) =>
+                  handleUpdateBookingForm(
+                    bookingFormLangTab === 'en'
+                      ? { formSubtitle: e.target.value }
+                      : { formSubtitleRw: e.target.value }
+                  )
+                }
+                placeholder={
+                  bookingFormLangTab === 'en'
+                    ? 'Fill in your details below...'
+                    : 'Uzuza iyi myirondoro, umu-ajenti aragufasha...'
+                }
+                style={{
+                  width: '100%',
+                  padding: '8px 10px',
+                  borderRadius: '6px',
+                  border: isDark ? '1px solid var(--border-subtle)' : '1px solid #cbd5e1',
+                  background: isDark ? 'rgba(255, 255, 255, 0.04)' : '#f8fafc',
+                  color: isDark ? '#ffffff' : '#0f172a',
+                  fontSize: '0.82rem',
+                }}
+              />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: isDark ? '#94a3b8' : '#64748b', marginBottom: '4px' }}>
+                {bookingFormLangTab === 'en' ? 'Submit Button Text (English)' : 'Inyandiko ya Buto yo Kohereza (Ikinyarwanda)'}
+              </label>
+              <input
+                type="text"
+                value={bookingFormLangTab === 'en' ? (currentBookingForm.submitButtonText || '') : (currentBookingForm.submitButtonTextRw || '')}
+                onChange={(e) =>
+                  handleUpdateBookingForm(
+                    bookingFormLangTab === 'en'
+                      ? { submitButtonText: e.target.value }
+                      : { submitButtonTextRw: e.target.value }
+                  )
+                }
+                placeholder={bookingFormLangTab === 'en' ? 'Submit Agent Service Request' : 'Ohereza Ubusabe bwa Agent'}
+                style={{
+                  width: '100%',
+                  padding: '8px 10px',
+                  borderRadius: '6px',
+                  border: isDark ? '1px solid var(--border-subtle)' : '1px solid #cbd5e1',
+                  background: isDark ? 'rgba(255, 255, 255, 0.04)' : '#f8fafc',
+                  color: isDark ? '#ffffff' : '#0f172a',
+                  fontSize: '0.82rem',
+                  fontWeight: 600,
+                }}
+              />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: isDark ? '#94a3b8' : '#64748b', marginBottom: '4px' }}>
+                {isRw ? 'Agace k\'Ikizamini Gasanzwe (Default Hub)' : 'Default Testing Center / Hub'}
+              </label>
+              <input
+                type="text"
+                value={currentBookingForm.defaultLocation || ''}
+                onChange={(e) => handleUpdateBookingForm({ defaultLocation: e.target.value })}
+                placeholder="e.g. Remera - Amahoro Police Test Center"
+                style={{
+                  width: '100%',
+                  padding: '8px 10px',
+                  borderRadius: '6px',
+                  border: isDark ? '1px solid var(--border-subtle)' : '1px solid #cbd5e1',
+                  background: isDark ? 'rgba(255, 255, 255, 0.04)' : '#f8fafc',
+                  color: isDark ? '#ffffff' : '#0f172a',
+                  fontSize: '0.82rem',
+                }}
+              />
+            </div>
+          </div>
+
+          {/* Booking Form Dropdown Options Manager (Services, Districts, Centers, Sites, Teachers) */}
+          <div
+            style={{
+              padding: '16px',
+              borderRadius: '12px',
+              border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid #e2e8f0',
+              background: isDark ? 'rgba(255, 255, 255, 0.02)' : '#ffffff',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '14px',
+            }}
+          >
+            {/* Category Switcher Tabs */}
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', borderBottom: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid #e2e8f0', paddingBottom: '12px' }}>
+              {[
+                { id: 'services' as const, label: isRw ? 'Serivisi' : 'Services' },
+                { id: 'districts' as const, label: isRw ? 'Uturere' : 'Districts' },
+                { id: 'centers' as const, label: isRw ? 'Ibigo by\'Ikizamini' : 'Testing Centers' },
+                { id: 'sites' as const, label: isRw ? 'Working Sites' : 'Working Sites' },
+                { id: 'teachers' as const, label: isRw ? 'Abarimu' : 'Teachers' },
+              ].map((tab) => {
+                const isActive = bookingOptionCategory === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setBookingOptionCategory(tab.id)}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      padding: '6px 14px',
+                      borderRadius: '8px',
+                      border: isActive
+                        ? (isDark ? '1px solid #38bdf8' : '1px solid #0284c7')
+                        : (isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid #e2e8f0'),
+                      background: isActive
+                        ? (isDark ? 'rgba(56, 189, 248, 0.15)' : 'rgba(2, 132, 199, 0.1)')
+                        : (isDark ? 'rgba(255, 255, 255, 0.03)' : '#f8fafc'),
+                      color: isActive
+                        ? (isDark ? '#38bdf8' : '#0284c7')
+                        : (isDark ? '#94a3b8' : '#64748b'),
+                      fontSize: '0.8rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    <span>{tab.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Active Category Header & Add Button */}
+            {(() => {
+              const activeCat = getOptionCategoryConfig(bookingOptionCategory);
+              return (
+                <>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                    <div>
+                      <div style={{ fontSize: '0.88rem', fontWeight: 800, color: isDark ? '#ffffff' : '#0f172a' }}>
+                        {activeCat.title}
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleAddDropdownOption(activeCat.field, activeCat.defaultKey, activeCat.isTranslatable)}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '6px 12px',
+                        borderRadius: '8px',
+                        border: isDark ? '1px solid rgba(56, 189, 248, 0.4)' : '1px solid #0284c7',
+                        background: isDark ? 'rgba(56, 189, 248, 0.15)' : 'rgba(2, 132, 199, 0.1)',
+                        color: isDark ? '#38bdf8' : '#0284c7',
+                        fontSize: '0.78rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      <Plus size={14} />
+                      <span>{activeCat.addLabel}</span>
+                    </button>
+                  </div>
+
+                  {/* List of Dynamic Options for Selected Category */}
+                  {activeCat.options.length > 0 && (
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: activeCat.isTranslatable ? 'minmax(0, 1fr) minmax(0, 1fr) auto' : 'minmax(0, 1fr) auto',
+                        gap: '8px',
+                        padding: '0 2px',
+                      }}
+                    >
+                      {activeCat.isTranslatable ? (
+                        <>
+                          <div style={{ fontSize: '0.74rem', fontWeight: 700, color: isDark ? '#94a3b8' : '#64748b' }}>
+                            {isRw ? 'Izina (Icyongereza)' : 'Option Label (English)'}
+                          </div>
+                          <div style={{ fontSize: '0.74rem', fontWeight: 700, color: isDark ? '#94a3b8' : '#64748b' }}>
+                            {isRw ? 'Ubusobanuro mu Kinyarwanda' : 'Kinyarwanda Translation'}
+                          </div>
+                        </>
+                      ) : (
+                        <div style={{ fontSize: '0.74rem', fontWeight: 700, color: isDark ? '#94a3b8' : '#64748b' }}>
+                          {isRw ? 'Izina' : 'Name'}
+                        </div>
+                      )}
+                      <div style={{ width: '86px' }} />
+                    </div>
+                  )}
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {activeCat.options.length === 0 ? (
+                      <div
+                        style={{
+                          fontSize: '0.82rem',
+                          color: isDark ? '#94a3b8' : '#64748b',
+                          padding: '8px 0',
+                          fontStyle: 'italic',
+                        }}
+                      >
+                        {isRw
+                          ? 'Nta mahitamo yateguwe. Kanda buto yo hejuru kugira ngo utangire.'
+                          : 'No options configured. Click the button above to add one.'}
+                      </div>
+                    ) : (
+                      activeCat.options.map((opt, index) => {
+                        const isFirst = index === 0;
+                        const isLast = index === activeCat.options.length - 1;
+
+                        return (
+                          <div
+                            key={opt.id}
+                            style={{
+                              display: 'grid',
+                              gridTemplateColumns: activeCat.isTranslatable ? 'minmax(0, 1fr) minmax(0, 1fr) auto' : 'minmax(0, 1fr) auto',
+                              gap: '8px',
+                              alignItems: 'center',
+                            }}
+                          >
+                            {activeCat.isTranslatable ? (
+                              <>
+                                <input
+                                  type="text"
+                                  value={opt.label}
+                                  onChange={(e) => handleUpdateDropdownOption(activeCat.field, opt.id, { label: e.target.value })}
+                                  placeholder={activeCat.placeholderEn}
+                                  style={{
+                                    width: '100%',
+                                    padding: '7px 10px',
+                                    borderRadius: '6px',
+                                    border: isDark ? '1px solid var(--border-subtle)' : '1px solid #cbd5e1',
+                                    background: isDark ? 'rgba(255, 255, 255, 0.04)' : '#ffffff',
+                                    color: isDark ? '#ffffff' : '#0f172a',
+                                    fontSize: '0.82rem',
+                                    fontWeight: 500,
+                                  }}
+                                />
+
+                                <input
+                                  type="text"
+                                  value={opt.labelRw}
+                                  onChange={(e) => handleUpdateDropdownOption(activeCat.field, opt.id, { labelRw: e.target.value })}
+                                  placeholder={activeCat.placeholderRw}
+                                  style={{
+                                    width: '100%',
+                                    padding: '7px 10px',
+                                    borderRadius: '6px',
+                                    border: isDark ? '1px solid var(--border-subtle)' : '1px solid #cbd5e1',
+                                    background: isDark ? 'rgba(255, 255, 255, 0.04)' : '#ffffff',
+                                    color: isDark ? '#ffffff' : '#0f172a',
+                                    fontSize: '0.82rem',
+                                    fontWeight: 500,
+                                  }}
+                                />
+                              </>
+                            ) : (
+                              <input
+                                type="text"
+                                value={opt.label}
+                                onChange={(e) =>
+                                  handleUpdateDropdownOption(activeCat.field, opt.id, {
+                                    label: e.target.value,
+                                    labelRw: e.target.value,
+                                    key: e.target.value,
+                                  })
+                                }
+                                placeholder={activeCat.placeholder}
+                                style={{
+                                  width: '100%',
+                                  padding: '7px 10px',
+                                  borderRadius: '6px',
+                                  border: isDark ? '1px solid var(--border-subtle)' : '1px solid #cbd5e1',
+                                  background: isDark ? 'rgba(255, 255, 255, 0.04)' : '#ffffff',
+                                  color: isDark ? '#ffffff' : '#0f172a',
+                                  fontSize: '0.82rem',
+                                  fontWeight: 500,
+                                }}
+                              />
+                            )}
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <button
+                                type="button"
+                                onClick={() => handleMoveDropdownOption(activeCat.field, index, 'up')}
+                                disabled={isFirst}
+                                style={{
+                                  width: '26px',
+                                  height: '26px',
+                                  borderRadius: '6px',
+                                  border: '1px solid var(--border-subtle)',
+                                  background: 'rgba(255, 255, 255, 0.04)',
+                                  color: isFirst ? (isDark ? '#475569' : '#cbd5e1') : (isDark ? '#cbd5e1' : '#475569'),
+                                  cursor: isFirst ? 'not-allowed' : 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                }}
+                                title={isRw ? 'Kuzamura hejuru' : 'Move up'}
+                              >
+                                <ChevronUp size={13} />
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => handleMoveDropdownOption(activeCat.field, index, 'down')}
+                                disabled={isLast}
+                                style={{
+                                  width: '26px',
+                                  height: '26px',
+                                  borderRadius: '6px',
+                                  border: '1px solid var(--border-subtle)',
+                                  background: 'rgba(255, 255, 255, 0.04)',
+                                  color: isLast ? (isDark ? '#475569' : '#cbd5e1') : (isDark ? '#cbd5e1' : '#475569'),
+                                  cursor: isLast ? 'not-allowed' : 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                }}
+                                title={isRw ? 'Kumanura hasi' : 'Move down'}
+                              >
+                                <ChevronDown size={13} />
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveDropdownOption(activeCat.field, opt.id)}
+                                style={{
+                                  width: '26px',
+                                  height: '26px',
+                                  borderRadius: '6px',
+                                  border: '1px solid rgba(239, 68, 68, 0.3)',
+                                  background: 'rgba(239, 68, 68, 0.1)',
+                                  color: '#ef4444',
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                }}
+                                title={isRw ? 'Siba aya mahitamo' : 'Delete this option'}
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+
+          {/* Field Requirements & Options */}
+          <div
+            style={{
+              padding: '16px',
+              borderRadius: '12px',
+              border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid #e2e8f0',
+              background: isDark ? 'rgba(255, 255, 255, 0.02)' : '#ffffff',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '12px',
+            }}
+          >
+            <div>
+              <div style={{ fontSize: '0.88rem', fontWeight: 800, color: isDark ? '#ffffff' : '#0f172a' }}>
+                {isRw ? 'Ibisabwa Muri Fomu (Field Rules)' : 'Field Rules & Behavior'}
+              </div>
+              <div style={{ fontSize: '0.76rem', color: isDark ? '#94a3b8' : '#64748b', marginTop: '2px' }}>
+                {isRw
+                  ? 'Genzura niba amatariki cyangwa ikigo cy\'ikizamini ari itegeko cyangwa niba ibisobanuro byiyongereyeho biboneka.'
+                  : 'Toggle mandatory requirements for date/center and show or hide optional notes.'}
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '10px' }}>
+              {/* Require Date */}
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '10px 12px',
+                  borderRadius: '8px',
+                  background: isDark ? 'rgba(255, 255, 255, 0.03)' : '#f8fafc',
+                  border: isDark ? '1px solid rgba(255, 255, 255, 0.06)' : '1px solid #e2e8f0',
+                  cursor: 'pointer',
+                }}
+              >
+                <span style={{ fontSize: '0.82rem', fontWeight: 600, color: isDark ? '#e2e8f0' : '#1e293b' }}>
+                  {isRw ? 'Gusaba Itariki Yiteguwe (Required)' : 'Require Preferred Date'}
+                </span>
+                <input
+                  type="checkbox"
+                  checked={currentBookingForm.requirePreferredDate ?? false}
+                  onChange={(e) => handleUpdateBookingForm({ requirePreferredDate: e.target.checked })}
+                  style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#0284c7' }}
+                />
+              </label>
+
+              {/* Require Hub */}
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '10px 12px',
+                  borderRadius: '8px',
+                  background: isDark ? 'rgba(255, 255, 255, 0.03)' : '#f8fafc',
+                  border: isDark ? '1px solid rgba(255, 255, 255, 0.06)' : '1px solid #e2e8f0',
+                  cursor: 'pointer',
+                }}
+              >
+                <span style={{ fontSize: '0.82rem', fontWeight: 600, color: isDark ? '#e2e8f0' : '#1e293b' }}>
+                  {isRw ? 'Gusaba Ikigo cy\'Ikizamini (Required)' : 'Require Testing Center'}
+                </span>
+                <input
+                  type="checkbox"
+                  checked={currentBookingForm.requireTestingCenter ?? false}
+                  onChange={(e) => handleUpdateBookingForm({ requireTestingCenter: e.target.checked })}
+                  style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#0284c7' }}
+                />
+              </label>
+
+              {/* Show Notes Field */}
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '10px 12px',
+                  borderRadius: '8px',
+                  background: isDark ? 'rgba(255, 255, 255, 0.03)' : '#f8fafc',
+                  border: isDark ? '1px solid rgba(255, 255, 255, 0.06)' : '1px solid #e2e8f0',
+                  cursor: 'pointer',
+                }}
+              >
+                <span style={{ fontSize: '0.82rem', fontWeight: 600, color: isDark ? '#e2e8f0' : '#1e293b' }}>
+                  {isRw ? 'Kugaragaza Umwanya w\'Ibisobanuro' : 'Show Additional Notes Field'}
+                </span>
+                <input
+                  type="checkbox"
+                  checked={currentBookingForm.showNotesField ?? true}
+                  onChange={(e) => handleUpdateBookingForm({ showNotesField: e.target.checked })}
+                  style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#0284c7' }}
+                />
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
 
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
@@ -3127,6 +5890,597 @@ export const PlatformSettingsSection: React.FC<PlatformSettingsSectionProps> = (
                 {pendingToggleState
                   ? (isRw ? 'Fungura' : 'Enable')
                   : (isRw ? 'Funga' : 'Disable')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* ── Maintenance Mode Alert Modal for Home Tab ── */}
+      {isHomeAlertOpen && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 10000,
+            backgroundColor: 'rgba(0, 0, 0, 0.70)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px',
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsHomeAlertOpen(false);
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: isDark ? '#18181b' : '#ffffff',
+              color: isDark ? '#f4f4f5' : '#18181b',
+              border: isDark ? '1px solid #27272a' : '1px solid #e4e4e7',
+              borderRadius: '10px',
+              maxWidth: '460px',
+              width: '100%',
+              padding: '24px',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)',
+            }}
+          >
+            <h3
+              style={{
+                fontSize: '1.05rem',
+                fontWeight: 700,
+                margin: '0 0 10px 0',
+                color: isDark ? '#ffffff' : '#09090b',
+              }}
+            >
+              {isRw ? "Gufunga Intangiriro" : "Disable Home Page"}
+            </h3>
+
+            <p
+              style={{
+                fontSize: '0.85rem',
+                lineHeight: 1.5,
+                margin: '0 0 20px 0',
+                color: isDark ? '#a1a1aa' : '#52525b',
+              }}
+            >
+              {isRw
+                ? "Intangiriro ni paji rusange y'abashyitsi bose. Kuyifunga bivuze ko urubuga ruri mu mirimo yo kuvugurura. Numara kubyemeza, hazatangira umunota umwe wo kubara mbere y'uko impinduka zishyirwa mu bikorwa."
+                : "Home is the public landing page for visitors. Disabling it means the website is under maintenance. If confirmed, a 1-minute countdown will begin before the change takes effect."}
+            </p>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <button
+                type="button"
+                onClick={() => setIsHomeAlertOpen(false)}
+                style={{
+                  padding: '8px 14px',
+                  borderRadius: '6px',
+                  backgroundColor: 'transparent',
+                  border: isDark ? '1px solid #3f3f46' : '1px solid #d4d4d8',
+                  color: isDark ? '#f4f4f5' : '#18181b',
+                  fontSize: '0.82rem',
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                }}
+              >
+                {isRw ? "Hagarika" : "Cancel"}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleConfirmHomeDisable}
+                style={{
+                  padding: '8px 14px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  backgroundColor: isDark ? '#f4f4f5' : '#18181b',
+                  color: isDark ? '#18181b' : '#ffffff',
+                  fontSize: '0.82rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                {isRw ? "Emeza" : "Confirm"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Manage Booking Form Fields Modal ── */}
+      {isManageFieldsModalOpen && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 10000,
+            backgroundColor: 'rgba(0, 0, 0, 0.72)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px',
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsManageFieldsModalOpen(false);
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: isDark ? '#0f172a' : '#ffffff',
+              color: isDark ? '#f1f5f9' : '#0f172a',
+              border: isDark ? '1px solid rgba(255, 255, 255, 0.12)' : '1px solid #cbd5e1',
+              borderRadius: '16px',
+              maxWidth: '560px',
+              width: '100%',
+              maxHeight: '85vh',
+              display: 'flex',
+              flexDirection: 'column',
+              boxShadow: isDark ? '0 25px 50px -12px rgba(0, 0, 0, 0.8)' : '0 20px 25px -5px rgba(0, 0, 0, 0.15)',
+              overflow: 'hidden',
+            }}
+          >
+            {/* Modal Header */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '20px 24px',
+                borderBottom: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid #e2e8f0',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div
+                  style={{
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: '10px',
+                    background: isDark ? 'rgba(56, 189, 248, 0.15)' : 'rgba(2, 132, 199, 0.1)',
+                    color: isDark ? '#38bdf8' : '#0284c7',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <SlidersHorizontal size={18} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, color: isDark ? '#ffffff' : '#0f172a' }}>
+                    {isRw ? 'Gucunga Imyanya ya Buri Serivisi' : 'Manage Service Booking Fields'}
+                  </h3>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsManageFieldsModalOpen(false)}
+                style={{
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  background: isDark ? 'rgba(255, 255, 255, 0.06)' : '#f1f5f9',
+                  color: isDark ? '#cbd5e1' : '#64748b',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Service Switcher Tabs */}
+            <div
+              style={{
+                padding: '12px 24px 10px 24px',
+                borderBottom: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid #e2e8f0',
+                background: isDark ? 'rgba(0, 0, 0, 0.25)' : '#f8fafc',
+              }}
+            >
+              <div
+                style={{
+                  fontSize: '0.74rem',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                  color: isDark ? '#94a3b8' : '#64748b',
+                  marginBottom: '8px',
+                }}
+              >
+                {isRw ? 'Hitamo Serivisi wo gucungira imyanya:' : 'Select Service to Configure Fields:'}
+              </div>
+              <div
+                style={{
+                  display: 'flex',
+                  gap: '8px',
+                  overflowX: 'auto',
+                  paddingBottom: '4px',
+                  scrollbarWidth: 'thin',
+                }}
+              >
+                {currentServiceOptions.map((srv) => {
+                  const sKey = srv.key || srv.id;
+                  const isSelected = sKey === selectedManageServiceKey;
+                  const srvLabel = isRw ? (srv.labelRw || srv.label) : srv.label;
+                  const count = (srv.fields && Array.isArray(srv.fields))
+                    ? srv.fields.length
+                    : (currentBookingForm.serviceFieldsMap?.[sKey]?.length ?? (DEFAULT_SERVICE_FIELDS[sKey]?.length ?? ALL_BOOKING_FIELD_KEYS.length));
+
+                  return (
+                    <button
+                      key={sKey}
+                      type="button"
+                      onClick={() => setActiveManageServiceKey(sKey)}
+                      style={{
+                        padding: '6px 12px',
+                        borderRadius: '8px',
+                        border: isSelected
+                          ? (isDark ? '1px solid #38bdf8' : '1px solid #0284c7')
+                          : (isDark ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid #cbd5e1'),
+                        background: isSelected
+                          ? (isDark ? 'rgba(56, 189, 248, 0.18)' : '#0284c7')
+                          : (isDark ? 'rgba(255, 255, 255, 0.04)' : '#ffffff'),
+                        color: isSelected
+                          ? (isDark ? '#38bdf8' : '#ffffff')
+                          : (isDark ? '#cbd5e1' : '#475569'),
+                        fontSize: '0.78rem',
+                        fontWeight: isSelected ? 700 : 500,
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      <span>{srvLabel}</span>
+                      <span
+                        style={{
+                          fontSize: '0.68rem',
+                          padding: '1px 6px',
+                          borderRadius: '10px',
+                          background: isSelected
+                            ? (isDark ? 'rgba(56, 189, 248, 0.3)' : 'rgba(255, 255, 255, 0.25)')
+                            : (isDark ? 'rgba(255, 255, 255, 0.1)' : '#e2e8f0'),
+                          color: isSelected ? (isDark ? '#e0f2fe' : '#ffffff') : (isDark ? '#94a3b8' : '#64748b'),
+                          fontWeight: 700,
+                        }}
+                      >
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Quick Actions Bar */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '10px 24px',
+                background: isDark ? 'rgba(255, 255, 255, 0.02)' : '#f8fafc',
+                borderBottom: isDark ? '1px solid rgba(255, 255, 255, 0.06)' : '1px solid #e2e8f0',
+              }}
+            >
+              <div style={{ fontSize: '0.78rem', fontWeight: 700, color: isDark ? '#cbd5e1' : '#475569' }}>
+                {activeServiceFields.length} / {ALL_BOOKING_FIELD_KEYS.length}{' '}
+                {isRw ? 'yemejwe kuri iyi serivisi' : 'fields active (ordered 1 to last)'}
+              </div>
+
+              <div style={{ display: 'flex', gap: '6px' }}>
+                <button
+                  type="button"
+                  onClick={() => handleSetAllServiceFields(selectedManageServiceKey, true)}
+                  style={{
+                    padding: '4px 9px',
+                    borderRadius: '6px',
+                    border: isDark ? '1px solid rgba(56, 189, 248, 0.3)' : '1px solid #bae6fd',
+                    background: isDark ? 'rgba(56, 189, 248, 0.1)' : '#f0f9ff',
+                    color: isDark ? '#38bdf8' : '#0284c7',
+                    fontSize: '0.72rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
+                >
+                  {isRw ? 'Fungura Byose' : 'Enable All'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSetAllServiceFields(selectedManageServiceKey, false)}
+                  style={{
+                    padding: '4px 9px',
+                    borderRadius: '6px',
+                    border: isDark ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid #e2e8f0',
+                    background: isDark ? 'rgba(255, 255, 255, 0.04)' : '#f1f5f9',
+                    color: isDark ? '#94a3b8' : '#64748b',
+                    fontSize: '0.72rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
+                >
+                  {isRw ? 'Funga Byose' : 'Disable All'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleResetServiceFields(selectedManageServiceKey)}
+                  style={{
+                    padding: '4px 9px',
+                    borderRadius: '6px',
+                    border: isDark ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid #e2e8f0',
+                    background: isDark ? 'rgba(255, 255, 255, 0.04)' : '#f1f5f9',
+                    color: isDark ? '#94a3b8' : '#64748b',
+                    fontSize: '0.72rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
+                >
+                  {isRw ? 'Kugarura Ibifite' : 'Reset'}
+                </button>
+              </div>
+            </div>
+
+            {/* Fields List (Scrollable) */}
+            <div
+              style={{
+                padding: '16px 24px',
+                overflowY: 'auto',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px',
+                flex: 1,
+              }}
+            >
+              {activeServiceFields.length === 0 ? (
+                <div
+                  style={{
+                    padding: '24px 16px',
+                    textAlign: 'center',
+                    color: isDark ? '#94a3b8' : '#64748b',
+                    fontSize: '0.84rem',
+                    background: isDark ? 'rgba(255, 255, 255, 0.02)' : '#f8fafc',
+                    borderRadius: '10px',
+                    border: isDark ? '1px dashed rgba(255, 255, 255, 0.1)' : '1px dashed #cbd5e1',
+                  }}
+                >
+                  {isRw
+                    ? 'Nta myanya iratoranywa kuri iyi serivisi. Kanda ku myanya yo hasi kugira ngo uyongereho.'
+                    : 'No fields active for this service. Click any inactive field below to add it.'}
+                </div>
+              ) : (
+                activeServiceFields.map((fieldKey, idx) => {
+                  const def = BOOKING_FIELD_DEFINITIONS[fieldKey];
+                  const fieldLabel = def ? (isRw ? def.labelRw : def.labelEn) : fieldKey;
+
+                  return (
+                    <div
+                      key={fieldKey}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '10px 14px',
+                        borderRadius: '10px',
+                        border: isDark ? '1px solid rgba(56, 189, 248, 0.25)' : '1px solid #bae6fd',
+                        background: isDark ? 'rgba(56, 189, 248, 0.05)' : '#f0f9ff',
+                        gap: '12px',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+                        <span
+                          style={{
+                            width: '24px',
+                            height: '24px',
+                            borderRadius: '6px',
+                            background: isDark ? 'rgba(56, 189, 248, 0.2)' : '#0284c7',
+                            color: isDark ? '#38bdf8' : '#ffffff',
+                            fontSize: '0.72rem',
+                            fontWeight: 800,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0,
+                          }}
+                        >
+                          #{idx + 1}
+                        </span>
+                        <span
+                          style={{
+                            fontSize: '0.86rem',
+                            fontWeight: 700,
+                            color: isDark ? '#ffffff' : '#0f172a',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {fieldLabel}
+                        </span>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                        {/* Move Up Button */}
+                        <button
+                          type="button"
+                          disabled={idx === 0}
+                          onClick={() => handleMoveServiceField(selectedManageServiceKey, idx, 'up')}
+                          style={{
+                            width: '26px',
+                            height: '26px',
+                            borderRadius: '6px',
+                            border: isDark ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid #cbd5e1',
+                            background: isDark ? 'rgba(255, 255, 255, 0.05)' : '#ffffff',
+                            color: idx === 0 ? (isDark ? '#475569' : '#cbd5e1') : (isDark ? '#cbd5e1' : '#334155'),
+                            cursor: idx === 0 ? 'not-allowed' : 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            padding: 0,
+                          }}
+                          title={isRw ? 'Kwerekeza hejuru' : 'Move Earlier'}
+                        >
+                          <ChevronUp size={14} />
+                        </button>
+
+                        {/* Move Down Button */}
+                        <button
+                          type="button"
+                          disabled={idx === activeServiceFields.length - 1}
+                          onClick={() => handleMoveServiceField(selectedManageServiceKey, idx, 'down')}
+                          style={{
+                            width: '26px',
+                            height: '26px',
+                            borderRadius: '6px',
+                            border: isDark ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid #cbd5e1',
+                            background: isDark ? 'rgba(255, 255, 255, 0.05)' : '#ffffff',
+                            color: idx === activeServiceFields.length - 1 ? (isDark ? '#475569' : '#cbd5e1') : (isDark ? '#cbd5e1' : '#334155'),
+                            cursor: idx === activeServiceFields.length - 1 ? 'not-allowed' : 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            padding: 0,
+                          }}
+                          title={isRw ? 'Kwerekeza hasi' : 'Move Later'}
+                        >
+                          <ChevronDown size={14} />
+                        </button>
+
+                        {/* Toggle Pill */}
+                        <div
+                          onClick={() => handleToggleServiceField(selectedManageServiceKey, fieldKey)}
+                          style={{
+                            width: '38px',
+                            height: '20px',
+                            borderRadius: '10px',
+                            background: '#0284c7',
+                            position: 'relative',
+                            transition: 'background 0.2s ease',
+                            cursor: 'pointer',
+                            marginLeft: '4px',
+                          }}
+                          title={isRw ? 'Funga uyu mwanya' : 'Deactivate field'}
+                        >
+                          <div
+                            style={{
+                              width: '16px',
+                              height: '16px',
+                              borderRadius: '50%',
+                              background: '#ffffff',
+                              position: 'absolute',
+                              top: '2px',
+                              left: '20px',
+                              transition: 'left 0.2s ease',
+                              boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+
+              {/* Inactive Fields Section */}
+              {inactiveServiceFields.length > 0 && (
+                <div style={{ marginTop: '12px' }}>
+                  <div
+                    style={{
+                      fontSize: '0.72rem',
+                      fontWeight: 800,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px',
+                      color: isDark ? '#64748b' : '#94a3b8',
+                      marginBottom: '8px',
+                    }}
+                  >
+                    {isRw ? 'Imyanya Idakoreshwa (Kanda kugira ngo uyongereho)' : 'Inactive Fields (Click to activate)'}
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {inactiveServiceFields.map((fieldKey) => {
+                      const def = BOOKING_FIELD_DEFINITIONS[fieldKey];
+                      const fieldLabel = def ? (isRw ? def.labelRw : def.labelEn) : fieldKey;
+
+                      return (
+                        <div
+                          key={fieldKey}
+                          onClick={() => handleToggleServiceField(selectedManageServiceKey, fieldKey)}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            padding: '9px 14px',
+                            borderRadius: '10px',
+                            border: isDark ? '1px solid rgba(255, 255, 255, 0.06)' : '1px solid #e2e8f0',
+                            background: isDark ? 'rgba(255, 255, 255, 0.02)' : '#ffffff',
+                            cursor: 'pointer',
+                            transition: 'all 0.15s ease',
+                          }}
+                          title={isRw ? 'Ongeraho uyu mwanya' : 'Activate field for this service'}
+                        >
+                          <span style={{ fontSize: '0.84rem', fontWeight: 600, color: isDark ? '#64748b' : '#94a3b8' }}>
+                            {fieldLabel}
+                          </span>
+                          <div
+                            style={{
+                              width: '38px',
+                              height: '20px',
+                              borderRadius: '10px',
+                              background: isDark ? '#334155' : '#cbd5e1',
+                              position: 'relative',
+                              transition: 'background 0.2s ease',
+                              flexShrink: 0,
+                            }}
+                          >
+                            <div
+                              style={{
+                                width: '16px',
+                                height: '16px',
+                                borderRadius: '50%',
+                                background: '#ffffff',
+                                position: 'absolute',
+                                top: '2px',
+                                left: '2px',
+                                transition: 'left 0.2s ease',
+                                boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+                              }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'flex-end',
+                padding: '14px 24px',
+                borderTop: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid #e2e8f0',
+                background: isDark ? 'rgba(0, 0, 0, 0.2)' : '#f8fafc',
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => setIsManageFieldsModalOpen(false)}
+                className="btn btn-primary"
+                style={{
+                  fontSize: '0.82rem',
+                  fontWeight: 700,
+                  padding: '7px 18px',
+                  borderRadius: '8px',
+                }}
+              >
+                {isRw ? 'Bika & Funga' : 'Done'}
               </button>
             </div>
           </div>

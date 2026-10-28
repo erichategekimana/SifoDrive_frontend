@@ -19,8 +19,10 @@ export interface BookingDTO {
   id: string;
   ticket_number?: string;
   ticketNumber?: string;
-  category: LicenseCategory;
-  preferred_district: string;
+  category?: LicenseCategory | null;
+  license_category?: LicenseCategory | null;
+  preferred_district?: string | null;
+  testing_center?: string | null;
   preferred_site?: string;
   application_fee_rwf: number;
   status: BookingStatus;
@@ -34,8 +36,9 @@ export interface BookingDTO {
 export class Booking {
   public readonly id: string;
   public readonly ticketNumber: string;
-  public readonly category: LicenseCategory;
-  public readonly preferredDistrict: string;
+  public readonly category: LicenseCategory | null;
+  public readonly preferredDistrict: string | null;
+  public readonly testingCenter: string | null;
   public readonly preferredSite: string;
   public readonly applicationFeeRwf: number;
   public readonly status: BookingStatus;
@@ -47,8 +50,9 @@ export class Booking {
   constructor(dto: BookingDTO) {
     this.id = dto.id;
     this.ticketNumber = dto.ticketNumber || dto.ticket_number || `TK-${dto.id.slice(0, 8).toUpperCase()}`;
-    this.category = dto.category;
-    this.preferredDistrict = dto.preferred_district;
+    this.category = dto.category || dto.license_category || null;
+    this.preferredDistrict = dto.preferred_district || null;
+    this.testingCenter = dto.testing_center || null;
     this.preferredSite = dto.preferred_site || '';
     this.applicationFeeRwf = dto.application_fee_rwf || 0;
     this.status = dto.status;

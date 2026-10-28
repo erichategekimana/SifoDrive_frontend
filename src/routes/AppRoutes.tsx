@@ -60,21 +60,92 @@ import { StartExamPage } from '../pages/public/StartExamPage';
 import { CandidateExamPage } from '../pages/examinations/CandidateExamPage';
 import { ExamReviewPage } from '../pages/examinations/ExamReviewPage';
 import { ExamAuditDetailPage } from '../pages/admin/examinations/ExamAuditDetailPage';
+import { PublicRouteGuard } from './PublicRouteGuard';
 
 export const AppRoutes: React.FC = () => {
   return (
     <Routes>
       {/* Public Pages */}
-      <Route path="/" element={<LandingPage />} />
-      <Route path="/services" element={<ServiceConciergePage />} />
-      <Route path="/concierge" element={<ServiceConciergePage />} />
-      <Route path="/school-program" element={<SchoolProgramPage />} />
-      <Route path="/newsroom" element={<NewsroomPage />} />
-      <Route path="/news" element={<NewsroomPage />} />
-      <Route path="/partner" element={<PartnerWithUsPage />} />
-      <Route path="/partners" element={<PartnerWithUsPage />} />
-      <Route path="/partner-with-us" element={<PartnerWithUsPage />} />
-      <Route path="/contact" element={<ContactPage />} />
+      <Route
+        path="/"
+        element={
+          <PublicRouteGuard tabId="home">
+            <LandingPage />
+          </PublicRouteGuard>
+        }
+      />
+      <Route
+        path="/services"
+        element={
+          <PublicRouteGuard tabId="service_concierge">
+            <ServiceConciergePage />
+          </PublicRouteGuard>
+        }
+      />
+      <Route
+        path="/concierge"
+        element={
+          <PublicRouteGuard tabId="service_concierge">
+            <ServiceConciergePage />
+          </PublicRouteGuard>
+        }
+      />
+      <Route
+        path="/school-program"
+        element={
+          <PublicRouteGuard tabId="school_program">
+            <SchoolProgramPage />
+          </PublicRouteGuard>
+        }
+      />
+      <Route
+        path="/newsroom"
+        element={
+          <PublicRouteGuard tabId="newsroom">
+            <NewsroomPage />
+          </PublicRouteGuard>
+        }
+      />
+      <Route
+        path="/news"
+        element={
+          <PublicRouteGuard tabId="newsroom">
+            <NewsroomPage />
+          </PublicRouteGuard>
+        }
+      />
+      <Route
+        path="/partner"
+        element={
+          <PublicRouteGuard tabId="partner">
+            <PartnerWithUsPage />
+          </PublicRouteGuard>
+        }
+      />
+      <Route
+        path="/partners"
+        element={
+          <PublicRouteGuard tabId="partner">
+            <PartnerWithUsPage />
+          </PublicRouteGuard>
+        }
+      />
+      <Route
+        path="/partner-with-us"
+        element={
+          <PublicRouteGuard tabId="partner">
+            <PartnerWithUsPage />
+          </PublicRouteGuard>
+        }
+      />
+      <Route
+        path="/contact"
+        element={
+          <PublicRouteGuard tabId="contact">
+            <ContactPage />
+          </PublicRouteGuard>
+        }
+      />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/pricing" element={<PricingPage />} />

@@ -50,16 +50,17 @@ nav svg {
   flex-shrink: 0;
 }
 
-/* Top Bar Navigation Container Track & Buttons */
+/* Top Bar Navigation Links (Uncontained) */
 .nav-track {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 24px;
   flex-shrink: 1;
-  padding: 4px 6px;
-  border-radius: var(--radius-xl);
-  background: rgba(0, 0, 0, 0.035);
-  border: 1px solid rgba(0, 0, 0, 0.06);
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
   overflow-x: auto;
   scrollbar-width: none;
   -ms-overflow-style: none;
@@ -69,47 +70,92 @@ nav svg {
   display: none;
 }
 
+/* Standalone navigation buttons (e.g. login) */
 .nav-btn {
   display: flex;
   align-items: center;
   gap: 7px;
-  font-size: 0.875rem;
+  font-size: 0.85rem;
   font-weight: 500;
-  padding: 7px 14px;
-  border-radius: var(--radius-lg);
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
   white-space: nowrap;
   flex-shrink: 0;
   text-decoration: none;
-  transition: all var(--transition-fast);
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid rgba(203, 213, 225, 0.95);
-  color: #334155;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  background: #ffffff;
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  color: #000000;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
   cursor: pointer;
 }
 
 .nav-btn:hover {
-  background: #ffffff;
-  border-color: #94a3b8;
-  color: #0f172a;
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: var(--primary, #0284c7);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
-/* Selected Button Container Turns to Light Black */
 .nav-btn.active {
-  background: #18181b !important;
-  border-color: #27272a !important;
-  color: #ffffff !important;
-  font-weight: 600;
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.28);
+  background: #ffffff !important;
+  border-color: var(--primary, #0284c7) !important;
+  color: var(--primary, #0284c7) !important;
+  font-weight: 500 !important;
 }
 
 .nav-btn.active svg {
-  color: #38bdf8 !important;
+  color: var(--primary, #0284c7) !important;
 }
 
+/* Tabs inside the Top Bar .nav-track (Clean, uncontained navigation links) */
+.nav-track .nav-btn {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  border-radius: 0;
+  color: #000000;
+  padding: 8px 2px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  gap: 7px;
+  transition: color 0.18s ease;
+}
+
+.nav-track .nav-btn svg {
+  color: currentColor;
+  transition: color 0.18s ease;
+}
+
+.nav-track .nav-btn:hover {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: var(--primary, #0284c7) !important;
+}
+
+.nav-track .nav-btn:hover svg {
+  color: var(--primary, #0284c7) !important;
+}
+
+/* When tab is selected: text turns blue, unbolded, no container */
+.nav-track .nav-btn.active {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: var(--primary, #0284c7) !important;
+  font-weight: 500 !important;
+}
+
+.nav-track .nav-btn.active svg {
+  color: var(--primary, #0284c7) !important;
+}
+
+/* Dark Theme Top Bar Navigation */
 [data-theme="dark"] .nav-track {
-  background: rgba(255, 255, 255, 0.035);
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: transparent;
+  border: none;
+  box-shadow: none;
 }
 
 [data-theme="dark"] .nav-btn {
@@ -125,11 +171,40 @@ nav svg {
   color: #f9fafb;
 }
 
+[data-theme="dark"] .nav-track .nav-btn {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .nav-track .nav-btn svg {
+  color: currentColor;
+}
+
+[data-theme="dark"] .nav-track .nav-btn:hover {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: #38bdf8 !important;
+}
+
+[data-theme="dark"] .nav-track .nav-btn:hover svg {
+  color: #38bdf8 !important;
+}
+
+[data-theme="dark"] .nav-track .nav-btn.active,
 [data-theme="dark"] .nav-btn.active {
-  background: #18181b !important;
-  border-color: #3f3f46 !important;
-  color: #ffffff !important;
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.45);
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: #38bdf8 !important;
+  font-weight: 500 !important;
+}
+
+[data-theme="dark"] .nav-track .nav-btn.active svg,
+[data-theme="dark"] .nav-btn.active svg {
+  color: #38bdf8 !important;
 }
 
 /* Cards */

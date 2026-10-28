@@ -1,13 +1,7 @@
 import React from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import {
-  Compass,
   Home,
-  Sparkles,
-  GraduationCap,
-  Newspaper,
-  Handshake,
-  PhoneCall,
   Sun,
   Moon,
   LogIn,
@@ -60,22 +54,10 @@ export const Navbar: React.FC = () => {
   };
 
   const getTabIcon = (tabId: string) => {
-    switch (tabId) {
-      case 'home':
-        return <Home size={15} style={{ flexShrink: 0 }} />;
-      case 'service_concierge':
-        return <Sparkles size={15} style={{ flexShrink: 0 }} />;
-      case 'school_program':
-        return <GraduationCap size={15} style={{ flexShrink: 0 }} />;
-      case 'newsroom':
-        return <Newspaper size={15} style={{ flexShrink: 0 }} />;
-      case 'partner':
-        return <Handshake size={15} style={{ flexShrink: 0 }} />;
-      case 'contact':
-        return <PhoneCall size={15} style={{ flexShrink: 0 }} />;
-      default:
-        return <Compass size={15} style={{ flexShrink: 0 }} />;
+    if (tabId === 'home') {
+      return <Home size={15} style={{ flexShrink: 0 }} />;
     }
+    return null;
   };
 
   return (
@@ -114,30 +96,34 @@ export const Navbar: React.FC = () => {
         }}
       >
         {/* Brand Logo */}
-        <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none', flexShrink: 0 }}>
+        <Link
+          to="/"
+          style={{ display: 'flex', alignItems: 'center', gap: '8px', textDecoration: 'none', flexShrink: 0 }}
+          title="Sifo Drive - Sifo Group Ltd"
+        >
           <div
             style={{
-              width: '40px',
-              height: '40px',
-              minWidth: '40px',
-              flexShrink: 0,
-              borderRadius: 'var(--radius-lg)',
-              background: 'linear-gradient(135deg, var(--primary) 0%, var(--accent-500) 100%)',
+              background: '#ffffff',
+              padding: '3px 8px',
+              borderRadius: '8px',
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.12)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: '0 4px 12px var(--primary-glow)',
+              height: '38px',
             }}
           >
-            <Compass size={24} color="#ffffff" style={{ flexShrink: 0 }} />
-          </div>
-          <div style={{ flexShrink: 0 }}>
-            <span style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em', whiteSpace: 'nowrap', display: 'block' }}>
-              SIFO <span style={{ color: 'var(--primary-light)' }}>DRIVE</span>
-            </span>
-            <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginTop: '-3px', whiteSpace: 'nowrap' }}>
-              {t('nav.brandSub')}
-            </div>
+            <img
+              src="/sifo-group-logo.png"
+              alt="Sifo Group Ltd"
+              style={{
+                height: '30px',
+                width: 'auto',
+                maxWidth: '130px',
+                objectFit: 'contain',
+                display: 'block',
+              }}
+            />
           </div>
         </Link>
 
@@ -165,19 +151,19 @@ export const Navbar: React.FC = () => {
           <button
             onClick={toggleLanguage}
             style={{
-              background: theme === 'light' ? 'rgba(255, 255, 255, 0.9)' : 'var(--bg-surface-elevated)',
-              border: theme === 'light' ? '1px solid rgba(203, 213, 225, 0.95)' : '1px solid var(--border-subtle)',
+              background: theme === 'light' ? '#ffffff' : 'var(--bg-surface-elevated)',
+              border: theme === 'light' ? '1px solid rgba(226, 232, 240, 0.95)' : '1px solid var(--border-subtle)',
               borderRadius: 'var(--radius-full)',
               padding: '6px 12px',
               minWidth: '78px',
               justifyContent: 'center',
               cursor: 'pointer',
-              color: 'var(--text-primary)',
+              color: theme === 'light' ? '#000000' : 'var(--text-primary)',
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
-              fontSize: '0.82rem',
-              fontWeight: 700,
+              fontSize: '0.85rem',
+              fontWeight: 500,
               flexShrink: 0,
               whiteSpace: 'nowrap',
               boxShadow: theme === 'light' ? '0 1px 2px rgba(0, 0, 0, 0.04)' : 'none',
@@ -192,12 +178,12 @@ export const Navbar: React.FC = () => {
           <button
             onClick={toggleTheme}
             style={{
-              background: theme === 'light' ? 'rgba(255, 255, 255, 0.9)' : 'var(--bg-surface-elevated)',
-              border: theme === 'light' ? '1px solid rgba(203, 213, 225, 0.95)' : '1px solid var(--border-subtle)',
+              background: theme === 'light' ? '#ffffff' : 'var(--bg-surface-elevated)',
+              border: theme === 'light' ? '1px solid rgba(226, 232, 240, 0.95)' : '1px solid var(--border-subtle)',
               borderRadius: 'var(--radius-lg)',
               padding: '8px',
               cursor: 'pointer',
-              color: 'var(--text-secondary)',
+              color: theme === 'light' ? '#000000' : 'var(--text-secondary)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -260,14 +246,32 @@ export const Navbar: React.FC = () => {
                   display: 'flex',
                   alignItems: 'center',
                   gap: '8px',
-                  background: isNavActive('/dashboard') ? '#18181b' : theme === 'light' ? 'rgba(255, 255, 255, 0.9)' : 'var(--bg-surface-elevated)',
+                  background: isNavActive('/dashboard')
+                    ? theme === 'light'
+                      ? '#0284c7'
+                      : 'rgba(255, 255, 255, 0.15)'
+                    : theme === 'light'
+                    ? '#ffffff'
+                    : 'var(--bg-surface-elevated)',
                   padding: '6px 14px',
                   borderRadius: 'var(--radius-lg)',
-                  border: isNavActive('/dashboard') ? '1px solid #27272a' : theme === 'light' ? '1px solid rgba(203, 213, 225, 0.95)' : '1px solid var(--border-subtle)',
+                  border: isNavActive('/dashboard')
+                    ? theme === 'light'
+                      ? '1px solid #0284c7'
+                      : '1px solid rgba(255, 255, 255, 0.25)'
+                    : theme === 'light'
+                    ? '1px solid rgba(226, 232, 240, 0.95)'
+                    : '1px solid var(--border-subtle)',
                   textDecoration: 'none',
                   whiteSpace: 'nowrap',
                   flexShrink: 0,
-                  boxShadow: isNavActive('/dashboard') ? '0 3px 8px rgba(0, 0, 0, 0.28)' : theme === 'light' ? '0 1px 2px rgba(0, 0, 0, 0.04)' : 'none',
+                  boxShadow: isNavActive('/dashboard')
+                    ? theme === 'light'
+                      ? '0 2px 6px rgba(2, 132, 199, 0.25)'
+                      : '0 3px 8px rgba(0, 0, 0, 0.28)'
+                    : theme === 'light'
+                    ? '0 1px 2px rgba(0, 0, 0, 0.04)'
+                    : 'none',
                   transition: 'all var(--transition-fast)',
                 }}
               >
@@ -338,7 +342,14 @@ export const Navbar: React.FC = () => {
                 style={{
                   whiteSpace: 'nowrap',
                   flexShrink: 0,
-                  ...(location.pathname === '/register' ? { background: '#18181b', color: '#ffffff', borderColor: '#27272a', boxShadow: '0 3px 8px rgba(0, 0, 0, 0.28)' } : {}),
+                  ...(location.pathname === '/register'
+                    ? {
+                        background: 'var(--primary-700)',
+                        color: '#ffffff',
+                        borderColor: 'var(--primary-800)',
+                        boxShadow: '0 2px 8px var(--primary-glow)',
+                      }
+                    : {}),
                 }}
               >
                 <span>{t('nav.joinFree')}</span>

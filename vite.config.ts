@@ -14,6 +14,9 @@ function platformConfigPlugin(): Plugin {
       server.middlewares.use('/platform-settings-sync', (req, res, next) => {
         if (req.method === 'GET') {
           res.setHeader('Content-Type', 'application/json')
+          res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate')
+          res.setHeader('Pragma', 'no-cache')
+          res.setHeader('Expires', '0')
           if (fs.existsSync(configPath)) {
             const data = fs.readFileSync(configPath, 'utf-8')
             res.end(data)
@@ -50,6 +53,9 @@ export default defineConfig({
     host: '0.0.0.0',
     allowedHosts: true,
     port: 3000,
+    watch: {
+      usePolling: true,
+    },
     proxy: {
       '/api': {
         target: 'http://127.0.0.1:8000',

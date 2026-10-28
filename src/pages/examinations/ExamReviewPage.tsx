@@ -260,9 +260,24 @@ export const ExamReviewPage: React.FC = () => {
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '1.1rem', fontWeight: 800, color: '#0284c7', letterSpacing: '-0.02em' }}>
-              SIFO DRIVE
-            </span>
+            <div
+              style={{
+                background: '#ffffff',
+                padding: '2px 7px',
+                borderRadius: '6px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                height: '28px',
+                boxShadow: '0 1px 4px rgba(0,0,0,0.1)',
+              }}
+            >
+              <img
+                src="/sifo-group-logo.png"
+                alt="Sifo Group"
+                style={{ height: '22px', width: 'auto', maxWidth: '90px', objectFit: 'contain', display: 'block' }}
+              />
+            </div>
             <span style={{ color: '#9ca3af' }}>/</span>
             <span style={{ fontSize: '0.9rem', fontWeight: 600, color: '#374151' }}>
               {language === 'FR' ? 'Révision des Réponses' : t('examLifecycle.review.brandSubTitle')}

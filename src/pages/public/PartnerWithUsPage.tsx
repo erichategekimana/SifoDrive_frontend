@@ -15,12 +15,14 @@ import { Footer } from '../../components/layout/Footer';
 import { PublicPageBackground } from '../../components/layout/PublicPageBackground';
 import { useTranslation } from '../../context/I18nContext';
 import { useTheme } from '../../context/ThemeContext';
+import { usePublicStats } from '../../hooks/usePublicStats';
 
 export const PartnerWithUsPage: React.FC = () => {
   const { language } = useTranslation();
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const isRw = language === 'rw';
+  const stats = usePublicStats();
 
   const [formState, setFormState] = useState({
     partnerType: 'driving_school',
@@ -247,13 +249,13 @@ export const PartnerWithUsPage: React.FC = () => {
           }}
         >
           <div>
-            <div style={{ fontSize: '2.4rem', fontWeight: 800, color: '#0284c7' }}>15,000+</div>
+            <div style={{ fontSize: '2.4rem', fontWeight: 800, color: '#0284c7' }}>{stats.activeLearners}</div>
             <div style={{ fontSize: '0.85rem', color: isDark ? '#94a3b8' : '#64748b' }}>
               {isRw ? 'Abanyeshuri bamaze gutozwa' : 'Candidates Trained'}
             </div>
           </div>
           <div>
-            <div style={{ fontSize: '2.4rem', fontWeight: 800, color: '#059669' }}>98.4%</div>
+            <div style={{ fontSize: '2.4rem', fontWeight: 800, color: '#059669' }}>{stats.passRate}</div>
             <div style={{ fontSize: '0.85rem', color: isDark ? '#94a3b8' : '#64748b' }}>
               {isRw ? 'Igipimo cy\'Abatsinda Ikizamini' : 'Provisional Pass Rate'}
             </div>

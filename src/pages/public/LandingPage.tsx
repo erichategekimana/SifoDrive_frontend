@@ -1,25 +1,23 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import {
-  ShieldCheck,
-  CheckCircle2,
   ArrowRight,
-  Wallet,
-  Sparkles,
-  GraduationCap,
-  Newspaper,
-  Handshake,
+  Users,
 } from 'lucide-react';
 import { Navbar } from '../../components/layout/Navbar';
 import { Footer } from '../../components/layout/Footer';
 import { PublicPageBackground } from '../../components/layout/PublicPageBackground';
 import { useTranslation } from '../../context/I18nContext';
 import { useTheme } from '../../context/ThemeContext';
+import { usePublicAboutUs } from '../../hooks/usePublicAboutUs';
+import { usePublicStats } from '../../hooks/usePublicStats';
 
 export const LandingPage: React.FC = () => {
   const { t } = useTranslation();
   const { theme } = useTheme();
   const isDark = theme === 'dark';
+  const { title: aboutTitle, subtitle: aboutSubtitle, whoWeAreTitle, whoWeAreDesc } = usePublicAboutUs();
+  const stats = usePublicStats();
 
   return (
     <div
@@ -167,7 +165,6 @@ export const LandingPage: React.FC = () => {
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '8px',
                 padding: '8px 18px',
                 borderRadius: '999px',
                 background: isDark ? 'rgba(17, 24, 39, 0.75)' : '#ffffff',
@@ -180,14 +177,12 @@ export const LandingPage: React.FC = () => {
                 fontWeight: 700,
               }}
             >
-              <CheckCircle2 size={18} color="#059669" />
               <span>{t('landing.universalCurriculum')}</span>
             </div>
             <div
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '8px',
                 padding: '8px 18px',
                 borderRadius: '999px',
                 background: isDark ? 'rgba(17, 24, 39, 0.75)' : '#ffffff',
@@ -200,14 +195,12 @@ export const LandingPage: React.FC = () => {
                 fontWeight: 700,
               }}
             >
-              <ShieldCheck size={18} color="#0284c7" />
               <span>{t('landing.lawCompliant')}</span>
             </div>
             <div
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '8px',
                 padding: '8px 18px',
                 borderRadius: '999px',
                 background: isDark ? 'rgba(17, 24, 39, 0.75)' : '#ffffff',
@@ -220,7 +213,6 @@ export const LandingPage: React.FC = () => {
                 fontWeight: 700,
               }}
             >
-              <Wallet size={18} color="#d97706" />
               <span>{t('landing.momoSupported')}</span>
             </div>
           </div>
@@ -247,195 +239,121 @@ export const LandingPage: React.FC = () => {
           }}
         >
           <div>
-            <div style={{ fontSize: '2.5rem', fontWeight: 800, color: 'var(--primary-light)' }}>98.4%</div>
+            <div style={{ fontSize: '2.5rem', fontWeight: 800, color: 'var(--primary-light)' }}>
+              {stats.passRate}
+            </div>
             <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{t('landing.passRate')}</div>
           </div>
           <div>
-            <div style={{ fontSize: '2.5rem', fontWeight: 800, color: 'var(--accent-500)' }}>15,000+</div>
+            <div style={{ fontSize: '2.5rem', fontWeight: 800, color: 'var(--accent-500)' }}>
+              {stats.activeLearners}
+            </div>
             <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{t('landing.activeLearners')}</div>
           </div>
           <div>
-            <div style={{ fontSize: '2.5rem', fontWeight: 800, color: 'var(--secondary-400)' }}>100+</div>
+            <div style={{ fontSize: '2.5rem', fontWeight: 800, color: 'var(--secondary-400)' }}>
+              {stats.totalExams}
+            </div>
             <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{t('landing.liveSessions')}</div>
           </div>
           <div>
-            <div style={{ fontSize: '2.5rem', fontWeight: 800, color: '#ec4899' }}>24/7</div>
+            <div style={{ fontSize: '2.5rem', fontWeight: 800, color: '#ec4899' }}>
+              {stats.serviceConcierge}
+            </div>
             <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{t('landing.conciergeService')}</div>
           </div>
         </div>
       </section>
 
-      {/* Public Solutions & Pillars Grid */}
-      <section style={{ padding: '80px 24px', maxWidth: '1240px', margin: '0 auto', width: '100%' }}>
-        <div style={{ textAlign: 'center', marginBottom: '56px' }}>
-          <h2 style={{ fontSize: '2.2rem', marginBottom: '14px', color: isDark ? '#ffffff' : '#0f172a', fontWeight: 800 }}>
-            {t('landing.solutionsTitle')}
-          </h2>
-          <p style={{ color: isDark ? '#cbd5e1' : '#475569', maxWidth: '620px', margin: '0 auto', fontSize: '1.05rem', lineHeight: 1.6 }}>
-            {t('landing.solutionsSubtitle')}
-          </p>
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(270px, 1fr))', gap: '24px' }}>
-          {/* Card 1: Service Concierge */}
-          <div className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-            <div>
-              <div
-                style={{
-                  width: '52px',
-                  height: '52px',
-                  borderRadius: 'var(--radius-xl)',
-                  background: 'rgba(2, 132, 199, 0.12)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginBottom: '20px',
-                }}
-              >
-                <Sparkles size={26} color="#0284c7" />
-              </div>
-              <h3 style={{ fontSize: '1.25rem', marginBottom: '12px', fontWeight: 800, color: isDark ? '#ffffff' : '#0f172a' }}>
-                {t('nav.serviceConcierge') || 'Service Concierge'}
-              </h3>
-              <p style={{ color: isDark ? '#94a3b8' : '#475569', fontSize: '0.9rem', lineHeight: 1.6, marginBottom: '20px' }}>
-                {t('landing.conciergeCardDesc')}
-              </p>
-            </div>
-            <Link
-              to="/services"
-              style={{ fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#0284c7', textDecoration: 'none' }}
+      {/* About Us Section */}
+      <section style={{ padding: '80px 24px 100px 24px', maxWidth: '1240px', margin: '0 auto', width: '100%' }}>
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+            gap: '48px',
+            alignItems: 'center',
+          }}
+        >
+          {/* Left Column: About Us Header */}
+          <div>
+            <h2
+              style={{
+                fontSize: 'clamp(2.2rem, 3.5vw, 2.8rem)',
+                marginBottom: '16px',
+                color: isDark ? '#ffffff' : '#0f172a',
+                fontWeight: 800,
+                letterSpacing: '-0.025em',
+                lineHeight: 1.2,
+              }}
             >
-              <span>{t('landing.conciergeCardLink') || 'Explore Concierge'}</span>
-              <ArrowRight size={16} />
-            </Link>
+              {aboutTitle}
+            </h2>
+            <p
+              style={{
+                color: isDark ? '#cbd5e1' : '#475569',
+                fontSize: '1.08rem',
+                lineHeight: 1.7,
+                maxWidth: '520px',
+                margin: 0,
+              }}
+            >
+              {aboutSubtitle}
+            </p>
           </div>
 
-          {/* Card 2: School Program */}
-          <div className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-            <div>
+          {/* Right Column: Who We Are Card */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', width: '100%' }}>
+            <div
+              className="card"
+              style={{
+                width: '100%',
+                maxWidth: '560px',
+                padding: '36px',
+                borderRadius: 'var(--radius-xl)',
+                background: isDark ? 'rgba(15, 23, 42, 0.65)' : '#ffffff',
+                border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(226, 232, 240, 0.85)',
+                boxShadow: isDark ? '0 10px 30px rgba(0, 0, 0, 0.35)' : '0 10px 25px rgba(0, 0, 0, 0.05)',
+              }}
+            >
               <div
                 style={{
                   width: '52px',
                   height: '52px',
-                  borderRadius: 'var(--radius-xl)',
-                  background: 'rgba(5, 150, 105, 0.12)',
+                  borderRadius: '14px',
+                  background: isDark ? 'rgba(56, 189, 248, 0.12)' : 'rgba(2, 132, 199, 0.1)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   marginBottom: '20px',
                 }}
               >
-                <GraduationCap size={26} color="#059669" />
+                <Users size={26} color={isDark ? '#38bdf8' : '#0284c7'} />
               </div>
-              <h3 style={{ fontSize: '1.25rem', marginBottom: '12px', fontWeight: 800, color: isDark ? '#ffffff' : '#0f172a' }}>
-                {t('nav.schoolProgram') || 'School Program'}
-              </h3>
-              <p style={{ color: isDark ? '#94a3b8' : '#475569', fontSize: '0.9rem', lineHeight: 1.6, marginBottom: '20px' }}>
-                {t('landing.theoryCardDesc')}
-              </p>
-            </div>
-            <Link
-              to="/school-program"
-              style={{ fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#059669', textDecoration: 'none' }}
-            >
-              <span>{t('landing.theoryCardLink') || 'Academic Solutions'}</span>
-              <ArrowRight size={16} />
-            </Link>
-          </div>
-
-          {/* Card 3: Newsroom & Regulatory Bulletins */}
-          <div className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-            <div>
-              <div
+              <h3
                 style={{
-                  width: '52px',
-                  height: '52px',
-                  borderRadius: 'var(--radius-xl)',
-                  background: 'rgba(217, 119, 6, 0.12)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginBottom: '20px',
+                  fontSize: '1.35rem',
+                  marginBottom: '12px',
+                  fontWeight: 800,
+                  color: isDark ? '#ffffff' : '#0f172a',
+                  letterSpacing: '-0.015em',
                 }}
               >
-                <Newspaper size={26} color="#d97706" />
-              </div>
-              <h3 style={{ fontSize: '1.25rem', marginBottom: '12px', fontWeight: 800, color: isDark ? '#ffffff' : '#0f172a' }}>
-                {t('nav.newsroom') || 'Newsroom'}
+                {whoWeAreTitle}
               </h3>
-              <p style={{ color: isDark ? '#94a3b8' : '#475569', fontSize: '0.9rem', lineHeight: 1.6, marginBottom: '20px' }}>
-                {t('landing.liveCardDesc')}
-              </p>
-            </div>
-            <Link
-              to="/newsroom"
-              style={{ fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#d97706', textDecoration: 'none' }}
-            >
-              <span>{t('landing.liveCardLink') || 'Read Announcements'}</span>
-              <ArrowRight size={16} />
-            </Link>
-          </div>
-
-          {/* Card 4: Partner With Us */}
-          <div className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-            <div>
-              <div
+              <p
                 style={{
-                  width: '52px',
-                  height: '52px',
-                  borderRadius: 'var(--radius-xl)',
-                  background: 'rgba(124, 58, 237, 0.12)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginBottom: '20px',
+                  color: isDark ? '#94a3b8' : '#475569',
+                  fontSize: '0.98rem',
+                  lineHeight: 1.75,
+                  margin: 0,
                 }}
               >
-                <Handshake size={26} color="#7c3aed" />
-              </div>
-              <h3 style={{ fontSize: '1.25rem', marginBottom: '12px', fontWeight: 800, color: isDark ? '#ffffff' : '#0f172a' }}>
-                {t('nav.partnerWithUs') || 'Partner with us'}
-              </h3>
-              <p style={{ color: isDark ? '#94a3b8' : '#475569', fontSize: '0.9rem', lineHeight: 1.6, marginBottom: '20px' }}>
-                {t('footer.desc') || 'Partner with Rwanda’s premier driving academy ecosystem.'}
+                {whoWeAreDesc}
               </p>
             </div>
-            <Link
-              to="/partner"
-              style={{ fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#7c3aed', textDecoration: 'none' }}
-            >
-              <span>{t('landing.partnerLink') || 'Partner Today'}</span>
-              <ArrowRight size={16} />
-            </Link>
           </div>
         </div>
-      </section>
-
-      {/* CTA Section */}
-      <section
-        className="glass-panel"
-        style={{
-          maxWidth: '1100px',
-          margin: '0 auto 80px auto',
-          padding: '60px 32px',
-          textAlign: 'center',
-          border: isDark ? '1px solid var(--primary-glow)' : '1px solid #bbf7d0',
-          background: isDark
-            ? 'linear-gradient(135deg, rgba(17, 24, 39, 0.9) 0%, rgba(5, 150, 105, 0.15) 100%)'
-            : 'linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%)',
-          boxShadow: isDark ? 'var(--shadow-lg)' : '0 15px 35px -5px rgba(0, 0, 0, 0.06)',
-        }}
-      >
-        <h2 style={{ fontSize: '2.2rem', marginBottom: '16px', color: isDark ? '#ffffff' : '#0f172a', fontWeight: 800 }}>
-          {t('landing.ctaTitle')}
-        </h2>
-        <p style={{ color: isDark ? '#9ca3af' : '#1e293b', maxWidth: '600px', margin: '0 auto 32px auto', fontSize: '1.05rem', fontWeight: isDark ? 400 : 500 }}>
-          {t('landing.ctaSubtitle')}
-        </p>
-        <Link to="/register" className="btn btn-primary btn-lg">
-          <span>{t('landing.ctaButton')}</span>
-          <ArrowRight size={20} />
-        </Link>
       </section>
 
       <Footer />

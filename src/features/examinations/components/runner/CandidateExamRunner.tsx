@@ -1060,9 +1060,23 @@ export const CandidateExamRunner: React.FC<CandidateExamRunnerProps> = ({
           >
             {/* Left: Brand & Exam Title */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '1.1rem', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.02em' }}>
-                SIFO DRIVE
-              </span>
+              <div
+                style={{
+                  background: '#ffffff',
+                  padding: '2px 7px',
+                  borderRadius: '6px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  height: '28px',
+                }}
+              >
+                <img
+                  src="/sifo-group-logo.png"
+                  alt="Sifo Group"
+                  style={{ height: '22px', width: 'auto', maxWidth: '90px', objectFit: 'contain', display: 'block' }}
+                />
+              </div>
               <span style={{ color: 'rgba(255, 255, 255, 0.6)' }}>/</span>
               <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'rgba(255, 255, 255, 0.95)' }}>
                 {session?.exam_title &&

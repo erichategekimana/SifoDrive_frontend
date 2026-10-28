@@ -44,10 +44,25 @@ export const CanvasTopBar: React.FC<CanvasTopBarProps> = ({ breadcrumbs = [] }) 
   return (
     <header className="canvas-top-bar" style={{ position: 'relative' }}>
       {/* Left: Canvas Breadcrumbs on Blue Bar */}
-      <nav className="canvas-breadcrumbs" aria-label="Breadcrumb">
-        <span style={{ fontWeight: 800, color: '#FFFFFF', letterSpacing: '0.04em', fontSize: '0.96rem' }}>
-          SIFO DRIVE
-        </span>
+      <nav className="canvas-breadcrumbs" aria-label="Breadcrumb" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div
+          style={{
+            background: '#ffffff',
+            padding: '2px 8px',
+            borderRadius: '6px',
+            boxShadow: '0 1px 4px rgba(0, 0, 0, 0.15)',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            height: '28px',
+          }}
+        >
+          <img
+            src="/sifo-group-logo.png"
+            alt="Sifo Group"
+            style={{ height: '22px', width: 'auto', maxWidth: '95px', objectFit: 'contain', display: 'block' }}
+          />
+        </div>
         <ChevronRight size={15} className="separator" color="rgba(255,255,255,0.7)" />
         {breadcrumbs.length > 0 ? (
           breadcrumbs.map((crumb, idx) => {
