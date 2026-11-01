@@ -834,28 +834,6 @@ export const ServiceConciergePage: React.FC = () => {
                   <Send size={18} />
                   <span>{submitBtnText}</span>
                 </button>
-
-                {!isProcessCompleted && (
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '6px',
-                      marginTop: '8px',
-                      fontSize: '0.8rem',
-                      color: isDark ? '#94a3b8' : '#64748b',
-                      fontWeight: 600,
-                    }}
-                  >
-                    <AlertCircle size={14} color="#f59e0b" />
-                    <span>
-                      {isRw
-                        ? `Uzuza cyangwa ukomeze imyanya yose (${satisfiedCount}/${orderedFieldKeys.length}) kugira ngo wohereze fomu.`
-                        : `Complete all steps (${satisfiedCount}/${orderedFieldKeys.length}) to enable submission.`}
-                    </span>
-                  </div>
-                )}
               </div>
             </form>
           )}

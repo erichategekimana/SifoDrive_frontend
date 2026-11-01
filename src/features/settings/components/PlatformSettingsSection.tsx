@@ -29,6 +29,10 @@ import {
   ListOrdered,
   ClipboardList,
   SlidersHorizontal,
+  Video,
+  Film,
+  Image as ImageIcon,
+  Layers,
 } from 'lucide-react';
 import type {
   PlatformFeatureFlag,
@@ -41,6 +45,8 @@ import type {
   PublicLegalConfig,
   PublicStatsConfig,
   PublicAgentServicesConfig,
+  PublicSchoolProgramConfig,
+  SchoolProgramHeroSlide,
   AgentServiceStep,
   AgentServicesBookingFormConfig,
   AgentServiceOption,
@@ -64,6 +70,8 @@ import {
   DEFAULT_TEACHER_OPTIONS,
   ALL_BOOKING_FIELD_KEYS,
   DEFAULT_SERVICE_FIELDS,
+  DEFAULT_PUBLIC_SCHOOL_PROGRAM,
+  DEFAULT_SCHOOL_PROGRAM_SLIDES,
 } from '../hooks/useAdminSettingsData';
 import { useToast } from '../../../context/ToastContext';
 import { useTranslation } from '../../../context/I18nContext';
@@ -896,6 +904,111 @@ export const PlatformSettingsSection: React.FC<PlatformSettingsSectionProps> = (
     const [moved] = reordered.splice(index, 1);
     reordered.splice(targetIndex, 0, moved);
     handleUpdateBookingForm({ [field]: reordered });
+  };
+
+  // ── School Program Tab & Independent Background State & Handlers ──
+  const currentSchoolProgram: PublicSchoolProgramConfig = useMemo(() => {
+    return {
+      ...DEFAULT_PUBLIC_SCHOOL_PROGRAM,
+      ...(platformConfig.publicSchoolProgram || {}),
+      slides: (platformConfig.publicSchoolProgram?.slides && platformConfig.publicSchoolProgram.slides.length > 0)
+        ? platformConfig.publicSchoolProgram.slides
+        : DEFAULT_SCHOOL_PROGRAM_SLIDES,
+    };
+  }, [platformConfig.publicSchoolProgram]);
+
+  const [activeSlideIndex, setActiveSlideIndex] = useState(0);
+
+  const handleUpdateSchoolProgram = (updates: Partial<PublicSchoolProgramConfig>) => {
+    const updated: PublicSchoolProgramConfig = {
+      ...currentSchoolProgram,
+      ...updates,
+    };
+    const nextConfig: PlatformEnvironmentConfig = {
+      ...platformConfig,
+      publicSchoolProgram: updated,
+    };
+    setPlatformConfig(nextConfig);
+    try {
+      localStorage.setItem('sifo_admin_settings_platform_config', JSON.stringify(nextConfig));
+      window.dispatchEvent(new CustomEvent('sifo_platform_config_updated', { detail: nextConfig }));
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        const ch = new BroadcastChannel('sifo_platform_sync');
+        ch.postMessage({ publicSchoolProgram: updated });
+        ch.close();
+      }
+      fetch('/platform-settings-sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(nextConfig),
+      }).catch(() => {});
+    } catch {}
+  };
+
+  const handleResetSchoolProgram = () => {
+    const nextConfig: PlatformEnvironmentConfig = {
+      ...platformConfig,
+      publicSchoolProgram: DEFAULT_PUBLIC_SCHOOL_PROGRAM,
+    };
+    setPlatformConfig(nextConfig);
+    try {
+      localStorage.setItem('sifo_admin_settings_platform_config', JSON.stringify(nextConfig));
+      window.dispatchEvent(new CustomEvent('sifo_platform_config_updated', { detail: nextConfig }));
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        const ch = new BroadcastChannel('sifo_platform_sync');
+        ch.postMessage({ publicSchoolProgram: DEFAULT_PUBLIC_SCHOOL_PROGRAM });
+        ch.close();
+      }
+      fetch('/platform-settings-sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(nextConfig),
+      }).catch(() => {});
+    } catch {}
+    showToast(isRw ? 'Igenamiterere rya Gahunda y\'Ishuri ryasubijwe ku miterere y\'ibanze' : 'School Program settings reset to defaults', 'info');
+  };
+
+  const handleUpdateSlide = (index: number, updates: Partial<SchoolProgramHeroSlide>) => {
+    const nextSlides = [...currentSchoolProgram.slides];
+    if (nextSlides[index]) {
+      nextSlides[index] = { ...nextSlides[index], ...updates };
+      handleUpdateSchoolProgram({ slides: nextSlides });
+    }
+  };
+
+  const handleAddSlide = () => {
+    const nextNum = currentSchoolProgram.slides.length + 1;
+    const newSlide: SchoolProgramHeroSlide = {
+      id: `slide-${Date.now()}`,
+      mediaType: 'image',
+      mediaUrl: 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=1920&q=80',
+      badge: `ACADEMIC PROGRAM ${nextNum}`,
+      badgeRw: `GAHUNDA Y'AMASHURI ${nextNum}`,
+      title: `Leadership & Driver Training Initiative ${nextNum}`,
+      titleRw: `Gahunda y'Amahugurwa n'Ubumenyi bw'Umuhanda ${nextNum}`,
+      description: 'Accredited driving school education and police mock exam infrastructure for youth and students.',
+      descriptionRw: 'Amasomo yo gutwara ibinyabiziga yizewe n\'ibizamini bya Polisi bikorwa ku ikoranabuhanga.',
+      primaryBtnText: 'Register for Program',
+      primaryBtnTextRw: 'Iyandikishe muri Gahunda',
+      primaryBtnLink: '#enroll-institution',
+      secondaryBtnText: 'Explore Pillars',
+      secondaryBtnTextRw: 'Reba Gahunda',
+      secondaryBtnLink: '#pillars',
+    };
+    handleUpdateSchoolProgram({ slides: [...currentSchoolProgram.slides, newSlide] });
+    setActiveSlideIndex(currentSchoolProgram.slides.length);
+    showToast(isRw ? 'Slide nshya yongereweho' : 'New hero slide added', 'success');
+  };
+
+  const handleDeleteSlide = (index: number) => {
+    if (currentSchoolProgram.slides.length <= 1) {
+      showToast(isRw ? 'Ntushobora gusiba slide yonyine isigaye' : 'Cannot delete the only remaining slide', 'warning');
+      return;
+    }
+    const nextSlides = currentSchoolProgram.slides.filter((_, i) => i !== index);
+    handleUpdateSchoolProgram({ slides: nextSlides });
+    setActiveSlideIndex((prev) => Math.min(prev, nextSlides.length - 1));
+    showToast(isRw ? 'Slide yakuwemo' : 'Slide removed', 'info');
   };
 
   const publicBg = platformConfig.publicBackground || DEFAULT_PUBLIC_BACKGROUND;
@@ -3941,105 +4054,587 @@ export const PlatformSettingsSection: React.FC<PlatformSettingsSectionProps> = (
               );
             })()}
           </div>
+        </div>
+      </div>
 
-          {/* Field Requirements & Options */}
-          <div
-            style={{
-              padding: '16px',
-              borderRadius: '12px',
-              border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid #e2e8f0',
-              background: isDark ? 'rgba(255, 255, 255, 0.02)' : '#ffffff',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '12px',
-            }}
-          >
-            <div>
-              <div style={{ fontSize: '0.88rem', fontWeight: 800, color: isDark ? '#ffffff' : '#0f172a' }}>
-                {isRw ? 'Ibisabwa Muri Fomu (Field Rules)' : 'Field Rules & Behavior'}
-              </div>
-              <div style={{ fontSize: '0.76rem', color: isDark ? '#94a3b8' : '#64748b', marginTop: '2px' }}>
-                {isRw
-                  ? 'Genzura niba amatariki cyangwa ikigo cy\'ikizamini ari itegeko cyangwa niba ibisobanuro byiyongereyeho biboneka.'
-                  : 'Toggle mandatory requirements for date/center and show or hide optional notes.'}
-              </div>
+      <div
+        style={{
+          width: '100%',
+          height: '1px',
+          background: isDark ? 'rgba(255, 255, 255, 0.1)' : '#e2e8f0',
+          margin: '36px 0 28px 0',
+        }}
+      />
+
+      {/* ───────────────────────────────────────────────────────────── */}
+      {/* ── SCHOOL PROGRAM TAB SETTINGS (INDEPENDENT BACKGROUND) ── */}
+      {/* ───────────────────────────────────────────────────────────── */}
+      <div
+        className="glass-panel"
+        style={{
+          width: '100%',
+          padding: '24px',
+          borderRadius: '16px',
+          border: isDark ? '1px solid var(--border-subtle)' : '1px solid #e2e8f0',
+          background: isDark ? 'rgba(255, 255, 255, 0.02)' : '#ffffff',
+          boxShadow: isDark ? 'none' : '0 1px 3px rgba(0,0,0,0.05)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '22px',
+          marginBottom: '28px',
+        }}
+      >
+        {/* Header & Reset */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '14px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div
+              style={{
+                width: '38px',
+                height: '38px',
+                borderRadius: '10px',
+                background: 'rgba(56, 189, 248, 0.15)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#38bdf8',
+              }}
+            >
+              <GraduationCap size={20} />
             </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '10px' }}>
-              {/* Require Date */}
-              <label
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '10px 12px',
-                  borderRadius: '8px',
-                  background: isDark ? 'rgba(255, 255, 255, 0.03)' : '#f8fafc',
-                  border: isDark ? '1px solid rgba(255, 255, 255, 0.06)' : '1px solid #e2e8f0',
-                  cursor: 'pointer',
-                }}
-              >
-                <span style={{ fontSize: '0.82rem', fontWeight: 600, color: isDark ? '#e2e8f0' : '#1e293b' }}>
-                  {isRw ? 'Gusaba Itariki Yiteguwe (Required)' : 'Require Preferred Date'}
-                </span>
-                <input
-                  type="checkbox"
-                  checked={currentBookingForm.requirePreferredDate ?? false}
-                  onChange={(e) => handleUpdateBookingForm({ requirePreferredDate: e.target.checked })}
-                  style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#0284c7' }}
-                />
-              </label>
-
-              {/* Require Hub */}
-              <label
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '10px 12px',
-                  borderRadius: '8px',
-                  background: isDark ? 'rgba(255, 255, 255, 0.03)' : '#f8fafc',
-                  border: isDark ? '1px solid rgba(255, 255, 255, 0.06)' : '1px solid #e2e8f0',
-                  cursor: 'pointer',
-                }}
-              >
-                <span style={{ fontSize: '0.82rem', fontWeight: 600, color: isDark ? '#e2e8f0' : '#1e293b' }}>
-                  {isRw ? 'Gusaba Ikigo cy\'Ikizamini (Required)' : 'Require Testing Center'}
-                </span>
-                <input
-                  type="checkbox"
-                  checked={currentBookingForm.requireTestingCenter ?? false}
-                  onChange={(e) => handleUpdateBookingForm({ requireTestingCenter: e.target.checked })}
-                  style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#0284c7' }}
-                />
-              </label>
-
-              {/* Show Notes Field */}
-              <label
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '10px 12px',
-                  borderRadius: '8px',
-                  background: isDark ? 'rgba(255, 255, 255, 0.03)' : '#f8fafc',
-                  border: isDark ? '1px solid rgba(255, 255, 255, 0.06)' : '1px solid #e2e8f0',
-                  cursor: 'pointer',
-                }}
-              >
-                <span style={{ fontSize: '0.82rem', fontWeight: 600, color: isDark ? '#e2e8f0' : '#1e293b' }}>
-                  {isRw ? 'Kugaragaza Umwanya w\'Ibisobanuro' : 'Show Additional Notes Field'}
-                </span>
-                <input
-                  type="checkbox"
-                  checked={currentBookingForm.showNotesField ?? true}
-                  onChange={(e) => handleUpdateBookingForm({ showNotesField: e.target.checked })}
-                  style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#0284c7' }}
-                />
-              </label>
+            <div>
+              <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, color: isDark ? '#ffffff' : '#0f172a' }}>
+                {isRw ? 'Gahunda y\'Ishuri' : 'School Program'}
+              </h3>
+              <div style={{ fontSize: '0.78rem', color: isDark ? '#94a3b8' : '#64748b', marginTop: '2px' }}>
+                {isRw
+                  ? 'Igenamiterere ry\'ipaji ya gahunda y\'ishuri.'
+                  : 'Configure options for School Program page.'}
+              </div>
             </div>
           </div>
+
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={handleResetSchoolProgram}
+            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+          >
+            <RotateCcw size={14} />
+            <span>{isRw ? 'Subiza ku Miterere y\'Ibanze' : 'Reset Defaults'}</span>
+          </button>
         </div>
+
+        {/* 1. Master Independent Background Toggle */}
+        <div
+          style={{
+            padding: '16px 18px',
+            borderRadius: '12px',
+            background: isDark ? 'rgba(255, 255, 255, 0.02)' : '#f8fafc',
+            border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid #e2e8f0',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '14px',
+          }}
+        >
+          <div>
+            <div style={{ fontSize: '0.92rem', fontWeight: 800, color: isDark ? '#ffffff' : '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Layers size={17} color={isDark ? '#94a3b8' : '#64748b'} />
+              <span>{isRw ? 'Ishusho y\'Inyuma Yihariye' : 'Independent Background'}</span>
+            </div>
+            <div style={{ fontSize: '0.78rem', color: isDark ? '#94a3b8' : '#64748b', marginTop: '3px' }}>
+              {isRw
+                ? 'Hitamo niba iyi paji igira ishusho yayo bwite yihariye.'
+                : 'Choose whether this page has its own background independently.'}
+            </div>
+          </div>
+
+          <input
+            type="checkbox"
+            checked={currentSchoolProgram.useCustomBackground}
+            onChange={(e) => handleUpdateSchoolProgram({ useCustomBackground: e.target.checked })}
+            style={{ width: '20px', height: '20px', cursor: 'pointer', accentColor: '#0284c7' }}
+          />
+        </div>
+
+        {/* 2. Background Mode & Video/Slideshow Configuration */}
+        {currentSchoolProgram.useCustomBackground && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            {/* Mode Switcher */}
+            <div>
+              <label style={{ display: 'block', fontSize: '0.84rem', fontWeight: 700, marginBottom: '8px', color: isDark ? '#e2e8f0' : '#1e293b' }}>
+                {isRw ? 'Ubwoko bw\'Ishusho y\'Inyuma' : 'Background Media Mode'}
+              </label>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '10px' }}>
+                {[
+                  {
+                    type: 'slideshow' as const,
+                    icon: <Film size={18} />,
+                    title: isRw ? 'Amafoto / Videwo Anyerera' : 'Interactive Slideshow',
+                    desc: isRw ? 'Amafoto na videwo binyerera' : 'Video and image slides',
+                  },
+                  {
+                    type: 'video' as const,
+                    icon: <Video size={18} />,
+                    title: isRw ? 'Videwo Ikina Idahagarara' : 'Looping Background Video',
+                    desc: isRw ? 'Videwo ikina idahagarara' : 'Continuous looping video',
+                  },
+                  {
+                    type: 'image' as const,
+                    icon: <ImageIcon size={18} />,
+                    title: isRw ? 'Ishusho Imwe Idahinduka' : 'Static Image',
+                    desc: isRw ? 'Ifoto idahinduka' : 'Static background image',
+                  },
+                ].map((item) => {
+                  const isSelected = currentSchoolProgram.backgroundType === item.type;
+                  return (
+                    <button
+                      key={item.type}
+                      type="button"
+                      onClick={() => handleUpdateSchoolProgram({ backgroundType: item.type })}
+                      style={{
+                        padding: '14px 16px',
+                        borderRadius: '12px',
+                        textAlign: 'left',
+                        cursor: 'pointer',
+                        border: isSelected ? '2px solid #0284c7' : (isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid #e2e8f0'),
+                        background: isSelected
+                          ? (isDark ? 'rgba(2, 132, 199, 0.15)' : 'rgba(2, 132, 199, 0.08)')
+                          : (isDark ? 'rgba(255, 255, 255, 0.02)' : '#ffffff'),
+                        color: isDark ? '#ffffff' : '#0f172a',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '6px',
+                        transition: 'all 0.2s ease',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: isSelected ? '#0284c7' : (isDark ? '#94a3b8' : '#64748b') }}>
+                        {item.icon}
+                        <span style={{ fontSize: '0.88rem', fontWeight: 800 }}>{item.title}</span>
+                      </div>
+                      <span style={{ fontSize: '0.74rem', color: isDark ? '#94a3b8' : '#64748b' }}>{item.desc}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Video Presets & URL Controls (For Video or Slideshow Mode) */}
+            <div
+              style={{
+                padding: '16px',
+                borderRadius: '12px',
+                border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid #e2e8f0',
+                background: isDark ? 'rgba(255, 255, 255, 0.02)' : '#f8fafc',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '14px',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                <span style={{ fontSize: '0.86rem', fontWeight: 700, color: isDark ? '#e2e8f0' : '#1e293b', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Video size={16} color="#0284c7" />
+                  {isRw ? 'Videwo Zateguwe' : 'Video Presets'}
+                </span>
+                <span style={{ fontSize: '0.74rem', color: isDark ? '#94a3b8' : '#64748b' }}>
+                  {isRw ? 'Kanda rimwe uhitemo videwo' : 'Click a preset to apply'}
+                </span>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '10px' }}>
+                {[
+                  {
+                    name: isRw ? 'Umuhanda n\'Amashuri yo Gutwara' : 'Driving Academy Highway (Countryside)',
+                    url: 'https://assets.mixkit.co/videos/preview/mixkit-car-traveling-on-the-asphalt-road-in-the-countryside-41581-large.mp4',
+                  },
+                  {
+                    name: isRw ? 'Umujyi & Imodoka mu Ijoro' : 'Urban Night Mobility & Traffic',
+                    url: 'https://assets.mixkit.co/videos/preview/mixkit-traffic-on-a-highway-at-night-41584-large.mp4',
+                  },
+                  {
+                    name: isRw ? 'Umuhanda w\'Icyaro & Amahugurwa' : 'Rural Road & Fleet Maneuver',
+                    url: 'https://assets.mixkit.co/videos/preview/mixkit-driving-down-a-rural-road-42689-large.mp4',
+                  },
+                ].map((preset, pIdx) => {
+                  const isActive = currentSchoolProgram.videoUrl === preset.url;
+                  return (
+                    <button
+                      key={pIdx}
+                      type="button"
+                      onClick={() => handleUpdateSchoolProgram({ videoUrl: preset.url })}
+                      style={{
+                        padding: '10px 14px',
+                        borderRadius: '8px',
+                        border: isActive ? '1px solid #0284c7' : (isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid #cbd5e1'),
+                        background: isActive ? 'rgba(2, 132, 199, 0.12)' : (isDark ? 'rgba(255, 255, 255, 0.03)' : '#ffffff'),
+                        color: isDark ? '#f1f5f9' : '#1e293b',
+                        fontSize: '0.78rem',
+                        fontWeight: 700,
+                        textAlign: 'left',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                      }}
+                    >
+                      <span>{preset.name}</span>
+                      {isActive && <span style={{ color: '#0284c7', fontSize: '0.72rem' }}>✓ Active</span>}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Direct Video URL Input */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, marginBottom: '5px', color: isDark ? '#94a3b8' : '#475569' }}>
+                  {isRw ? 'Aderesi ya Videwo' : 'Video URL'}
+                </label>
+                <input
+                  type="text"
+                  value={currentSchoolProgram.videoUrl}
+                  onChange={(e) => handleUpdateSchoolProgram({ videoUrl: e.target.value })}
+                  placeholder="https://.../video.mp4"
+                  className="input"
+                  style={{ width: '100%', fontSize: '0.84rem' }}
+                />
+              </div>
+
+              {/* Overlay Opacity & Gradient Controls */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px', paddingTop: '6px' }}>
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', fontWeight: 700, marginBottom: '4px', color: isDark ? '#e2e8f0' : '#334155' }}>
+                    <span>{isRw ? 'Kwijimisha Ishusho' : 'Overlay Opacity'}</span>
+                    <span>{Math.round(currentSchoolProgram.overlayOpacity * 100)}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0.2"
+                    max="0.85"
+                    step="0.05"
+                    value={currentSchoolProgram.overlayOpacity}
+                    onChange={(e) => handleUpdateSchoolProgram({ overlayOpacity: parseFloat(e.target.value) })}
+                    style={{ width: '100%', accentColor: '#0284c7', cursor: 'pointer' }}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', borderRadius: '8px', background: isDark ? 'rgba(255, 255, 255, 0.03)' : '#ffffff', border: isDark ? '1px solid rgba(255, 255, 255, 0.06)' : '1px solid #e2e8f0' }}>
+                  <span style={{ fontSize: '0.78rem', fontWeight: 600, color: isDark ? '#e2e8f0' : '#1e293b' }}>
+                    {isRw ? 'Umwijima wo Hasi' : 'Bottom Gradient'}
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={currentSchoolProgram.overlayGradient}
+                    onChange={(e) => handleUpdateSchoolProgram({ overlayGradient: e.target.checked })}
+                    style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#0284c7' }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Slideshow Manager (When 'slideshow' mode is selected) */}
+            {currentSchoolProgram.backgroundType === 'slideshow' && (
+              <div
+                style={{
+                  padding: '18px',
+                  borderRadius: '12px',
+                  border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid #e2e8f0',
+                  background: isDark ? 'rgba(255, 255, 255, 0.02)' : '#ffffff',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '16px',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                  <div>
+                    <h4 style={{ margin: 0, fontSize: '0.94rem', fontWeight: 800, color: isDark ? '#ffffff' : '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Film size={17} color="#0284c7" />
+                      <span>{isRw ? 'Gucunga Amafoto n\'Amashusho Anyerera' : 'Slides Manager'}</span>
+                    </h4>
+                    <span style={{ fontSize: '0.74rem', color: isDark ? '#94a3b8' : '#64748b' }}>
+                      {isRw ? 'Buri slide igira ifoto cyangwa videwo n\'inyandiko zayo.' : 'Configure slides, media, and buttons.'}
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', color: isDark ? '#cbd5e1' : '#475569' }}>
+                      <span>{isRw ? 'Umuvuduko:' : 'Interval:'}</span>
+                      <select
+                        value={currentSchoolProgram.slideshowInterval}
+                        onChange={(e) => handleUpdateSchoolProgram({ slideshowInterval: parseInt(e.target.value, 10) })}
+                        className="input"
+                        style={{ padding: '4px 8px', fontSize: '0.76rem', borderRadius: '6px' }}
+                      >
+                        <option value="5">5s</option>
+                        <option value="7">7s (Fast)</option>
+                        <option value="8">8s</option>
+                        <option value="10">10s</option>
+                        <option value="12">12s (Slow)</option>
+                      </select>
+                    </div>
+
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm"
+                      onClick={handleAddSlide}
+                      style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '6px 12px' }}
+                    >
+                      <Plus size={14} />
+                      <span>{isRw ? 'Ongeraho Slide' : 'Add Slide'}</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Slide Tabs Navigation */}
+                <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }}>
+                  {currentSchoolProgram.slides.map((s, idx) => (
+                    <button
+                      key={s.id || idx}
+                      type="button"
+                      onClick={() => setActiveSlideIndex(idx)}
+                      style={{
+                        padding: '8px 14px',
+                        borderRadius: '8px',
+                        border: activeSlideIndex === idx ? '2px solid #0284c7' : (isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid #cbd5e1'),
+                        background: activeSlideIndex === idx
+                          ? (isDark ? 'rgba(2, 132, 199, 0.2)' : 'rgba(2, 132, 199, 0.1)')
+                          : (isDark ? 'rgba(255, 255, 255, 0.03)' : '#f8fafc'),
+                        color: activeSlideIndex === idx ? '#0284c7' : (isDark ? '#cbd5e1' : '#334155'),
+                        fontSize: '0.8rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                      }}
+                    >
+                      {s.mediaType === 'video' ? <Video size={13} /> : <ImageIcon size={13} />}
+                      <span>Slide {idx + 1}</span>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Active Slide Editor Form */}
+                {(() => {
+                  const activeSlide = currentSchoolProgram.slides[activeSlideIndex] || currentSchoolProgram.slides[0];
+                  if (!activeSlide) return null;
+
+                  return (
+                    <div
+                      style={{
+                        padding: '16px',
+                        borderRadius: '10px',
+                        background: isDark ? 'rgba(0, 0, 0, 0.2)' : '#f8fafc',
+                        border: isDark ? '1px solid rgba(255, 255, 255, 0.06)' : '1px solid #e2e8f0',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '14px',
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: '0.84rem', fontWeight: 800, color: isDark ? '#ffffff' : '#0f172a' }}>
+                          {isRw ? `Guhindura Slide ya ${activeSlideIndex + 1}` : `Editing Slide #${activeSlideIndex + 1}`}
+                        </span>
+
+                        {currentSchoolProgram.slides.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteSlide(activeSlideIndex)}
+                            style={{
+                              background: 'transparent',
+                              border: 'none',
+                              color: '#ef4444',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              fontSize: '0.76rem',
+                              fontWeight: 700,
+                            }}
+                          >
+                            <Trash2 size={13} />
+                            <span>{isRw ? 'Siba iyi Slide' : 'Delete Slide'}</span>
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Media Type & Media URL */}
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
+                        <div>
+                          <label style={{ display: 'block', fontSize: '0.76rem', fontWeight: 700, marginBottom: '4px', color: isDark ? '#94a3b8' : '#475569' }}>
+                            {isRw ? 'Ubwoko bw\'Ifoto / Videwo' : 'Slide Media Type'}
+                          </label>
+                          <select
+                            value={activeSlide.mediaType}
+                            onChange={(e) => handleUpdateSlide(activeSlideIndex, { mediaType: e.target.value as 'video' | 'image' })}
+                            className="input"
+                            style={{ width: '100%', fontSize: '0.82rem' }}
+                          >
+                            <option value="video">Looping Video (.mp4 / .webm)</option>
+                            <option value="image">High-Definition Image</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label style={{ display: 'block', fontSize: '0.76rem', fontWeight: 700, marginBottom: '4px', color: isDark ? '#94a3b8' : '#475569' }}>
+                            {isRw ? 'Aderesi y\'Ifoto cyangwa Videwo (Media URL)' : 'Media URL'}
+                          </label>
+                          <input
+                            type="text"
+                            value={activeSlide.mediaUrl}
+                            onChange={(e) => handleUpdateSlide(activeSlideIndex, { mediaUrl: e.target.value })}
+                            className="input"
+                            style={{ width: '100%', fontSize: '0.82rem' }}
+                            placeholder="https://.../video.mp4 or photo.jpg"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Badge (EN & RW) */}
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
+                        <div>
+                          <label style={{ display: 'block', fontSize: '0.76rem', fontWeight: 700, marginBottom: '4px', color: isDark ? '#94a3b8' : '#475569' }}>
+                            {isRw ? 'Badge (Mu Cyongereza)' : 'Top Badge (English)'}
+                          </label>
+                          <input
+                            type="text"
+                            value={activeSlide.badge || ''}
+                            onChange={(e) => handleUpdateSlide(activeSlideIndex, { badge: e.target.value })}
+                            className="input"
+                            style={{ width: '100%', fontSize: '0.82rem' }}
+                            placeholder="e.g. IN PARTNERSHIP WITH..."
+                          />
+                        </div>
+
+                        <div>
+                          <label style={{ display: 'block', fontSize: '0.76rem', fontWeight: 700, marginBottom: '4px', color: isDark ? '#94a3b8' : '#475569' }}>
+                            {isRw ? 'Badge (Mu Kinyarwanda)' : 'Top Badge (Kinyarwanda)'}
+                          </label>
+                          <input
+                            type="text"
+                            value={activeSlide.badgeRw || ''}
+                            onChange={(e) => handleUpdateSlide(activeSlideIndex, { badgeRw: e.target.value })}
+                            className="input"
+                            style={{ width: '100%', fontSize: '0.82rem' }}
+                            placeholder="e.g. MU BUFATANYE NA..."
+                          />
+                        </div>
+                      </div>
+
+                      {/* Title (EN & RW) */}
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
+                        <div>
+                          <label style={{ display: 'block', fontSize: '0.76rem', fontWeight: 700, marginBottom: '4px', color: isDark ? '#94a3b8' : '#475569' }}>
+                            {isRw ? 'Umutwe Mukuru (Title - English)' : 'Hero Headline (English)'}
+                          </label>
+                          <textarea
+                            rows={2}
+                            value={activeSlide.title}
+                            onChange={(e) => handleUpdateSlide(activeSlideIndex, { title: e.target.value })}
+                            className="input"
+                            style={{ width: '100%', fontSize: '0.82rem' }}
+                            placeholder="e.g. One of a kind education..."
+                          />
+                        </div>
+
+                        <div>
+                          <label style={{ display: 'block', fontSize: '0.76rem', fontWeight: 700, marginBottom: '4px', color: isDark ? '#94a3b8' : '#475569' }}>
+                            {isRw ? 'Umutwe Mukuru (Title - Kinyarwanda)' : 'Hero Headline (Kinyarwanda)'}
+                          </label>
+                          <textarea
+                            rows={2}
+                            value={activeSlide.titleRw}
+                            onChange={(e) => handleUpdateSlide(activeSlideIndex, { titleRw: e.target.value })}
+                            className="input"
+                            style={{ width: '100%', fontSize: '0.82rem' }}
+                            placeholder="e.g. Uburezi bw'indashyikirwa..."
+                          />
+                        </div>
+                      </div>
+
+                      {/* Description (EN & RW) */}
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
+                        <div>
+                          <label style={{ display: 'block', fontSize: '0.76rem', fontWeight: 700, marginBottom: '4px', color: isDark ? '#94a3b8' : '#475569' }}>
+                            {isRw ? 'Ibisobanuro (Description - English)' : 'Description (English)'}
+                          </label>
+                          <textarea
+                            rows={2}
+                            value={activeSlide.description}
+                            onChange={(e) => handleUpdateSlide(activeSlideIndex, { description: e.target.value })}
+                            className="input"
+                            style={{ width: '100%', fontSize: '0.82rem' }}
+                          />
+                        </div>
+
+                        <div>
+                          <label style={{ display: 'block', fontSize: '0.76rem', fontWeight: 700, marginBottom: '4px', color: isDark ? '#94a3b8' : '#475569' }}>
+                            {isRw ? 'Ibisobanuro (Description - Kinyarwanda)' : 'Description (Kinyarwanda)'}
+                          </label>
+                          <textarea
+                            rows={2}
+                            value={activeSlide.descriptionRw}
+                            onChange={(e) => handleUpdateSlide(activeSlideIndex, { descriptionRw: e.target.value })}
+                            className="input"
+                            style={{ width: '100%', fontSize: '0.82rem' }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Buttons (Primary & Secondary) */}
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px' }}>
+                        <div>
+                          <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 700, marginBottom: '3px', color: isDark ? '#94a3b8' : '#64748b' }}>
+                            {isRw ? 'Bouton 1 (English / Kinyarwanda)' : 'Primary Button (EN / RW)'}
+                          </label>
+                          <input
+                            type="text"
+                            value={activeSlide.primaryBtnText || ''}
+                            onChange={(e) => handleUpdateSlide(activeSlideIndex, { primaryBtnText: e.target.value })}
+                            className="input"
+                            style={{ width: '100%', fontSize: '0.78rem', marginBottom: '4px' }}
+                            placeholder="EN: Register Your School"
+                          />
+                          <input
+                            type="text"
+                            value={activeSlide.primaryBtnTextRw || ''}
+                            onChange={(e) => handleUpdateSlide(activeSlideIndex, { primaryBtnTextRw: e.target.value })}
+                            className="input"
+                            style={{ width: '100%', fontSize: '0.78rem' }}
+                            placeholder="RW: Iyandikishe nk'Ishuri"
+                          />
+                        </div>
+
+                        <div>
+                          <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 700, marginBottom: '3px', color: isDark ? '#94a3b8' : '#64748b' }}>
+                            {isRw ? 'Bouton 2 (English / Kinyarwanda)' : 'Secondary Button (EN / RW)'}
+                          </label>
+                          <input
+                            type="text"
+                            value={activeSlide.secondaryBtnText || ''}
+                            onChange={(e) => handleUpdateSlide(activeSlideIndex, { secondaryBtnText: e.target.value })}
+                            className="input"
+                            style={{ width: '100%', fontSize: '0.78rem', marginBottom: '4px' }}
+                            placeholder="EN: Explore Academic Pillars"
+                          />
+                          <input
+                            type="text"
+                            value={activeSlide.secondaryBtnTextRw || ''}
+                            onChange={(e) => handleUpdateSlide(activeSlideIndex, { secondaryBtnTextRw: e.target.value })}
+                            className="input"
+                            style={{ width: '100%', fontSize: '0.78rem' }}
+                            placeholder="RW: Reba Gahunda z'Amasomo"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
           <div>

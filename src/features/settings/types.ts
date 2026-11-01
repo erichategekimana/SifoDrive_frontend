@@ -167,6 +167,38 @@ export interface PublicAgentServicesConfig {
   bookingForm?: AgentServicesBookingFormConfig;
 }
 
+export interface SchoolProgramHeroSlide {
+  id: string;
+  mediaType: 'video' | 'image';
+  mediaUrl: string;
+  posterUrl?: string;
+  badge?: string;
+  badgeRw?: string;
+  badgeLogoUrl?: string;
+  title: string;
+  titleRw: string;
+  description: string;
+  descriptionRw: string;
+  primaryBtnText?: string;
+  primaryBtnTextRw?: string;
+  primaryBtnLink?: string;
+  secondaryBtnText?: string;
+  secondaryBtnTextRw?: string;
+  secondaryBtnLink?: string;
+}
+
+export interface PublicSchoolProgramConfig {
+  useCustomBackground: boolean;
+  backgroundType: 'video' | 'slideshow' | 'image';
+  videoUrl: string;
+  videoPosterUrl?: string;
+  imageBgUrl?: string;
+  overlayOpacity: number;
+  overlayGradient: boolean;
+  slideshowInterval: number;
+  slides: SchoolProgramHeroSlide[];
+}
+
 export interface PlatformEnvironmentConfig {
   maintenanceMode: boolean;
   maintenanceMessage: string;
@@ -193,6 +225,7 @@ export interface PlatformEnvironmentConfig {
   publicLegal?: PublicLegalConfig;
   publicStats?: PublicStatsConfig;
   publicAgentServices?: PublicAgentServicesConfig;
+  publicSchoolProgram?: PublicSchoolProgramConfig;
 
   // Student Sub-section Settings
   studentAudioNarration?: boolean;
